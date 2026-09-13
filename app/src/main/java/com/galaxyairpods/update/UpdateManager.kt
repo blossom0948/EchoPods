@@ -176,10 +176,13 @@ class UpdateManager(context: Context) {
             setAppPackageName(appContext.packageName)
             setInstallReason(PackageManager.INSTALL_REASON_USER)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                // Ask Android to complete without a prompt when policy allows
-                // it. Ordinary APK installers may still receive
-                // STATUS_PENDING_USER_ACTION, which the receiver handles.
-                setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+                // This app is distributed as a GitHub APK, not as the Play
+                // Store/device-owner installer. Requesting a silent self
+                // update here makes Android/Samsung reject the session with
+                // INSTALL_FAILED_ABORTED (unknown source package) before it
+                // can deliver the confirmation Intent. Always use the public
+                // user-confirmation flow for sideloaded updates.
+                setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED)
             }
         }
         val sessionId = packageInstaller.createSession(params)

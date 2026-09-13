@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.os.Build
+import android.util.Log
 import android.widget.Toast
 
 /**
@@ -18,6 +19,8 @@ class UpdateInstallReceiver : BroadcastReceiver() {
             PackageInstaller.EXTRA_STATUS,
             PackageInstaller.STATUS_FAILURE,
         )
+        val rawMessage = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
+        Log.i(TAG, "PackageInstaller status=$status message=${rawMessage.orEmpty()}")
         when (status) {
             PackageInstaller.STATUS_SUCCESS -> {
                 UpdateManager.shared(context).markInstallSuccess()
@@ -29,8 +32,9 @@ class UpdateInstallReceiver : BroadcastReceiver() {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> Unit
 
             else -> {
-                val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
+                val message = rawMessage
                     ?.takeIf { it.isNotBlank() }
+                    ?.toUserMessage()
                     ?: "설치를 완료하지 못했습니다"
                 UpdateManager.shared(context).markInstallFailure(message)
                 Toast.makeText(context, "업데이트 실패: $message", Toast.LENGTH_LONG).show()
@@ -64,6 +68,14 @@ class UpdateInstallReceiver : BroadcastReceiver() {
     }
 
     companion object {
+        private const val TAG = "AirPodsUpdate"
         const val ACTION_INSTALL_STATUS = "com.galaxyairpods.UPDATE_INSTALL_STATUS"
+
+        private fun String.toUserMessage(): String = when {
+            contains("unknown source", ignoreCase = true) ||
+                contains("INSTALL_FAILED_ABORTED", ignoreCase = true) ->
+                "Android가 앱 내부 자동 설치를 차단했습니다. 알 수 없는 앱 설치 권한과 기기 보안 설정을 확인한 뒤 다시 시도하세요."
+            else -> this
+        }
     }
 }
