@@ -11,9 +11,15 @@ android {
     defaultConfig {
         applicationId = "com.galaxyairpods"
         minSdk = 29
-        targetSdk = 35
-        versionCode = 40
-        versionName = "0.4.18"
+        // Android 16 treats a sideloaded self-update as a silent-update
+        // candidate based on the incoming APK's target SDK. Keep this
+        // bootstrap release below Android 16's silent-update threshold so
+        // v0.4.15 can receive STATUS_PENDING_USER_ACTION and hand control to
+        // the system confirmation UI. Later releases can return to target 35
+        // after all users have crossed this bootstrap version.
+        targetSdk = 33
+        versionCode = 41
+        versionName = "0.4.19"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
