@@ -1,0 +1,17 @@
+AirPods Galaxy includes and modifies the Android application from LibrePods.
+Copyright (C) 2025 LibrePods contributors.
+The LibrePods-derived source is distributed under GNU GPL version 3 or, at
+your option, any later version. See LICENSE.
+
+Some UI components in the upstream Android application were adapted from
+Kyant0's AndroidLiquidGlass catalog and are under the Apache License 2.0.
+Their source headers and license notices are retained where applicable.
+
+AirPods, AirPods Pro, and AirPods Max are trademarks of Apple Inc. AirPods
+Galaxy is an independent, unofficial project and is not affiliated with or
+endorsed by Apple Inc. or the LibrePods project. The LibrePods name and logo
+are not used as this app's product branding.
+
+Apple's SF Pro font is not included. This port uses Android's system sans-serif
+font instead. LibrePods-derived model artwork is retained with the source
+attribution and trademark disclaimer above.

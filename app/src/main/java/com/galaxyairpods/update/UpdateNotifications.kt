@@ -7,9 +7,11 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.core.app.NotificationCompat
-import com.galaxyairpods.MainActivity
+import me.kavishdevar.librepods.MainActivity
 
+@OptIn(ExperimentalMaterial3Api::class)
 internal object UpdateNotifications {
     private const val CHANNEL_ID = "app_updates"
     private const val AVAILABLE_NOTIFICATION_ID = 2000
