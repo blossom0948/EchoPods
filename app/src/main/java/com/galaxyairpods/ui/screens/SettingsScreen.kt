@@ -35,8 +35,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.galaxyairpods.BuildConfig
+import com.galaxyairpods.domain.control.AapControlId
+import com.galaxyairpods.domain.control.AirPodsControlState
+import com.galaxyairpods.domain.control.ListeningMode
+import com.galaxyairpods.domain.control.MicrophoneMode
 import com.galaxyairpods.domain.model.AirPodsModel
 import com.galaxyairpods.permissions.PermissionManager
+import com.galaxyairpods.ui.components.AirPodsAdvancedFeaturesCard
 import com.galaxyairpods.update.UpdateInfo
 import com.galaxyairpods.update.UpdateState
 
@@ -48,6 +53,7 @@ fun SettingsScreen(
     backgroundDetection: Boolean,
     wearDetectionEnabled: Boolean,
     automaticMediaControlEnabled: Boolean,
+    aapControlState: AirPodsControlState,
     modelOverride: AirPodsModel?,
     reducedMotion: Boolean,
     onAutoPopupChange: (Boolean) -> Unit,
@@ -56,6 +62,12 @@ fun SettingsScreen(
     onBackgroundDetectionChange: (Boolean) -> Unit,
     onWearDetectionChange: (Boolean) -> Unit,
     onAutomaticMediaControlChange: (Boolean) -> Unit,
+    onListeningModeChange: (ListeningMode) -> Unit,
+    onAapBooleanChange: (AapControlId, Boolean) -> Unit,
+    onMicrophoneModeChange: (MicrophoneMode) -> Unit,
+    onAapByteChange: (AapControlId, Int) -> Unit,
+    onChimeVolumeChange: (Int) -> Unit,
+    onRenameAirPods: (String) -> Unit,
     onModelOverrideChange: (AirPodsModel?) -> Unit,
     onTestOverlay: () -> Unit,
     onReducedMotionChange: (Boolean) -> Unit,
@@ -89,6 +101,16 @@ fun SettingsScreen(
         ModelSelector(modelOverride, onModelOverrideChange)
 
         UpdateCard(updateState, onCheckForUpdates, onStartUpdate, onInstallReady)
+
+        AirPodsAdvancedFeaturesCard(
+            state = aapControlState,
+            onListeningModeChange = onListeningModeChange,
+            onAapBooleanChange = onAapBooleanChange,
+            onMicrophoneModeChange = onMicrophoneModeChange,
+            onAapByteChange = onAapByteChange,
+            onChimeVolumeChange = onChimeVolumeChange,
+            onRename = onRenameAirPods,
+        )
 
         SettingsToggle("자동 팝업", autoPopup, onAutoPopupChange)
         SettingsToggle("케이스를 열 때 표시", showOnCaseOpen, onCaseOpenChange)

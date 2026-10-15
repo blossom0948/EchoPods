@@ -10,7 +10,15 @@ import com.galaxyairpods.data.BleAirPodsRepository
 import com.galaxyairpods.data.bluetooth.AirPodsBleScanner
 import com.galaxyairpods.data.bluetooth.AirPodsScannerHub
 import com.galaxyairpods.data.persistence.AirPodsDataStore
+import com.galaxyairpods.domain.control.AapControlId
+import com.galaxyairpods.domain.control.AirPodsControlState
+import com.galaxyairpods.domain.control.ControlCapabilityTier
+import com.galaxyairpods.domain.control.ListeningMode
+import com.galaxyairpods.domain.control.MicrophoneMode
+import com.galaxyairpods.domain.control.StemAction
+import com.galaxyairpods.domain.control.toAapValue
 import com.galaxyairpods.domain.model.AirPodsModel
+import com.galaxyairpods.domain.model.AirPodsConnectionState
 import com.galaxyairpods.domain.model.AirPodsState
 import com.galaxyairpods.domain.model.mergeKnownValuesFrom
 import com.galaxyairpods.domain.motion.MotionLabSettings
@@ -30,6 +38,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -62,6 +71,32 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
         AirPodsState.empty(),
+    )
+
+    private val _aapControlState = MutableStateFlow(AirPodsControlState())
+    /**
+     * AAP controls are transient. The tier is derived from the current live
+     * connection so an old response cannot make a new process look connected.
+     */
+    val aapControlState: StateFlow<AirPodsControlState> = combine(
+        _aapControlState,
+        airPodsState,
+    ) { controls, state ->
+        val tier = when {
+            state.aapReady -> ControlCapabilityTier.AAP_L2CAP_EXACT
+            state.connectionState == AirPodsConnectionState.ANDROID_CONNECTED ->
+                ControlCapabilityTier.AAP_PENDING
+            state.detected -> ControlCapabilityTier.BLE_ONLY
+            else -> ControlCapabilityTier.BLE_ONLY
+        }
+        controls.copy(
+            tier = tier,
+            aapReady = state.aapReady && controls.lastError == null,
+        )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        AirPodsControlState(),
     )
 
     val hasPersistedState: StateFlow<Boolean> = dataStore.latestState
@@ -135,6 +170,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             scanner.bluetoothEvents.collect { event ->
                 liveRepository.applyBluetoothConnection(event)
+                if (event.connectionState != AirPodsConnectionState.ANDROID_CONNECTED) {
+                    // Do not leave feature values looking live after an iPad,
+                    // nearby-only, or disconnected transition.
+                    _aapControlState.value = AirPodsControlState()
+                } else if (!event.aapReady) {
+                    _aapControlState.update {
+                        it.copy(aapReady = false, lastError = null)
+                    }
+                } else {
+                    // A previous tap may have recorded an unavailable-session
+                    // error while AAP was still handshaking. A fresh READY
+                    // event makes the controls usable again.
+                    _aapControlState.update {
+                        it.copy(aapReady = true, lastError = null)
+                    }
+                }
                 val current = liveRepository.state.value
                 val displayState = displayState(current)
 
@@ -166,6 +217,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             scanner.classicWearEvents.collect { event ->
                 if (!wearDetectionEnabled.value) return@collect
                 liveRepository.applyClassicAapWear(event)
+            }
+        }
+        viewModelScope.launch {
+            scanner.classicControlEvents.collect { event ->
+                _aapControlState.update { current ->
+                    current.withValue(event.identifier, event.value, event.seenAt)
+                }
             }
         }
         viewModelScope.launch {
@@ -212,6 +270,70 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setAutomaticMediaControlEnabled(enabled: Boolean) {
         viewModelScope.launch { dataStore.setAutomaticMediaControlEnabled(enabled) }
+    }
+
+    fun setListeningMode(mode: ListeningMode) {
+        sendAapControl(
+            AapControlId.LISTENING_MODE,
+            byteArrayOf(mode.wireValue.toByte()),
+        )
+    }
+
+    fun setListeningModeConfig(mask: Int) {
+        sendAapControl(
+            AapControlId.LISTENING_MODE_CONFIGS,
+            byteArrayOf(mask.coerceIn(0, 0xFF).toByte()),
+        )
+    }
+
+    fun setAapBoolean(id: AapControlId, enabled: Boolean) {
+        sendAapControl(id, enabled.toAapValue())
+    }
+
+    fun setMicrophoneMode(mode: MicrophoneMode) {
+        sendAapControl(
+            AapControlId.MIC_MODE,
+            byteArrayOf(mode.wireValue.toByte()),
+        )
+    }
+
+    fun setPressAction(id: AapControlId, action: StemAction) {
+        sendAapControl(id, byteArrayOf(action.wireValue.toByte()))
+    }
+
+    fun setAapByte(id: AapControlId, value: Int) {
+        sendAapControl(id, byteArrayOf(value.coerceIn(0, 255).toByte()))
+    }
+
+    fun setChimeVolume(value: Int) {
+        sendAapControl(
+            AapControlId.CHIME_VOLUME,
+            byteArrayOf(value.coerceIn(0, 100).toByte(), 0x50.toByte()),
+        )
+    }
+
+    fun renameConnectedAirPods(name: String) {
+        val normalized = name.trim()
+        if (normalized.isEmpty()) {
+            _aapControlState.update { it.copy(lastError = "이름을 입력하세요") }
+            return
+        }
+        if (!aapControlState.value.aapReady) {
+            _aapControlState.update { it.copy(lastError = "AAP 제어 연결이 없어 이름을 보낼 수 없습니다") }
+            return
+        }
+        scanner.sendAapRename(normalized)
+    }
+
+    private fun sendAapControl(id: AapControlId, value: ByteArray) {
+        if (!aapControlState.value.aapReady) {
+            _aapControlState.update {
+                it.copy(lastError = "AirPods가 Galaxy에 연결된 뒤 사용할 수 있습니다")
+            }
+            return
+        }
+        _aapControlState.update { it.copy(lastError = null) }
+        scanner.sendAapControlCommand(id, value.copyOf())
     }
 
     fun setModelOverride(model: AirPodsModel?) {

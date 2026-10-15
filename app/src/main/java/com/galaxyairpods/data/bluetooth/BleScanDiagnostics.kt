@@ -201,6 +201,16 @@ internal object BleScanDiagnostics {
         )
     }
 
+    fun logAapControl(deviceId: String, snapshot: AapControlSnapshot) {
+        if (!BuildConfig.DEBUG) return
+        Log.i(
+            TAG,
+            "aap_control deviceHash=${digest(deviceId.toByteArray())} " +
+                "identifier=0x${snapshot.identifier.wireValue.toString(16).padStart(2, '0')} " +
+                "valueLength=${snapshot.value.size}",
+        )
+    }
+
     /**
      * Ear status bytes are state values, not identity or key material. Keep
      * this debug-only shape log so an OEM-specific AAP frame can be diagnosed

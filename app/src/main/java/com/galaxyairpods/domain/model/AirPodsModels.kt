@@ -8,6 +8,7 @@ enum class AirPodsModel(val label: String) {
     AIRPODS_GEN3("AirPods (3세대)"),
     AIRPODS_GEN4("AirPods (4세대)"),
     AIRPODS_GEN4_ANC("AirPods (4세대 ANC)"),
+    AIRPODS_GEN5("AirPods (5세대)"),
     AIRPODS_PRO("AirPods Pro (1세대)"),
     AIRPODS_PRO2("AirPods Pro (2세대)"),
     AIRPODS_PRO2_USBC("AirPods Pro (2세대 USB-C)"),
@@ -33,6 +34,7 @@ enum class AirPodsModel(val label: String) {
                 normalized.contains("pro") -> AIRPODS_PRO
                 normalized.contains("4") && normalized.contains("anc") -> AIRPODS_GEN4_ANC
                 normalized.contains("4") -> AIRPODS_GEN4
+                normalized.contains("5") -> AIRPODS_GEN5
                 normalized.contains("3") -> AIRPODS_GEN3
                 normalized.contains("2") -> AIRPODS_GEN2
                 normalized.contains("1") -> AIRPODS_GEN1

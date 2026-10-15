@@ -1,5 +1,7 @@
 package com.galaxyairpods.data.bluetooth
 
+import com.galaxyairpods.domain.control.AapControlId
+
 /**
  * Small, strict AAP (AirPods Accessory Protocol) codec used by the classic
  * BR/EDR probe.  This file deliberately contains no socket or Android code so
@@ -10,6 +12,12 @@ internal object AapBatteryProtocol {
     const val MESSAGE_PACKET_TYPE = 0x0004
     const val BATTERY_COMMAND = 0x0004
     const val EAR_DETECTION_COMMAND = 0x0006
+    const val CONTROL_COMMAND = 0x0009
+    const val CONVERSATION_AWARENESS_COMMAND = 0x004B
+    const val INFORMATION_COMMAND = 0x001D
+    const val HEAD_TRACKING_COMMAND = 0x0017
+
+    private val DATA_HEADER = byteArrayOf(0x04, 0x00, 0x04, 0x00)
 
     val handshake: ByteArray = byteArrayOf(
         0x00, 0x00, 0x04, 0x00, 0x01, 0x00, 0x02, 0x00,
@@ -163,6 +171,55 @@ internal object AapBatteryProtocol {
         return AapEarDetectionSnapshot(primary = primary, secondary = secondary)
     }
 
+    /**
+     * Parses a fixed-size AACP control notification.  The accessory reserves
+     * four bytes for the value and pads shorter values with zeroes.  Preserve
+     * one zero byte because zero is a valid value for microphone mode and a
+     * few timing controls.
+     */
+    fun parseControlCommand(frame: AapFrame.Message): AapControlSnapshot? {
+        if (frame.command != CONTROL_COMMAND) return null
+        val payload = frame.payload
+        if (payload.size !in 2..5) return null
+        val identifier = AapControlId.fromWireValue(payload[0].u8()) ?: return null
+        val rawValue = payload.copyOfRange(1, payload.size)
+        val trimmed = rawValue.dropLastWhile { it == 0.toByte() }.toByteArray()
+        return AapControlSnapshot(
+            identifier = identifier,
+            value = if (trimmed.isEmpty()) byteArrayOf(0) else trimmed,
+        )
+    }
+
+    /**
+     * Builds the same padded control packet shape used by the public AACP
+     * implementations.  Values longer than four bytes are rejected rather
+     * than silently truncating a user setting.
+     */
+    fun createControlCommandPacket(identifier: AapControlId, value: ByteArray): ByteArray {
+        require(value.size <= CONTROL_VALUE_SIZE) { "AACP control values are limited to four bytes" }
+        val packet = DATA_HEADER + byteArrayOf(
+            CONTROL_COMMAND.toByte(),
+            0x00,
+            identifier.wireValue.toByte(),
+        ) + ByteArray(CONTROL_VALUE_SIZE)
+        value.copyInto(packet, destinationOffset = DATA_HEADER.size + 3)
+        return packet
+    }
+
+    /** Rename is a session command, not a persisted Android display name. */
+    fun createRenamePacket(name: String): ByteArray {
+        val nameBytes = name.trim().toByteArray(Charsets.UTF_8)
+        require(nameBytes.isNotEmpty()) { "AirPods name must not be empty" }
+        require(nameBytes.size <= 255) { "AirPods name is too long" }
+        return DATA_HEADER + byteArrayOf(
+            0x1A,
+            0x00,
+            0x01,
+            nameBytes.size.toByte(),
+            0x00,
+        ) + nameBytes
+    }
+
     private fun parseEarStatus(value: Int): AapEarStatus? = when (value) {
         0x00 -> AapEarStatus.IN_EAR
         0x01 -> AapEarStatus.OUT_OF_EAR
@@ -185,6 +242,7 @@ internal object AapBatteryProtocol {
 
     private const val MAX_COMPONENTS = 64
     private const val COMPONENT_SIZE = 5
+    private const val CONTROL_VALUE_SIZE = 4
     private const val COMPONENT_LEFT = 0x04
     private const val COMPONENT_RIGHT = 0x02
     private const val COMPONENT_CASE = 0x08
@@ -248,4 +306,9 @@ internal enum class AapEarStatus {
 internal data class AapEarDetectionSnapshot(
     val primary: AapEarStatus,
     val secondary: AapEarStatus,
+)
+
+internal data class AapControlSnapshot(
+    val identifier: AapControlId,
+    val value: ByteArray,
 )

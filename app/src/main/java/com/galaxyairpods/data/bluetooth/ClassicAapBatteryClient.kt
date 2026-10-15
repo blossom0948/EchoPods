@@ -41,12 +41,16 @@ internal class ClassicAapBatteryClient {
     @Volatile
     private var activeSocket: BluetoothSocket? = null
 
+    @Volatile
+    private var activeDeviceId: String? = null
+
     suspend fun runSession(
         device: BluetoothDevice,
         deviceId: String,
         model: AirPodsModel,
         onBattery: suspend (AapBatterySnapshot) -> Unit,
         onWear: suspend (AapEarDetectionSnapshot) -> Unit = {},
+        onControl: suspend (AapControlSnapshot) -> Unit = {},
         onReady: suspend () -> Unit = {},
         onClosed: suspend () -> Unit = {},
     ) {
@@ -72,6 +76,7 @@ internal class ClassicAapBatteryClient {
 
         val socket = socketHandle.socket
         activeSocket = socket
+        activeDeviceId = deviceId
         try {
             connectWithTimeout(socket, deviceId, socketHandle.strategy)
             send(socket, deviceId, "HANDSHAKE", AapBatteryProtocol.handshake)
@@ -86,7 +91,7 @@ internal class ClassicAapBatteryClient {
                 send(socket, deviceId, "NOTIFICATION_PREFLIGHT_$profile", bytes)
             }
             BleScanDiagnostics.logAapState(deviceId, "READING", "psm=0x1001")
-            readLoop(socket, deviceId, onBattery, onWear, onReady)
+            readLoop(socket, deviceId, onBattery, onWear, onControl, onReady)
         } catch (_: CancellationException) {
             throw CancellationException("AAP session cancelled")
         } catch (error: IOException) {
@@ -104,6 +109,7 @@ internal class ClassicAapBatteryClient {
         } finally {
             closeQuietly(socket)
             if (activeSocket === socket) activeSocket = null
+            if (activeDeviceId == deviceId) activeDeviceId = null
             onClosed()
             BleScanDiagnostics.logAapState(deviceId, "SESSION_END", "")
         }
@@ -112,7 +118,42 @@ internal class ClassicAapBatteryClient {
     fun close() {
         activeSocket?.let(::closeQuietly)
         activeSocket = null
+        activeDeviceId = null
     }
+
+    /** Sends a control value only through the currently ready AAP session. */
+    suspend fun sendControlCommand(
+        identifier: com.galaxyairpods.domain.control.AapControlId,
+        value: ByteArray,
+    ): Boolean = sendActive(
+        kind = "CONTROL_0x${identifier.wireValue.toString(16)}",
+        bytes = AapBatteryProtocol.createControlCommandPacket(identifier, value),
+    )
+
+    /** Renaming requires an active AAP session and is never queued offline. */
+    suspend fun sendRename(name: String): Boolean = sendActive(
+        kind = "RENAME",
+        bytes = AapBatteryProtocol.createRenamePacket(name),
+    )
+
+    fun isConnected(): Boolean = activeSocket?.isConnected == true
+
+    private suspend fun sendActive(kind: String, bytes: ByteArray): Boolean =
+        withContext(Dispatchers.IO) {
+            outputMutex.withLock {
+                val socket = activeSocket ?: return@withLock false
+                runCatching {
+                    socket.outputStream.write(bytes)
+                    socket.outputStream.flush()
+                    BleScanDiagnostics.logAapTx(
+                        activeDeviceId ?: "unknown",
+                        kind,
+                        bytes,
+                    )
+                    true
+                }.getOrDefault(false)
+            }
+        }
 
     private suspend fun connectWithTimeout(
         socket: BluetoothSocket,
@@ -173,6 +214,7 @@ internal class ClassicAapBatteryClient {
         deviceId: String,
         onBattery: suspend (AapBatterySnapshot) -> Unit,
         onWear: suspend (AapEarDetectionSnapshot) -> Unit,
+        onControl: suspend (AapControlSnapshot) -> Unit,
         onReady: suspend () -> Unit,
     ) = withContext(Dispatchers.IO) {
         val buffer = ByteArray(2048)
@@ -262,6 +304,13 @@ internal class ClassicAapBatteryClient {
                         } else if (frame.command == AapBatteryProtocol.EAR_DETECTION_COMMAND) {
                             BleScanDiagnostics.logAapEarFrameShape(deviceId, frame)
                             BleScanDiagnostics.logAapFailure(deviceId, "ear_detection", "MALFORMED_OR_UNKNOWN_STATUS")
+                        }
+                        val control = AapBatteryProtocol.parseControlCommand(frame)
+                        if (control != null) {
+                            BleScanDiagnostics.logAapControl(deviceId, control)
+                            onControl(control)
+                        } else if (frame.command == AapBatteryProtocol.CONTROL_COMMAND) {
+                            BleScanDiagnostics.logAapFailure(deviceId, "control", "MALFORMED_OR_UNKNOWN_IDENTIFIER")
                         }
                     }
                     is AapFrame.Other -> {

@@ -175,7 +175,8 @@ private fun AirPodsModel.artworkGeometry(): AirPodsArtworkGeometry = when {
     )
     this == AirPodsModel.AIRPODS_GEN3 ||
         this == AirPodsModel.AIRPODS_GEN4 ||
-        this == AirPodsModel.AIRPODS_GEN4_ANC -> AirPodsArtworkGeometry(
+        this == AirPodsModel.AIRPODS_GEN4_ANC ||
+        this == AirPodsModel.AIRPODS_GEN5 -> AirPodsArtworkGeometry(
         caseWidth = 206f,
         bodyHeight = 65f,
         lidHeight = 45f,

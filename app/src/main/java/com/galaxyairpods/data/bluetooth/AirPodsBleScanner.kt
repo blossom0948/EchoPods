@@ -21,6 +21,7 @@ import com.galaxyairpods.domain.model.AirPodsModel
 import com.galaxyairpods.domain.model.AirPodsConnectionState
 import com.galaxyairpods.domain.model.ParsedAirPodsPacket
 import com.galaxyairpods.domain.model.isCompatibleWith
+import com.galaxyairpods.domain.control.AapControlId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -62,6 +63,15 @@ data class BluetoothAirPodsEvent(
     val nearbySeenAt: Long? = null,
 )
 
+data class ClassicAapControlEvent(
+    val deviceId: String,
+    val deviceProfileId: String,
+    val model: AirPodsModel,
+    val identifier: AapControlId,
+    val value: ByteArray,
+    val seenAt: Long,
+)
+
 class AirPodsBleScanner(private val context: Context) {
     private val _status = MutableStateFlow("스캔 대기")
     val status: StateFlow<String> = _status.asStateFlow()
@@ -77,6 +87,9 @@ class AirPodsBleScanner(private val context: Context) {
 
     private val _classicWearEvents = MutableSharedFlow<ClassicAapWearEvent>(replay = 1, extraBufferCapacity = 16)
     internal val classicWearEvents: SharedFlow<ClassicAapWearEvent> = _classicWearEvents.asSharedFlow()
+
+    private val _classicControlEvents = MutableSharedFlow<ClassicAapControlEvent>(replay = 1, extraBufferCapacity = 32)
+    internal val classicControlEvents: SharedFlow<ClassicAapControlEvent> = _classicControlEvents.asSharedFlow()
 
     private val parserRegistry = AirPodsParserRegistry()
     private val monitorScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -305,6 +318,51 @@ class AirPodsBleScanner(private val context: Context) {
         closeProfileProxies()
         _status.value = "검색 중지"
     }
+
+    /** A control command is valid only while the current AAP session is ready. */
+    fun sendAapControlCommand(identifier: AapControlId, value: ByteArray) {
+        monitorScope.launch {
+            if (aapReadyDeviceId == null || !aapBatteryClient.isConnected()) {
+                BleScanDiagnostics.logAapFailure(
+                    aapSessionDeviceId ?: "unknown",
+                    "control_tx",
+                    "AAP_SESSION_UNAVAILABLE",
+                )
+                return@launch
+            }
+            val sent = aapBatteryClient.sendControlCommand(identifier, value)
+            if (!sent) {
+                BleScanDiagnostics.logAapFailure(
+                    aapSessionDeviceId ?: "unknown",
+                    "control_tx",
+                    "WRITE_FAILED",
+                )
+            }
+        }
+    }
+
+    fun sendAapRename(name: String) {
+        monitorScope.launch {
+            if (aapReadyDeviceId == null || !aapBatteryClient.isConnected()) {
+                BleScanDiagnostics.logAapFailure(
+                    aapSessionDeviceId ?: "unknown",
+                    "rename_tx",
+                    "AAP_SESSION_UNAVAILABLE",
+                )
+                return@launch
+            }
+            if (!aapBatteryClient.sendRename(name)) {
+                BleScanDiagnostics.logAapFailure(
+                    aapSessionDeviceId ?: "unknown",
+                    "rename_tx",
+                    "WRITE_FAILED",
+                )
+            }
+        }
+    }
+
+    fun isAapControlReady(): Boolean =
+        aapReadyDeviceId != null && aapBatteryClient.isConnected()
 
     @SuppressLint("MissingPermission")
     @Synchronized
@@ -873,6 +931,18 @@ class AirPodsBleScanner(private val context: Context) {
                             capturedAtElapsedMs = capturedAtElapsedMs,
                         ),
                     )
+                    },
+                    onControl = { snapshot ->
+                        _classicControlEvents.emit(
+                            ClassicAapControlEvent(
+                                deviceId = event.deviceId,
+                                deviceProfileId = event.deviceProfileId,
+                                model = event.model,
+                                identifier = snapshot.identifier,
+                                value = snapshot.value,
+                                seenAt = System.currentTimeMillis(),
+                            ),
+                        )
                     },
                     onReady = {
                         aapReadyDeviceId = event.deviceId

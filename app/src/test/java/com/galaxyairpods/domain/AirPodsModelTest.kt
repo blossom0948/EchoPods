@@ -20,6 +20,10 @@ class AirPodsModelTest {
             AirPodsModel.AIRPODS_MAX2,
             AirPodsModel.fromBluetoothName("AirPods Max 2"),
         )
+        assertEquals(
+            AirPodsModel.AIRPODS_GEN5,
+            AirPodsModel.fromBluetoothName("AirPods 5"),
+        )
     }
 
     @Test

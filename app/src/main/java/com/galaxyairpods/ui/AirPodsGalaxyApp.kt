@@ -42,6 +42,7 @@ fun AirPodsGalaxyApp(viewModel: AppViewModel = viewModel()) {
     val backgroundDetection by viewModel.backgroundDetection.collectAsStateWithLifecycle()
     val wearDetectionEnabled by viewModel.wearDetectionEnabled.collectAsStateWithLifecycle()
     val automaticMediaControlEnabled by viewModel.automaticMediaControlEnabled.collectAsStateWithLifecycle()
+    val aapControlState by viewModel.aapControlState.collectAsStateWithLifecycle()
     val modelOverride by viewModel.modelOverride.collectAsStateWithLifecycle()
     val scanStatus by viewModel.scanStatus.collectAsStateWithLifecycle()
     val updateState by viewModel.updateState.collectAsStateWithLifecycle()
@@ -81,6 +82,7 @@ fun AirPodsGalaxyApp(viewModel: AppViewModel = viewModel()) {
                         backgroundDetection = backgroundDetection,
                         wearDetectionEnabled = wearDetectionEnabled,
                         automaticMediaControlEnabled = automaticMediaControlEnabled,
+                        aapControlState = aapControlState,
                         modelOverride = modelOverride,
                         reducedMotion = reducedMotion,
                         onAutoPopupChange = viewModel::setAutoPopup,
@@ -89,6 +91,12 @@ fun AirPodsGalaxyApp(viewModel: AppViewModel = viewModel()) {
                         onBackgroundDetectionChange = viewModel::setBackgroundDetection,
                         onWearDetectionChange = viewModel::setWearDetectionEnabled,
                         onAutomaticMediaControlChange = viewModel::setAutomaticMediaControlEnabled,
+                        onListeningModeChange = viewModel::setListeningMode,
+                        onAapBooleanChange = viewModel::setAapBoolean,
+                        onMicrophoneModeChange = viewModel::setMicrophoneMode,
+                        onAapByteChange = viewModel::setAapByte,
+                        onChimeVolumeChange = viewModel::setChimeVolume,
+                        onRenameAirPods = viewModel::renameConnectedAirPods,
                         onModelOverrideChange = viewModel::setModelOverride,
                         onTestOverlay = viewModel::testOverlay,
                         onReducedMotionChange = { reducedMotion = it },
