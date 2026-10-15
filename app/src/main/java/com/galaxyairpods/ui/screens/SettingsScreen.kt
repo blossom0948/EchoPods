@@ -39,6 +39,7 @@ import com.galaxyairpods.domain.control.AapControlId
 import com.galaxyairpods.domain.control.AirPodsControlState
 import com.galaxyairpods.domain.control.ListeningMode
 import com.galaxyairpods.domain.control.MicrophoneMode
+import com.galaxyairpods.domain.control.StemPressActions
 import com.galaxyairpods.domain.model.AirPodsModel
 import com.galaxyairpods.permissions.PermissionManager
 import com.galaxyairpods.ui.components.AirPodsAdvancedFeaturesCard
@@ -53,6 +54,8 @@ fun SettingsScreen(
     backgroundDetection: Boolean,
     wearDetectionEnabled: Boolean,
     automaticMediaControlEnabled: Boolean,
+    headGesturesEnabled: Boolean,
+    stemPressActions: StemPressActions,
     aapControlState: AirPodsControlState,
     modelOverride: AirPodsModel?,
     reducedMotion: Boolean,
@@ -62,6 +65,8 @@ fun SettingsScreen(
     onBackgroundDetectionChange: (Boolean) -> Unit,
     onWearDetectionChange: (Boolean) -> Unit,
     onAutomaticMediaControlChange: (Boolean) -> Unit,
+    onHeadGesturesChange: (Boolean) -> Unit,
+    onStemPressActionsChange: (StemPressActions) -> Unit,
     onListeningModeChange: (ListeningMode) -> Unit,
     onAapBooleanChange: (AapControlId, Boolean) -> Unit,
     onMicrophoneModeChange: (MicrophoneMode) -> Unit,
@@ -85,6 +90,17 @@ fun SettingsScreen(
     val permissionsLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { onStartScanning() }
+    val headGesturePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { results ->
+        if (PermissionManager.headGestureCallPermissions().all { results[it] == true }) {
+            onHeadGesturesChange(true)
+        }
+    }
+    val headGesturePermissionsGranted = PermissionManager.allGranted(
+        context,
+        PermissionManager.headGestureCallPermissions(),
+    )
 
     Column(
         modifier = Modifier
@@ -110,6 +126,19 @@ fun SettingsScreen(
             onAapByteChange = onAapByteChange,
             onChimeVolumeChange = onChimeVolumeChange,
             onRename = onRenameAirPods,
+            headGesturesEnabled = headGesturesEnabled,
+            headGesturePermissionsGranted = headGesturePermissionsGranted,
+            stemPressActions = stemPressActions,
+            onHeadGesturesChange = { enabled ->
+                if (!enabled) {
+                    onHeadGesturesChange(false)
+                } else if (headGesturePermissionsGranted) {
+                    onHeadGesturesChange(true)
+                } else {
+                    headGesturePermissionLauncher.launch(PermissionManager.headGestureCallPermissions())
+                }
+            },
+            onStemPressActionsChange = onStemPressActionsChange,
         )
 
         SettingsToggle("자동 팝업", autoPopup, onAutoPopupChange)

@@ -67,6 +67,17 @@ enum class ListeningMode(val wireValue: Int, val label: String) {
     }
 }
 
+fun nextListeningMode(current: ListeningMode?, allowOff: Boolean): ListeningMode {
+    val available = buildList {
+        add(ListeningMode.NOISE_CANCELLATION)
+        add(ListeningMode.TRANSPARENCY)
+        add(ListeningMode.ADAPTIVE)
+        if (allowOff) add(ListeningMode.OFF)
+    }
+    val index = current?.let(available::indexOf) ?: -1
+    return available[(index + 1) % available.size]
+}
+
 enum class MicrophoneMode(val wireValue: Int, val label: String) {
     AUTOMATIC(0, "자동"),
     ALWAYS_RIGHT(1, "항상 오른쪽"),
@@ -80,16 +91,72 @@ enum class MicrophoneMode(val wireValue: Int, val label: String) {
 }
 
 /**
- * UI vocabulary for a future stem-event adapter. These values are not sent
- * directly as AACP bytes until a device Gate confirms the firmware mapping.
+ * Host-side actions for a long-press event. The enum value itself is never
+ * serialized to AACP; the firmware event is intercepted only after the live
+ * Android route and AAP session pass their gates.
  */
-enum class StemAction(val wireValue: Int, val label: String) {
-    PLAY_PAUSE(0x01, "재생/일시정지"),
-    NEXT_TRACK(0x02, "다음 트랙"),
-    PREVIOUS_TRACK(0x03, "이전 트랙"),
-    DIGITAL_ASSISTANT(0x04, "음성 비서"),
-    CYCLE_NOISE_CONTROL_MODES(0x05, "소음 제어 모드 순환"),
+enum class StemAction(val label: String) {
+    PLAY_PAUSE("재생/일시정지"),
+    NEXT_TRACK("다음 트랙"),
+    PREVIOUS_TRACK("이전 트랙"),
+    DIGITAL_ASSISTANT("음성 비서"),
+    CYCLE_NOISE_CONTROL_MODES("소음 제어 모드 순환"),
     ;
+
+    companion object {
+        val DEFAULT_LONG_PRESS = CYCLE_NOISE_CONTROL_MODES
+
+        fun fromStoredName(name: String?): StemAction =
+            entries.firstOrNull { it.name == name } ?: DEFAULT_LONG_PRESS
+    }
+}
+
+enum class StemPressType(val wireValue: Int) {
+    SINGLE(0x05),
+    DOUBLE(0x06),
+    TRIPLE(0x07),
+    LONG(0x08),
+    ;
+
+    companion object {
+        fun fromWireValue(value: Int): StemPressType? = entries.firstOrNull { it.wireValue == value }
+    }
+}
+
+enum class EarbudSide(val wireValue: Int) {
+    LEFT(0x01),
+    RIGHT(0x02),
+    ;
+
+    companion object {
+        fun fromWireValue(value: Int): EarbudSide? = entries.firstOrNull { it.wireValue == value }
+    }
+}
+
+data class StemPressActions(
+    val leftLongPress: StemAction = StemAction.DEFAULT_LONG_PRESS,
+    val rightLongPress: StemAction = StemAction.DEFAULT_LONG_PRESS,
+) {
+    fun forSide(side: EarbudSide): StemAction = when (side) {
+        EarbudSide.LEFT -> leftLongPress
+        EarbudSide.RIGHT -> rightLongPress
+    }
+
+    val interceptLongPress: Boolean
+        get() = leftLongPress != StemAction.DEFAULT_LONG_PRESS ||
+            rightLongPress != StemAction.DEFAULT_LONG_PRESS
+
+    val aapStemConfigValue: Int
+        get() = if (interceptLongPress) STEM_CONFIG_INTERCEPT_LONG_PRESS else 0
+
+    private companion object {
+        const val STEM_CONFIG_INTERCEPT_LONG_PRESS = 0x08
+    }
+}
+
+enum class HeadGesture {
+    NOD,
+    SHAKE,
 }
 
 enum class ControlCapabilityTier(val label: String) {

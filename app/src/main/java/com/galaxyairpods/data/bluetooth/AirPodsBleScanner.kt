@@ -22,6 +22,11 @@ import com.galaxyairpods.domain.model.AirPodsConnectionState
 import com.galaxyairpods.domain.model.ParsedAirPodsPacket
 import com.galaxyairpods.domain.model.isCompatibleWith
 import com.galaxyairpods.domain.control.AapControlId
+import com.galaxyairpods.domain.control.EarbudSide
+import com.galaxyairpods.domain.control.ListeningMode
+import com.galaxyairpods.domain.control.StemPressActions
+import com.galaxyairpods.domain.control.StemPressType
+import com.galaxyairpods.domain.control.nextListeningMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -72,6 +77,20 @@ data class ClassicAapControlEvent(
     val seenAt: Long,
 )
 
+data class ClassicAapStemPressEvent(
+    val deviceProfileId: String,
+    val pressType: StemPressType,
+    val side: EarbudSide,
+    val seenAt: Long,
+)
+
+data class ClassicAapHeadTrackingEvent(
+    val deviceProfileId: String,
+    val horizontal: Int,
+    val vertical: Int,
+    val seenAt: Long,
+)
+
 class AirPodsBleScanner(private val context: Context) {
     private val _status = MutableStateFlow("스캔 대기")
     val status: StateFlow<String> = _status.asStateFlow()
@@ -90,6 +109,12 @@ class AirPodsBleScanner(private val context: Context) {
 
     private val _classicControlEvents = MutableSharedFlow<ClassicAapControlEvent>(replay = 1, extraBufferCapacity = 32)
     internal val classicControlEvents: SharedFlow<ClassicAapControlEvent> = _classicControlEvents.asSharedFlow()
+
+    private val _classicStemPressEvents = MutableSharedFlow<ClassicAapStemPressEvent>(extraBufferCapacity = 8)
+    internal val classicStemPressEvents: SharedFlow<ClassicAapStemPressEvent> = _classicStemPressEvents.asSharedFlow()
+
+    private val _classicHeadTrackingEvents = MutableSharedFlow<ClassicAapHeadTrackingEvent>(extraBufferCapacity = 64)
+    internal val classicHeadTrackingEvents: SharedFlow<ClassicAapHeadTrackingEvent> = _classicHeadTrackingEvents.asSharedFlow()
 
     private val parserRegistry = AirPodsParserRegistry()
     private val monitorScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -123,6 +148,10 @@ class AirPodsBleScanner(private val context: Context) {
     private var lastPrimaryPodIsLeft: Boolean? = null
     @Volatile
     private var aapReadyDeviceId: String? = null
+    @Volatile
+    private var currentListeningMode: ListeningMode? = null
+    @Volatile
+    private var offListeningModeAllowed: Boolean? = null
     private val wearStabilizer = PerDeviceWearStabilizer(
         requiredFrames = 3,
         // AAP 0x0006 is an event-driven change notification. AirPods
@@ -320,13 +349,21 @@ class AirPodsBleScanner(private val context: Context) {
     }
 
     /** A control command is valid only while the current AAP session is ready. */
-    fun sendAapControlCommand(identifier: AapControlId, value: ByteArray) {
+    fun sendAapControlCommand(
+        identifier: AapControlId,
+        value: ByteArray,
+        expectedDeviceProfileId: String? = null,
+    ) {
         monitorScope.launch {
-            if (aapReadyDeviceId == null || !aapBatteryClient.isConnected()) {
+            if (!isAapControlReady(expectedDeviceProfileId)) {
                 BleScanDiagnostics.logAapFailure(
                     aapSessionDeviceId ?: "unknown",
                     "control_tx",
-                    "AAP_SESSION_UNAVAILABLE",
+                    if (expectedDeviceProfileId != null && aapSessionProfileId != expectedDeviceProfileId) {
+                        "AAP_DEVICE_PROFILE_MISMATCH"
+                    } else {
+                        "AAP_SESSION_UNAVAILABLE"
+                    },
                 )
                 return@launch
             }
@@ -341,13 +378,17 @@ class AirPodsBleScanner(private val context: Context) {
         }
     }
 
-    fun sendAapRename(name: String) {
+    fun sendAapRename(name: String, expectedDeviceProfileId: String? = null) {
         monitorScope.launch {
-            if (aapReadyDeviceId == null || !aapBatteryClient.isConnected()) {
+            if (!isAapControlReady(expectedDeviceProfileId)) {
                 BleScanDiagnostics.logAapFailure(
                     aapSessionDeviceId ?: "unknown",
                     "rename_tx",
-                    "AAP_SESSION_UNAVAILABLE",
+                    if (expectedDeviceProfileId != null && aapSessionProfileId != expectedDeviceProfileId) {
+                        "AAP_DEVICE_PROFILE_MISMATCH"
+                    } else {
+                        "AAP_SESSION_UNAVAILABLE"
+                    },
                 )
                 return@launch
             }
@@ -361,8 +402,49 @@ class AirPodsBleScanner(private val context: Context) {
         }
     }
 
-    fun isAapControlReady(): Boolean =
-        aapReadyDeviceId != null && aapBatteryClient.isConnected()
+    fun configureStemPressActions(actions: StemPressActions, expectedDeviceProfileId: String? = null) {
+        // AACP STEM_CONFIG uses bit 3 to forward long-press events to the
+        // host. The firmware keeps its native action when this bit is clear.
+        sendAapControlCommand(
+            AapControlId.STEM_CONFIG,
+            byteArrayOf(if (actions.interceptLongPress) 0x08 else 0x00),
+            expectedDeviceProfileId,
+        )
+    }
+
+    fun cycleListeningMode(expectedDeviceProfileId: String? = null) {
+        val next = nextListeningMode(currentListeningMode, allowOff = offListeningModeAllowed == true)
+        sendAapControlCommand(
+            AapControlId.LISTENING_MODE,
+            byteArrayOf(next.wireValue.toByte()),
+            expectedDeviceProfileId,
+        )
+    }
+
+    fun startHeadTracking(expectedDeviceProfileId: String) {
+        monitorScope.launch {
+            if (!isAapControlReady(expectedDeviceProfileId)) {
+                BleScanDiagnostics.logAapFailure(aapSessionDeviceId ?: "unknown", "head_tracking", "AAP_SESSION_UNAVAILABLE")
+                return@launch
+            }
+            if (!aapBatteryClient.sendHeadTracking(enabled = true)) {
+                BleScanDiagnostics.logAapFailure(aapSessionDeviceId ?: "unknown", "head_tracking", "START_WRITE_FAILED")
+            }
+        }
+    }
+
+    fun stopHeadTracking(expectedDeviceProfileId: String) {
+        monitorScope.launch {
+            if (!isAapControlReady(expectedDeviceProfileId)) return@launch
+            if (!aapBatteryClient.sendHeadTracking(enabled = false)) {
+                BleScanDiagnostics.logAapFailure(aapSessionDeviceId ?: "unknown", "head_tracking", "STOP_WRITE_FAILED")
+            }
+        }
+    }
+
+    fun isAapControlReady(expectedDeviceProfileId: String? = null): Boolean =
+        aapReadyDeviceId != null && aapBatteryClient.isConnected() &&
+            (expectedDeviceProfileId == null || aapSessionProfileId == expectedDeviceProfileId)
 
     @SuppressLint("MissingPermission")
     @Synchronized
@@ -933,6 +1015,20 @@ class AirPodsBleScanner(private val context: Context) {
                     )
                     },
                     onControl = { snapshot ->
+                        val value = snapshot.value.firstOrNull()?.toInt()?.and(0xFF)
+                        when (snapshot.identifier) {
+                            AapControlId.LISTENING_MODE -> {
+                                currentListeningMode = value?.let(ListeningMode::fromWireValue)
+                            }
+                            AapControlId.ALLOW_OFF_OPTION -> {
+                                offListeningModeAllowed = when (value) {
+                                    0x01 -> true
+                                    0x02 -> false
+                                    else -> null
+                                }
+                            }
+                            else -> Unit
+                        }
                         _classicControlEvents.emit(
                             ClassicAapControlEvent(
                                 deviceId = event.deviceId,
@@ -941,6 +1037,26 @@ class AirPodsBleScanner(private val context: Context) {
                                 identifier = snapshot.identifier,
                                 value = snapshot.value,
                                 seenAt = System.currentTimeMillis(),
+                            ),
+                        )
+                    },
+                    onStemPress = { snapshot ->
+                        _classicStemPressEvents.emit(
+                            ClassicAapStemPressEvent(
+                                deviceProfileId = event.deviceProfileId,
+                                pressType = snapshot.pressType,
+                                side = snapshot.side,
+                                seenAt = System.currentTimeMillis(),
+                            ),
+                        )
+                    },
+                    onHeadTracking = { snapshot ->
+                        _classicHeadTrackingEvents.emit(
+                            ClassicAapHeadTrackingEvent(
+                                deviceProfileId = event.deviceProfileId,
+                                horizontal = snapshot.horizontal,
+                                vertical = snapshot.vertical,
+                                seenAt = SystemClock.elapsedRealtime(),
                             ),
                         )
                     },
@@ -965,6 +1081,8 @@ class AirPodsBleScanner(private val context: Context) {
         aapSessionDeviceId = null
         aapSessionProfileId = null
         aapReadyDeviceId = null
+        currentListeningMode = null
+        offListeningModeAllowed = null
         previousSessionProfileId?.let {
             wearStabilizer.resetSource(it, WearEventSource.AAP_CLASSIC)
         }

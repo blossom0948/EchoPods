@@ -7,9 +7,11 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.media.AudioManager
 import android.os.IBinder
 import android.provider.Settings
 import android.util.Log
+import android.view.KeyEvent
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.galaxyairpods.MainActivity
@@ -20,6 +22,10 @@ import com.galaxyairpods.data.bluetooth.AirPodsScannerLease
 import com.galaxyairpods.data.persistence.AirPodsDataStore
 import com.galaxyairpods.domain.model.AirPodsState
 import com.galaxyairpods.domain.model.mergeKnownValuesFrom
+import com.galaxyairpods.domain.control.EarbudSide
+import com.galaxyairpods.domain.control.StemAction
+import com.galaxyairpods.domain.control.StemPressActions
+import com.galaxyairpods.domain.control.StemPressType
 import com.galaxyairpods.widget.AirPodsWidget
 import com.galaxyairpods.update.UpdateManager
 import kotlinx.coroutines.CoroutineScope
@@ -47,9 +53,14 @@ class AirPodsMonitorService : Service() {
     private lateinit var scannerLease: AirPodsScannerLease
     private lateinit var updateManager: UpdateManager
     private lateinit var mediaPlaybackController: WearMediaPlaybackController
+    private lateinit var headGestureCallController: HeadGestureCallController
+    private lateinit var audioRouteGate: AndroidAudioRouteGate
     private var foregroundReady = false
     @Volatile private var wearDetectionEnabled = true
     @Volatile private var automaticMediaControlEnabled = true
+    @Volatile private var stemPressActions = StemPressActions()
+    @Volatile private var lastStemConfiguration: Int? = null
+    @Volatile private var lastStemProfileId: String? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -59,6 +70,14 @@ class AirPodsMonitorService : Service() {
         scanner = scannerLease.scanner
         updateManager = UpdateManager.shared(this)
         mediaPlaybackController = WearMediaPlaybackController(this)
+        audioRouteGate = AndroidAudioRouteGate(this)
+        headGestureCallController = HeadGestureCallController(
+            context = this,
+            scanner = scanner,
+            airPodsState = repository.state,
+            enabledFlow = dataStore.headGesturesEnabled,
+            scope = serviceScope,
+        )
 
         createNotificationChannel()
         foregroundReady = startForegroundCompat(buildNotification(AirPodsState.empty()))
@@ -69,6 +88,7 @@ class AirPodsMonitorService : Service() {
         observePackets()
         observeClassicAapBattery()
         observeClassicAapWear()
+        observeStemPresses()
         observeBluetoothConnections()
         observeMediaRoute()
         observePersistedBatteryFallback()
@@ -233,6 +253,88 @@ class AirPodsMonitorService : Service() {
         }
     }
 
+    private fun observeStemPresses() {
+        serviceScope.launch {
+            dataStore.stemPressActions.collect { actions ->
+                stemPressActions = actions
+                configureStemPressActionsIfReady()
+            }
+        }
+        serviceScope.launch {
+            scanner.bluetoothEvents.collect { event ->
+                if (event.aapReady) {
+                    if (lastStemProfileId != event.deviceProfileId) lastStemConfiguration = null
+                    lastStemProfileId = event.deviceProfileId
+                    configureStemPressActionsIfReady()
+                } else {
+                    lastStemConfiguration = null
+                    lastStemProfileId = null
+                }
+            }
+        }
+        serviceScope.launch {
+            scanner.classicStemPressEvents.collect { event ->
+                if (event.pressType != StemPressType.LONG ||
+                    !scanner.isAapControlReady(event.deviceProfileId) ||
+                    !isAirPodsAudioRouteActive(event.deviceProfileId)
+                ) {
+                    Log.i(TAG, "stem_press ignored reason=TARGET_ROUTE_UNAVAILABLE")
+                    return@collect
+                }
+                val action = stemPressActions.forSide(event.side)
+                executeStemAction(action, event.side, event.deviceProfileId)
+            }
+        }
+    }
+
+    private fun configureStemPressActionsIfReady() {
+        val state = repository.state.value
+        val profileId = state.deviceProfileId ?: return
+        if (!scanner.isAapControlReady(profileId)) return
+        if (!audioRouteGate.check(state).activeForTarget) {
+            // A previous Android route may have enabled host interception. If
+            // the AAP session remains up after the route disappears, restore
+            // the accessory's native long-press behavior.
+            if (lastStemConfiguration != 0) {
+                scanner.configureStemPressActions(StemPressActions(), profileId)
+                lastStemConfiguration = 0
+                Log.i(TAG, "stem_config restored_native reason=ANDROID_ROUTE_INACTIVE")
+            }
+            return
+        }
+        val config = stemPressActions.aapStemConfigValue
+        if (lastStemConfiguration == config) return
+        scanner.configureStemPressActions(stemPressActions, profileId)
+        lastStemConfiguration = config
+        Log.i(TAG, "stem_config long_press_intercept=${config != 0}")
+    }
+
+    private fun isAirPodsAudioRouteActive(deviceProfileId: String): Boolean {
+        val state = repository.state.value
+        return state.deviceProfileId == deviceProfileId &&
+            audioRouteGate.check(state).activeForTarget
+    }
+
+    private fun executeStemAction(action: StemAction, side: EarbudSide, deviceProfileId: String) {
+        when (action) {
+            StemAction.PLAY_PAUSE -> dispatchMediaKey(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
+            StemAction.NEXT_TRACK -> dispatchMediaKey(KeyEvent.KEYCODE_MEDIA_NEXT)
+            StemAction.PREVIOUS_TRACK -> dispatchMediaKey(KeyEvent.KEYCODE_MEDIA_PREVIOUS)
+            StemAction.DIGITAL_ASSISTANT -> dispatchMediaKey(KeyEvent.KEYCODE_ASSIST)
+            StemAction.CYCLE_NOISE_CONTROL_MODES -> scanner.cycleListeningMode(deviceProfileId)
+        }
+        Log.i(TAG, "stem_action side=$side action=$action")
+    }
+
+    private fun dispatchMediaKey(keyCode: Int) {
+        val audioManager = getSystemService(AudioManager::class.java) ?: return
+        val downTime = android.os.SystemClock.uptimeMillis()
+        audioManager.dispatchMediaKeyEvent(KeyEvent(downTime, downTime, KeyEvent.ACTION_DOWN, keyCode, 0))
+        audioManager.dispatchMediaKeyEvent(
+            KeyEvent(downTime, android.os.SystemClock.uptimeMillis(), KeyEvent.ACTION_UP, keyCode, 0),
+        )
+    }
+
     private fun observeWearSettings() {
         serviceScope.launch {
             dataStore.wearDetectionEnabled.collect { enabled ->
@@ -261,6 +363,7 @@ class AirPodsMonitorService : Service() {
                     // makes this safe on every poll.
                     mediaPlaybackController.onWearStateChanged(current)
                 }
+                configureStemPressActionsIfReady()
                 delay(MEDIA_ROUTE_POLL_MS)
             }
         }
@@ -390,6 +493,7 @@ class AirPodsMonitorService : Service() {
     }
 
     override fun onDestroy() {
+        if (::headGestureCallController.isInitialized) headGestureCallController.close()
         if (::scannerLease.isInitialized) scannerLease.close()
         serviceScope.cancel()
         super.onDestroy()

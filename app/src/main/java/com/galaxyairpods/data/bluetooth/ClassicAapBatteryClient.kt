@@ -51,6 +51,8 @@ internal class ClassicAapBatteryClient {
         onBattery: suspend (AapBatterySnapshot) -> Unit,
         onWear: suspend (AapEarDetectionSnapshot) -> Unit = {},
         onControl: suspend (AapControlSnapshot) -> Unit = {},
+        onStemPress: suspend (AapStemPressSnapshot) -> Unit = {},
+        onHeadTracking: suspend (AapHeadTrackingSnapshot) -> Unit = {},
         onReady: suspend () -> Unit = {},
         onClosed: suspend () -> Unit = {},
     ) {
@@ -91,7 +93,7 @@ internal class ClassicAapBatteryClient {
                 send(socket, deviceId, "NOTIFICATION_PREFLIGHT_$profile", bytes)
             }
             BleScanDiagnostics.logAapState(deviceId, "READING", "psm=0x1001")
-            readLoop(socket, deviceId, onBattery, onWear, onControl, onReady)
+            readLoop(socket, deviceId, onBattery, onWear, onControl, onStemPress, onHeadTracking, onReady)
         } catch (_: CancellationException) {
             throw CancellationException("AAP session cancelled")
         } catch (error: IOException) {
@@ -134,6 +136,12 @@ internal class ClassicAapBatteryClient {
     suspend fun sendRename(name: String): Boolean = sendActive(
         kind = "RENAME",
         bytes = AapBatteryProtocol.createRenamePacket(name),
+    )
+
+    suspend fun sendHeadTracking(enabled: Boolean): Boolean = sendActive(
+        kind = if (enabled) "HEAD_TRACKING_START" else "HEAD_TRACKING_STOP",
+        bytes = if (enabled) AapBatteryProtocol.startHeadTrackingPacket
+        else AapBatteryProtocol.stopHeadTrackingPacket,
     )
 
     fun isConnected(): Boolean = activeSocket?.isConnected == true
@@ -215,6 +223,8 @@ internal class ClassicAapBatteryClient {
         onBattery: suspend (AapBatterySnapshot) -> Unit,
         onWear: suspend (AapEarDetectionSnapshot) -> Unit,
         onControl: suspend (AapControlSnapshot) -> Unit,
+        onStemPress: suspend (AapStemPressSnapshot) -> Unit,
+        onHeadTracking: suspend (AapHeadTrackingSnapshot) -> Unit,
         onReady: suspend () -> Unit,
     ) = withContext(Dispatchers.IO) {
         val buffer = ByteArray(2048)
@@ -311,6 +321,15 @@ internal class ClassicAapBatteryClient {
                             onControl(control)
                         } else if (frame.command == AapBatteryProtocol.CONTROL_COMMAND) {
                             BleScanDiagnostics.logAapFailure(deviceId, "control", "MALFORMED_OR_UNKNOWN_IDENTIFIER")
+                        }
+                        val stemPress = AapBatteryProtocol.parseStemPress(frame)
+                        if (stemPress != null) {
+                            onStemPress(stemPress)
+                        } else if (frame.command == AapBatteryProtocol.STEM_PRESS_COMMAND) {
+                            BleScanDiagnostics.logAapFailure(deviceId, "stem_press", "MALFORMED_OR_UNKNOWN_EVENT")
+                        }
+                        AapBatteryProtocol.parseHeadTracking(frame)?.let { snapshot ->
+                            onHeadTracking(snapshot)
                         }
                     }
                     is AapFrame.Other -> {

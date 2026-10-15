@@ -4,6 +4,8 @@ import com.galaxyairpods.data.bluetooth.AapBatteryProtocol
 import com.galaxyairpods.data.bluetooth.AapFrame
 import com.galaxyairpods.data.bluetooth.AapEarStatus
 import com.galaxyairpods.domain.control.AapControlId
+import com.galaxyairpods.domain.control.EarbudSide
+import com.galaxyairpods.domain.control.StemPressType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertNotNull
@@ -225,6 +227,61 @@ class AapBatteryProtocolTest {
             "나의 AirPods".toByteArray(Charsets.UTF_8),
             packet.copyOfRange(9, packet.size),
         )
+    }
+
+    @Test
+    fun parsesValidatedStemPressTypeAndPhysicalSide() {
+        val frame = message(0x04, 0x00, 0x04, 0x00, 0x19, 0x00, 0x08, 0x02)
+        val parsed = AapBatteryProtocol.parseStemPress(
+            AapBatteryProtocol.parseFrame(frame) as AapFrame.Message,
+        )
+
+        assertEquals(StemPressType.LONG, parsed?.pressType)
+        assertEquals(EarbudSide.RIGHT, parsed?.side)
+        assertNull(
+            AapBatteryProtocol.parseStemPress(
+                AapBatteryProtocol.parseFrame(message(0x04, 0, 4, 0, 0x19, 0, 0x08, 0x09)) as AapFrame.Message,
+            ),
+        )
+    }
+
+    @Test
+    fun parsesHeadTrackingSamplesOnlyFromCompleteSensorFrames() {
+        val frame = ByteArray(70).also {
+            it[0] = 0x04
+            it[2] = 0x04
+            it[4] = 0x17
+            it[8] = 0x10
+            it[51] = 0x34
+            it[52] = 0x12
+            it[53] = 0xFE.toByte()
+            it[54] = 0xFF.toByte()
+        }
+        val parsed = AapBatteryProtocol.parseHeadTracking(
+            AapBatteryProtocol.parseFrame(frame) as AapFrame.Message,
+        )
+
+        assertEquals(1_311, parsed?.horizontal)
+        assertEquals(1_310, parsed?.vertical)
+        assertNull(
+            AapBatteryProtocol.parseHeadTracking(
+                AapBatteryProtocol.parseFrame(frame.copyOf(69)) as AapFrame.Message,
+            ),
+        )
+        val unrelatedMessage = frame.copyOf().also { it[8] = 0x02 }
+        assertNull(
+            AapBatteryProtocol.parseHeadTracking(
+                AapBatteryProtocol.parseFrame(unrelatedMessage) as AapFrame.Message,
+            ),
+        )
+    }
+
+    @Test
+    fun headTrackingPacketsHaveExpectedAapEnvelope() {
+        assertEquals(0x04, AapBatteryProtocol.startHeadTrackingPacket[0].toInt() and 0xFF)
+        assertEquals(0x17, AapBatteryProtocol.startHeadTrackingPacket[4].toInt() and 0xFF)
+        assertEquals(0x17, AapBatteryProtocol.stopHeadTrackingPacket[4].toInt() and 0xFF)
+        assertTrue(AapBatteryProtocol.startHeadTrackingPacket.size >= 27)
     }
 
     private fun message(vararg values: Int): ByteArray =

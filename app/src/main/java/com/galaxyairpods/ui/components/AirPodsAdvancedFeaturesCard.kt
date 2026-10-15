@@ -33,6 +33,8 @@ import com.galaxyairpods.domain.control.AapControlId
 import com.galaxyairpods.domain.control.AirPodsControlState
 import com.galaxyairpods.domain.control.ListeningMode
 import com.galaxyairpods.domain.control.MicrophoneMode
+import com.galaxyairpods.domain.control.StemAction
+import com.galaxyairpods.domain.control.StemPressActions
 import kotlin.math.roundToInt
 
 @Composable
@@ -44,6 +46,11 @@ fun AirPodsAdvancedFeaturesCard(
     onAapByteChange: (AapControlId, Int) -> Unit,
     onChimeVolumeChange: (Int) -> Unit,
     onRename: (String) -> Unit,
+    headGesturesEnabled: Boolean,
+    headGesturePermissionsGranted: Boolean,
+    stemPressActions: StemPressActions,
+    onHeadGesturesChange: (Boolean) -> Unit,
+    onStemPressActionsChange: (StemPressActions) -> Unit,
 ) {
     val aapEnabled = state.aapReady
     var rename by remember { mutableStateOf("") }
@@ -203,6 +210,44 @@ fun AirPodsAdvancedFeaturesCard(
             )
 
             HorizontalDivider()
+            Text("이어버드 길게 누르기", style = MaterialTheme.typography.titleSmall)
+            Text(
+                "스템 이벤트를 앱이 받아 Android 동작으로 연결합니다. 기본 동작은 AirPods 펌웨어에 맡깁니다.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            StemActionSelector(
+                title = "왼쪽 길게 누르기",
+                selected = stemPressActions.leftLongPress,
+                onSelected = { action ->
+                    onStemPressActionsChange(stemPressActions.copy(leftLongPress = action))
+                },
+            )
+            StemActionSelector(
+                title = "오른쪽 길게 누르기",
+                selected = stemPressActions.rightLongPress,
+                onSelected = { action ->
+                    onStemPressActionsChange(stemPressActions.copy(rightLongPress = action))
+                },
+            )
+
+            AdvancedToggle(
+                title = "통화 중 머리 동작 감지",
+                description = "일반 전화 수신 중 AAP 추적을 시작합니다. 끄덕임으로 받기, 좌우 흔들기로 거절합니다. AAP·기기 firmware 지원이 필요합니다.",
+                checked = headGesturesEnabled,
+                known = headGesturePermissionsGranted,
+                enabled = true,
+                onCheckedChange = onHeadGesturesChange,
+            )
+            if (!headGesturePermissionsGranted) {
+                Text(
+                    "사용하려면 전화 상태와 전화 응답 권한을 허용해야 합니다.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            HorizontalDivider()
             Text("AirPods 이름", style = MaterialTheme.typography.titleSmall)
             Text(
                 "AAP 연결이 확인된 동안에만 기기에 이름 변경을 요청합니다.",
@@ -231,10 +276,40 @@ fun AirPodsAdvancedFeaturesCard(
             HorizontalDivider()
             Text("조건부 기능", style = MaterialTheme.typography.titleSmall)
             Text(
-                "Head Gestures·큰 소리 줄이기·투명 모드 사용자 조정·보청기·심박수·Spatial Audio·Find My·멀티 디바이스는 루트/ATT hook 또는 특정 firmware가 필요합니다. 실제 Gate 전에는 전송하지 않습니다.",
+                "큰 소리 줄이기·투명 모드 세부 조정·보청기·심박수·Spatial Audio·Find My·멀티 디바이스·고품질 양방향 오디오는 루트/ATT hook 또는 별도 프로토콜·firmware 지원이 필요합니다.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+@Composable
+private fun StemActionSelector(
+    title: String,
+    selected: StemAction,
+    onSelected: (StemAction) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(title, style = MaterialTheme.typography.bodyLarge)
+        Column {
+            OutlinedButton(onClick = { expanded = true }) { Text(selected.label) }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                StemAction.entries.forEach { action ->
+                    DropdownMenuItem(
+                        text = { Text(action.label) },
+                        onClick = {
+                            expanded = false
+                            onSelected(action)
+                        },
+                    )
+                }
+            }
         }
     }
 }

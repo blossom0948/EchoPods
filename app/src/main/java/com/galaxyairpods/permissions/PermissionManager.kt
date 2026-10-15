@@ -22,6 +22,11 @@ object PermissionManager {
         emptyArray()
     }
 
+    fun headGestureCallPermissions(): Array<String> = arrayOf(
+        Manifest.permission.READ_PHONE_STATE,
+        Manifest.permission.ANSWER_PHONE_CALLS,
+    )
+
     fun runtimePermissions(): Array<String> = bluetoothPermissions() + notificationPermissions()
 
     fun allGranted(context: Context, permissions: Array<String>): Boolean = permissions.all {

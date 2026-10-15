@@ -15,7 +15,7 @@ import com.galaxyairpods.domain.control.AirPodsControlState
 import com.galaxyairpods.domain.control.ControlCapabilityTier
 import com.galaxyairpods.domain.control.ListeningMode
 import com.galaxyairpods.domain.control.MicrophoneMode
-import com.galaxyairpods.domain.control.StemAction
+import com.galaxyairpods.domain.control.StemPressActions
 import com.galaxyairpods.domain.control.toAapValue
 import com.galaxyairpods.domain.model.AirPodsModel
 import com.galaxyairpods.domain.model.AirPodsConnectionState
@@ -25,6 +25,7 @@ import com.galaxyairpods.domain.motion.MotionLabSettings
 import com.galaxyairpods.permissions.PermissionManager
 import com.galaxyairpods.service.AirPodsMonitorService
 import com.galaxyairpods.service.AirPodsOverlayService
+import com.galaxyairpods.service.AndroidAudioRouteGate
 import com.galaxyairpods.service.EXTRA_CASE_OPEN
 import com.galaxyairpods.service.EXTRA_LEFT_IN_CASE
 import com.galaxyairpods.service.EXTRA_RIGHT_IN_CASE
@@ -46,6 +47,7 @@ import kotlinx.coroutines.launch
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val dataStore = AirPodsDataStore(application)
     private val liveRepository = BleAirPodsRepository(dataStore)
+    private val audioRouteGate = AndroidAudioRouteGate(application)
     private val updateManager = UpdateManager.shared(application)
 
     private val scannerLease = AirPodsScannerHub.acquire(application)
@@ -82,8 +84,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _aapControlState,
         airPodsState,
     ) { controls, state ->
+        val androidRouteActive = audioRouteGate.check(state).activeForTarget
+        val controlReady = state.aapReady && androidRouteActive
         val tier = when {
-            state.aapReady -> ControlCapabilityTier.AAP_L2CAP_EXACT
+            controlReady -> ControlCapabilityTier.AAP_L2CAP_EXACT
             state.connectionState == AirPodsConnectionState.ANDROID_CONNECTED ->
                 ControlCapabilityTier.AAP_PENDING
             state.detected -> ControlCapabilityTier.BLE_ONLY
@@ -91,7 +95,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
         controls.copy(
             tier = tier,
-            aapReady = state.aapReady && controls.lastError == null,
+            aapReady = controlReady && controls.lastError == null,
         )
     }.stateIn(
         viewModelScope,
@@ -132,6 +136,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
         true,
+    )
+    val headGesturesEnabled: StateFlow<Boolean> = dataStore.headGesturesEnabled.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        false,
+    )
+    val stemPressActions: StateFlow<StemPressActions> = dataStore.stemPressActions.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        StemPressActions(),
     )
     val modelOverride: StateFlow<AirPodsModel?> = dataStore.modelOverride.stateIn(
         viewModelScope,
@@ -231,8 +245,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 dataStore.backgroundDetection,
                 dataStore.wearDetectionEnabled,
                 dataStore.automaticMediaControlEnabled,
-            ) { backgroundEnabled, wearEnabled, mediaControlEnabled ->
-                backgroundEnabled || (wearEnabled && mediaControlEnabled)
+                dataStore.headGesturesEnabled,
+                dataStore.stemPressActions,
+            ) { backgroundEnabled, wearEnabled, mediaControlEnabled, headGesturesEnabled, actions ->
+                backgroundEnabled || (wearEnabled && mediaControlEnabled) ||
+                    headGesturesEnabled || actions.interceptLongPress
             }.collect { monitorRequired ->
                 if (monitorRequired) startBackgroundServiceIfReady() else stopBackgroundService()
             }
@@ -242,7 +259,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun startScanning() {
         scannerLease.start()
         if (backgroundDetection.value ||
-            (wearDetectionEnabled.value && automaticMediaControlEnabled.value)
+            (wearDetectionEnabled.value && automaticMediaControlEnabled.value) ||
+            headGesturesEnabled.value || stemPressActions.value.interceptLongPress
         ) {
             startBackgroundServiceIfReady()
         }
@@ -272,6 +290,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { dataStore.setAutomaticMediaControlEnabled(enabled) }
     }
 
+    fun setHeadGesturesEnabled(enabled: Boolean) {
+        viewModelScope.launch { dataStore.setHeadGesturesEnabled(enabled) }
+    }
+
+    fun setStemPressActions(actions: StemPressActions) {
+        // The foreground monitor owns AAP interception so it can verify the
+        // active Android audio route before changing firmware behavior.
+        viewModelScope.launch { dataStore.setStemPressActions(actions) }
+    }
+
     fun setListeningMode(mode: ListeningMode) {
         sendAapControl(
             AapControlId.LISTENING_MODE,
@@ -297,10 +325,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    fun setPressAction(id: AapControlId, action: StemAction) {
-        sendAapControl(id, byteArrayOf(action.wireValue.toByte()))
-    }
-
     fun setAapByte(id: AapControlId, value: Int) {
         sendAapControl(id, byteArrayOf(value.coerceIn(0, 255).toByte()))
     }
@@ -318,23 +342,31 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             _aapControlState.update { it.copy(lastError = "이름을 입력하세요") }
             return
         }
-        if (!aapControlState.value.aapReady) {
-            _aapControlState.update { it.copy(lastError = "AAP 제어 연결이 없어 이름을 보낼 수 없습니다") }
+        val state = airPodsState.value
+        if (!isAapRouteActive(state)) {
+            _aapControlState.update { it.copy(lastError = "AirPods가 Galaxy 오디오 경로에 연결된 뒤 사용할 수 있습니다") }
             return
         }
-        scanner.sendAapRename(normalized)
+        scanner.sendAapRename(normalized, state.deviceProfileId)
     }
 
     private fun sendAapControl(id: AapControlId, value: ByteArray) {
-        if (!aapControlState.value.aapReady) {
+        val state = airPodsState.value
+        if (!isAapRouteActive(state)) {
             _aapControlState.update {
-                it.copy(lastError = "AirPods가 Galaxy에 연결된 뒤 사용할 수 있습니다")
+                it.copy(lastError = "AirPods가 Galaxy 오디오 경로에 연결된 뒤 사용할 수 있습니다")
             }
             return
         }
         _aapControlState.update { it.copy(lastError = null) }
-        scanner.sendAapControlCommand(id, value.copyOf())
+        scanner.sendAapControlCommand(id, value.copyOf(), state.deviceProfileId)
     }
+
+    private fun isAapRouteActive(state: AirPodsState): Boolean =
+        state.deviceProfileId != null &&
+            state.aapReady &&
+            audioRouteGate.check(state).activeForTarget &&
+            scanner.isAapControlReady(state.deviceProfileId)
 
     fun setModelOverride(model: AirPodsModel?) {
         viewModelScope.launch { dataStore.setModelOverride(model) }

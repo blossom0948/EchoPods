@@ -17,6 +17,8 @@ import com.galaxyairpods.domain.model.BatterySamplePolicy
 import com.galaxyairpods.domain.model.BatterySlot
 import com.galaxyairpods.domain.model.DataConfidence
 import com.galaxyairpods.domain.model.isCompatibleWith
+import com.galaxyairpods.domain.control.StemAction
+import com.galaxyairpods.domain.control.StemPressActions
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -93,6 +95,9 @@ class AirPodsDataStore(private val context: Context) {
         val backgroundDetection = booleanPreferencesKey("background_detection")
         val wearDetectionEnabled = booleanPreferencesKey("wear_detection_enabled")
         val automaticMediaControlEnabled = booleanPreferencesKey("automatic_media_control_enabled")
+        val headGesturesEnabled = booleanPreferencesKey("head_gestures_enabled")
+        val leftLongPressAction = stringPreferencesKey("left_long_press_action")
+        val rightLongPressAction = stringPreferencesKey("right_long_press_action")
         val popupDuration = intPreferencesKey("popup_duration")
     }
 
@@ -255,6 +260,19 @@ class AirPodsDataStore(private val context: Context) {
     val automaticMediaControlEnabled: Flow<Boolean> = context.airPodsPreferences.data
         .catch { emit(emptyPreferences()) }
         .map { it[Keys.automaticMediaControlEnabled] ?: true }
+
+    val headGesturesEnabled: Flow<Boolean> = context.airPodsPreferences.data
+        .catch { emit(emptyPreferences()) }
+        .map { it[Keys.headGesturesEnabled] ?: false }
+
+    val stemPressActions: Flow<StemPressActions> = context.airPodsPreferences.data
+        .catch { emit(emptyPreferences()) }
+        .map { preferences ->
+            StemPressActions(
+                leftLongPress = StemAction.fromStoredName(preferences[Keys.leftLongPressAction]),
+                rightLongPress = StemAction.fromStoredName(preferences[Keys.rightLongPressAction]),
+            )
+        }
 
     val modelOverride: Flow<AirPodsModel?> = context.airPodsPreferences.data
         .catch { emit(emptyPreferences()) }
@@ -513,6 +531,17 @@ class AirPodsDataStore(private val context: Context) {
 
     suspend fun setAutomaticMediaControlEnabled(enabled: Boolean) {
         context.airPodsPreferences.edit { it[Keys.automaticMediaControlEnabled] = enabled }
+    }
+
+    suspend fun setHeadGesturesEnabled(enabled: Boolean) {
+        context.airPodsPreferences.edit { it[Keys.headGesturesEnabled] = enabled }
+    }
+
+    suspend fun setStemPressActions(actions: StemPressActions) {
+        context.airPodsPreferences.edit { preferences ->
+            preferences[Keys.leftLongPressAction] = actions.leftLongPress.name
+            preferences[Keys.rightLongPressAction] = actions.rightLongPress.name
+        }
     }
 
     suspend fun setModelOverride(model: AirPodsModel?) {

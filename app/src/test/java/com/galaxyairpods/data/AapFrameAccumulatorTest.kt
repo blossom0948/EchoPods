@@ -70,6 +70,18 @@ class AapFrameAccumulatorTest {
         assertTrue(AapBatteryProtocol.parseFrame(valid.frames.single()) is AapFrame.Message)
     }
 
+    @Test
+    fun joinsPartialStemPressFrames() {
+        val accumulator = AapFrameAccumulator()
+        val stemPress = byteArrayOf(0x04, 0x00, 0x04, 0x00, 0x19, 0x00, 0x08, 0x01)
+
+        assertTrue(accumulator.append(stemPress.copyOfRange(0, 5)).frames.isEmpty())
+        val result = accumulator.append(stemPress.copyOfRange(5, stemPress.size))
+
+        assertEquals(1, result.frames.size)
+        assertEquals(stemPress.toList(), result.frames.single().toList())
+    }
+
     private fun accumulatorWasConnectResponse(frame: ByteArray): Boolean =
         frame.size == 18 && frame[0].toInt() == 0x01
 }

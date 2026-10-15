@@ -18,8 +18,8 @@ android {
         // the system confirmation UI. Later releases can return to target 35
         // after all users have crossed this bootstrap version.
         targetSdk = 33
-        versionCode = 41
-        versionName = "0.4.19"
+        versionCode = 42
+        versionName = "0.4.20"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -29,6 +29,10 @@ android {
 
     buildTypes {
         release {
+            // Keep the certificate used by the published sideload releases so
+            // Samsung PackageInstaller can update existing installations in place.
+            // Never check the local debug keystore into the repository.
+            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

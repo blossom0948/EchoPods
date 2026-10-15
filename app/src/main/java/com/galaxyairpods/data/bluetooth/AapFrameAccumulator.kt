@@ -91,6 +91,7 @@ internal class AapFrameAccumulator(
                         else BATTERY_HEADER_SIZE + count * COMPONENT_SIZE
                     }
                     AapBatteryProtocol.EAR_DETECTION_COMMAND -> EAR_MESSAGE_LENGTH
+                    AapBatteryProtocol.STEM_PRESS_COMMAND -> STEM_PRESS_LENGTH
                     else -> -1
                 }
             }
@@ -116,6 +117,7 @@ internal class AapFrameAccumulator(
         const val COMPONENT_SIZE = 5
         const val MAX_COMPONENTS = 64
         const val EAR_MESSAGE_LENGTH = 8
+        const val STEM_PRESS_LENGTH = 8
         const val MESSAGE_PACKET_TYPE = 0x0004
         val PLAUSIBLE_PACKET_TYPES = 0..4
     }

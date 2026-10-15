@@ -1,6 +1,9 @@
 package com.galaxyairpods.data.bluetooth
 
 import com.galaxyairpods.domain.control.AapControlId
+import com.galaxyairpods.domain.control.EarbudSide
+import com.galaxyairpods.domain.control.StemPressType
+import kotlin.math.roundToInt
 
 /**
  * Small, strict AAP (AirPods Accessory Protocol) codec used by the classic
@@ -16,6 +19,7 @@ internal object AapBatteryProtocol {
     const val CONVERSATION_AWARENESS_COMMAND = 0x004B
     const val INFORMATION_COMMAND = 0x001D
     const val HEAD_TRACKING_COMMAND = 0x0017
+    const val STEM_PRESS_COMMAND = 0x0019
 
     private val DATA_HEADER = byteArrayOf(0x04, 0x00, 0x04, 0x00)
 
@@ -190,6 +194,52 @@ internal object AapBatteryProtocol {
         )
     }
 
+    /** A stem event contains the physical press type and the originating bud. */
+    fun parseStemPress(frame: AapFrame.Message): AapStemPressSnapshot? {
+        if (frame.command != STEM_PRESS_COMMAND || frame.length != 8 || frame.payload.size != 2) return null
+        val pressType = StemPressType.fromWireValue(frame.payload[0].u8()) ?: return null
+        val side = EarbudSide.fromWireValue(frame.payload[1].u8()) ?: return null
+        return AapStemPressSnapshot(pressType = pressType, side = side)
+    }
+
+    /** Head-tracking notifications have a fixed sensor block in the AAP frame. */
+    fun parseHeadTracking(frame: AapFrame.Message): AapHeadTrackingSnapshot? {
+        if (frame.command != HEAD_TRACKING_COMMAND || frame.length < 70 || frame.payload.size < 64) return null
+        // AAP byte 8 identifies the orientation sensor packet family. Reject
+        // unrelated 0x17 control/status messages that happen to be long enough.
+        if (frame.payload[2].u8() != 0x10) return null
+        val orientation2 = signedLittleEndian16(frame.payload, HEAD_ORIENTATION_2_OFFSET)
+        val orientation3 = signedLittleEndian16(frame.payload, HEAD_ORIENTATION_3_OFFSET)
+        // Convert the coupled AirPods orientation axes into signed yaw/pitch
+        // hundredths of a degree. The sensor marker can still vary by model,
+        // so the consumer treats this as experimental and requires repeated,
+        // fresh directional evidence before acting.
+        val yaw = (((orientation2 - orientation3) / 2.0) / 32_000.0 * 18_000.0)
+            .roundToInt().coerceIn(-7_000, 7_000)
+        val pitch = (((orientation2 + orientation3) / 2.0) / 32_000.0 * 18_000.0)
+            .roundToInt().coerceIn(-9_000, 9_000)
+        return AapHeadTrackingSnapshot(
+            horizontal = yaw,
+            vertical = pitch,
+        )
+    }
+
+    /** Starts the short-lived AAP head-tracking stream used only during a call. */
+    val startHeadTrackingPacket: ByteArray = DATA_HEADER + byteArrayOf(
+        HEAD_TRACKING_COMMAND.toByte(), 0x00,
+        0x00, 0x00, 0x10, 0x00, 0x10, 0x00, 0x08, 0xA1.toByte(), 0x02,
+        0x42, 0x0B, 0x08, 0x0E, 0x10, 0x02, 0x1A, 0x05, 0x01,
+        0x40, 0x9C.toByte(), 0x00, 0x00,
+    )
+
+    /** Stops the head-tracking stream when the call ends or is handled. */
+    val stopHeadTrackingPacket: ByteArray = DATA_HEADER + byteArrayOf(
+        HEAD_TRACKING_COMMAND.toByte(), 0x00,
+        0x00, 0x00, 0x10, 0x00, 0x11, 0x00, 0x08, 0x7E, 0x10, 0x02,
+        0x42, 0x0B, 0x08, 0x4E, 0x10, 0x02, 0x1A, 0x05, 0x01,
+        0x00, 0x00, 0x00, 0x00,
+    )
+
     /**
      * Builds the same padded control packet shape used by the public AACP
      * implementations.  Values longer than four bytes are rejected rather
@@ -228,6 +278,9 @@ internal object AapBatteryProtocol {
         else -> null
     }
 
+    private fun signedLittleEndian16(bytes: ByteArray, offset: Int): Int =
+        (bytes[offset].u8() or (bytes[offset + 1].u8() shl 8)).toShort().toInt()
+
     private fun Int.toCharging(): Boolean? = when (this) {
         STATUS_CHARGING, STATUS_OPTIMIZED -> true
         STATUS_NOT_CHARGING, STATUS_DISCONNECTED -> false
@@ -243,6 +296,10 @@ internal object AapBatteryProtocol {
     private const val MAX_COMPONENTS = 64
     private const val COMPONENT_SIZE = 5
     private const val CONTROL_VALUE_SIZE = 4
+    // Offsets are relative to the AACP payload, after the 4-byte service and
+    // 2-byte command fields in the outer frame.
+    private const val HEAD_ORIENTATION_2_OFFSET = 45
+    private const val HEAD_ORIENTATION_3_OFFSET = 47
     private const val COMPONENT_LEFT = 0x04
     private const val COMPONENT_RIGHT = 0x02
     private const val COMPONENT_CASE = 0x08
@@ -311,4 +368,14 @@ internal data class AapEarDetectionSnapshot(
 internal data class AapControlSnapshot(
     val identifier: AapControlId,
     val value: ByteArray,
+)
+
+internal data class AapStemPressSnapshot(
+    val pressType: StemPressType,
+    val side: EarbudSide,
+)
+
+internal data class AapHeadTrackingSnapshot(
+    val horizontal: Int,
+    val vertical: Int,
 )

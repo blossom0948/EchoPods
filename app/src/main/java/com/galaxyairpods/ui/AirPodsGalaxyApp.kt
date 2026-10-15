@@ -42,6 +42,8 @@ fun AirPodsGalaxyApp(viewModel: AppViewModel = viewModel()) {
     val backgroundDetection by viewModel.backgroundDetection.collectAsStateWithLifecycle()
     val wearDetectionEnabled by viewModel.wearDetectionEnabled.collectAsStateWithLifecycle()
     val automaticMediaControlEnabled by viewModel.automaticMediaControlEnabled.collectAsStateWithLifecycle()
+    val headGesturesEnabled by viewModel.headGesturesEnabled.collectAsStateWithLifecycle()
+    val stemPressActions by viewModel.stemPressActions.collectAsStateWithLifecycle()
     val aapControlState by viewModel.aapControlState.collectAsStateWithLifecycle()
     val modelOverride by viewModel.modelOverride.collectAsStateWithLifecycle()
     val scanStatus by viewModel.scanStatus.collectAsStateWithLifecycle()
@@ -82,6 +84,8 @@ fun AirPodsGalaxyApp(viewModel: AppViewModel = viewModel()) {
                         backgroundDetection = backgroundDetection,
                         wearDetectionEnabled = wearDetectionEnabled,
                         automaticMediaControlEnabled = automaticMediaControlEnabled,
+                        headGesturesEnabled = headGesturesEnabled,
+                        stemPressActions = stemPressActions,
                         aapControlState = aapControlState,
                         modelOverride = modelOverride,
                         reducedMotion = reducedMotion,
@@ -91,6 +95,8 @@ fun AirPodsGalaxyApp(viewModel: AppViewModel = viewModel()) {
                         onBackgroundDetectionChange = viewModel::setBackgroundDetection,
                         onWearDetectionChange = viewModel::setWearDetectionEnabled,
                         onAutomaticMediaControlChange = viewModel::setAutomaticMediaControlEnabled,
+                        onHeadGesturesChange = viewModel::setHeadGesturesEnabled,
+                        onStemPressActionsChange = viewModel::setStemPressActions,
                         onListeningModeChange = viewModel::setListeningMode,
                         onAapBooleanChange = viewModel::setAapBoolean,
                         onMicrophoneModeChange = viewModel::setMicrophoneMode,
