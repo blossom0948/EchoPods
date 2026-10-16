@@ -69,6 +69,7 @@ import kotlin.math.abs
 
 enum class IslandType {
     CONNECTED,
+    CASE_OPENED,
     TAKING_OVER,
     MOVED_TO_REMOTE,
     MOVED_TO_OTHER_DEVICE,
@@ -226,16 +227,6 @@ class IslandWindow(private val context: Context) {
             batteryBg.visibility = View.VISIBLE
         }
 
-        val batteryIntentFilter = IntentFilter(AirPodsNotifications.BATTERY_DATA)
-        batteryIntentFilter.addAction(AirPodsNotifications.DISCONNECT_RECEIVERS)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(batteryReceiver, batteryIntentFilter, Context.RECEIVER_EXPORTED)
-        } else {
-            context.registerReceiver(batteryReceiver, batteryIntentFilter)
-        }
-
-        ServiceManager.getService()?.sendBatteryBroadcast()
-
         containerView.removeAllViews()
         val containerParams = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
@@ -355,6 +346,9 @@ class IslandWindow(private val context: Context) {
             IslandType.CONNECTED -> {
                 islandView.findViewById<TextView>(R.id.island_connected_text).text = context.getString(R.string.island_connected_text)
             }
+            IslandType.CASE_OPENED -> {
+                islandView.findViewById<TextView>(R.id.island_connected_text).text = context.getString(R.string.island_case_opened_text)
+            }
             IslandType.TAKING_OVER -> {
                 islandView.findViewById<TextView>(R.id.island_connected_text).text = context.getString(R.string.island_taking_over_text)
             }
@@ -376,17 +370,39 @@ class IslandWindow(private val context: Context) {
         val videoView = islandView.findViewById<VideoView>(R.id.island_video_view)
         val videoUri = "android.resource://me.kavishdevar.librepods/${R.raw.island}".toUri()
         videoView.setAudioFocusRequest(AudioManager.AUDIOFOCUS_NONE)
-        videoView.setVideoURI(videoUri)
+        videoView.setOnErrorListener { _, what, extra ->
+            e("IslandWindow", "Decorative video unavailable (what=$what, extra=$extra)")
+            videoView.setBackgroundResource(R.drawable.airpods)
+            videoView.visibility = View.VISIBLE
+            true // Never let VideoView show its default AlertDialog from an overlay.
+        }
         videoView.setOnPreparedListener { mediaPlayer ->
             mediaPlayer.isLooping = true
-            videoView.start()
+            if (!isClosing && containerView.parent != null) videoView.start()
         }
-
         try {
             windowManager.addView(containerView, params)
         } catch (e: Exception) {
-            e.printStackTrace()
+            e("IslandWindow", "Unable to attach island overlay", e)
+            ServiceManager.getService()?.islandOpen = false
+            return
         }
+
+        val batteryIntentFilter = IntentFilter(AirPodsNotifications.BATTERY_DATA).apply {
+            addAction(AirPodsNotifications.DISCONNECT_RECEIVERS)
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.registerReceiver(batteryReceiver, batteryIntentFilter, Context.RECEIVER_EXPORTED)
+            } else {
+                context.registerReceiver(batteryReceiver, batteryIntentFilter)
+            }
+            ServiceManager.getService()?.sendBatteryBroadcast()
+        } catch (e: Exception) {
+            e("IslandWindow", "Unable to register battery updates", e)
+        }
+
+        videoView.setVideoURI(videoUri)
 
         islandView.post {
             initialHeight = islandView.height

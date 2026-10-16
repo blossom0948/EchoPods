@@ -130,7 +130,7 @@ class PopupWindow(
     }
 
     @SuppressLint("InlinedApi", "SetTextI18s")
-    fun open(name: String = "AirPods Pro", batteryNotification: AirPodsNotifications.BatteryNotification) {
+    fun open(name: String = "AirPods Pro", batteryNotification: AirPodsNotifications.BatteryNotification): Boolean {
         try {
             if (mView.windowToken == null && mView.parent == null && !isClosing) {
                 mView.findViewById<TextView>(R.id.name).text = name
@@ -139,23 +139,30 @@ class PopupWindow(
 
                 val vid = mView.findViewById<VideoView>(R.id.video)
                 vid.setAudioFocusRequest(AudioManager.AUDIOFOCUS_NONE)
-                vid.setVideoPath("android.resource://me.kavishdevar.librepods/" + R.raw.connected)
-                vid.resolveAdjustedSize(vid.width, vid.height)
-                vid.start()
-                vid.setOnCompletionListener {
-                    vid.start()
+                vid.setOnErrorListener { _, what, extra ->
+                    Log.w("PopupWindow", "Decorative video unavailable (what=$what, extra=$extra)")
+                    vid.visibility = View.GONE
+                    true // Consume the error; VideoView's default dialog crashes for overlays.
                 }
+                vid.setOnPreparedListener {
+                    if (!isClosing && mView.parent != null) vid.start()
+                }
+                vid.setOnCompletionListener {
+                    if (!isClosing && mView.parent != null) vid.start()
+                }
+                val screenHeight = mView.context.resources.displayMetrics.heightPixels
+                mView.visibility = View.VISIBLE
+                mView.translationY = screenHeight.toFloat()
 
                 try {
                     mWindowManager.addView(mView, mParams)
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    Log.e("PopupWindow", "Unable to attach popup overlay", e)
+                    onCloseCallback()
+                    return false
                 }
+                vid.setVideoPath("android.resource://me.kavishdevar.librepods/" + R.raw.connected)
 
-                val displayMetrics = mView.context.resources.displayMetrics
-                val screenHeight = displayMetrics.heightPixels
-
-                mView.translationY = screenHeight.toFloat()
                 mView.alpha = 1f
 
                 val translationY = PropertyValuesHolder.ofFloat(View.TRANSLATION_Y, screenHeight.toFloat(), 0f)
@@ -170,11 +177,20 @@ class PopupWindow(
 
                 autoCloseRunnable = Runnable { close() }
                 autoCloseHandler.postDelayed(autoCloseRunnable!!, 12000)
+                return true
             }
         } catch (e: Exception) {
-            Log.e("PopupWindow", "Error opening popup: ${e.message}")
+            Log.e("PopupWindow", "Error opening popup", e)
+            try {
+                mView.findViewById<VideoView>(R.id.video).stopPlayback()
+                if (mView.parent != null) mWindowManager.removeViewImmediate(mView)
+                mView.visibility = View.GONE
+            } catch (cleanupError: Exception) {
+                Log.w("PopupWindow", "Popup cleanup failed", cleanupError)
+            }
             onCloseCallback()
         }
+        return false
     }
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")

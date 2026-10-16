@@ -1,6 +1,6 @@
 import java.util.Properties
 
-val appVersionName = "0.5.1"
+val appVersionName = "0.5.2"
 
 plugins {
     alias(libs.plugins.android.application)
@@ -50,7 +50,7 @@ android {
         applicationId = "com.galaxyairpods"
         minSdk = 33
         targetSdk = 37
-        versionCode = 44
+        versionCode = 45
         versionName = appVersionName
         buildConfigField("Boolean", "PLAY_BUILD", "false")
     }

@@ -98,6 +98,7 @@ import me.kavishdevar.librepods.data.AirPodsModels
 import me.kavishdevar.librepods.data.AirPodsNotifications
 import me.kavishdevar.librepods.data.Battery
 import me.kavishdevar.librepods.data.BatteryComponent
+import me.kavishdevar.librepods.data.ConnectionPopupStyle
 import me.kavishdevar.librepods.data.BatteryStatus
 import me.kavishdevar.librepods.data.Capability
 import me.kavishdevar.librepods.data.CustomEq
@@ -291,10 +292,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         ) {
             if (lidOpen) {
                 Log.d(TAG, "Lid opened")
-                showPopup(
+                showConnectionPopup(
                     this@AirPodsService,
                     getSharedPreferences("settings", MODE_PRIVATE).getString("name", "AirPods Pro")
-                        ?: "AirPods"
+                        ?: "AirPods",
+                    IslandType.CASE_OPENED
                 )
                 if (BluetoothConnectionManager.aacpSocket?.isConnected == true) return
                 val leftLevel = bleManager.getMostRecentStatus()?.leftBattery ?: 0
@@ -728,11 +730,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 if (intent?.action == "me.kavishdevar.librepods.cross_device_island") {
                     showIsland(
                         this@AirPodsService,
-                        batteryNotification.getBattery()
-                            .find { it.component == BatteryComponent.LEFT }?.level!!.coerceAtMost(
-                                batteryNotification.getBattery()
-                                    .find { it.component == BatteryComponent.RIGHT }?.level!!
-                            )
+                        lowestKnownBatteryLevel()
                     )
                 } else if (intent?.action == AirPodsNotifications.DISCONNECT_RECEIVERS) {
                     try {
@@ -1270,13 +1268,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     false, false
                 ) && islandWindow?.isVisible != true
             ) {
-                showIsland(
+                showConnectionPopup(
                     this@AirPodsService,
-                    (batteryNotification.getBattery()
-                        .find { it.component == BatteryComponent.LEFT }?.level ?: 0).coerceAtMost(
-                        batteryNotification.getBattery()
-                            .find { it.component == BatteryComponent.RIGHT }?.level ?: 0
-                    )
+                    sharedPreferences.getString("name", "AirPods Pro") ?: "AirPods",
+                    IslandType.CONNECTED
                 )
             }
 
@@ -1672,10 +1667,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
 
     var popupShown = false
+
     fun showPopup(service: Service, name: String) {
-        if (!sharedPreferences.getBoolean("show_bottom_sheet_popup", true)) {
-            return
-        }
         if (!Settings.canDrawOverlays(service)) {
             Log.d(TAG, "No permission for SYSTEM_ALERT_WINDOW")
             return
@@ -1683,10 +1676,42 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         if (popupShown) {
             return
         }
-        val popupWindow = PopupWindow(service.applicationContext)
-        popupWindow.open(name, batteryNotification)
         popupShown = true
+        val popupWindow = PopupWindow(service.applicationContext) {
+            popupShown = false
+        }
+        if (!popupWindow.open(name, batteryNotification)) {
+            popupShown = false
+        }
     }
+
+    fun showConnectionPopup(
+        service: Service,
+        name: String,
+        type: IslandType = IslandType.CONNECTED
+    ) {
+        val style = ConnectionPopupStyle.fromPreferences(
+            storedValue = sharedPreferences.getString("connection_popup_style", null),
+            legacyBottomSheetEnabled = sharedPreferences.getBoolean("show_bottom_sheet_popup", true),
+            legacyIslandEnabled = sharedPreferences.getBoolean("show_island_popup", true)
+        )
+        when (style) {
+            ConnectionPopupStyle.BOTTOM_SHEET -> showPopup(service, name)
+            ConnectionPopupStyle.DYNAMIC_ISLAND -> showIsland(
+                service = service,
+                batteryPercentage = lowestKnownBatteryLevel(),
+                type = type,
+                respectLegacyPreference = false
+            )
+        }
+    }
+
+    private fun lowestKnownBatteryLevel(): Int = batteryNotification.getBattery()
+        .asSequence()
+        .filter { it.component == BatteryComponent.LEFT || it.component == BatteryComponent.RIGHT }
+        .map { it.level }
+        .filter { it in 1..100 }
+        .minOrNull() ?: 0
 
     var islandOpen = false
     var islandWindow: IslandWindow? = null
@@ -1697,10 +1722,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         batteryPercentage: Int,
         type: IslandType = IslandType.CONNECTED,
         reversed: Boolean = false,
-        otherDeviceName: String? = null
+        otherDeviceName: String? = null,
+        respectLegacyPreference: Boolean = true
     ) {
         Log.d(TAG, "Showing island window")
-        if (!sharedPreferences.getBoolean("show_island_popup", true)) {
+        if (respectLegacyPreference && !sharedPreferences.getBoolean("show_island_popup", true)) {
             return
         }
         if (!Settings.canDrawOverlays(service)) {
@@ -1708,8 +1734,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             return
         }
         CoroutineScope(Dispatchers.Main).launch {
-            islandWindow = IslandWindow(service.applicationContext)
-            islandWindow!!.show(
+            if (islandOpen || islandWindow?.isVisible == true) return@launch
+            val window = IslandWindow(service.applicationContext)
+            islandWindow = window
+            window.show(
                 sharedPreferences.getString("name", "AirPods Pro").toString(),
                 batteryPercentage,
                 this@AirPodsService,
@@ -1751,22 +1779,22 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     fun startForegroundNotification() {
         val disconnectedNotificationChannel = NotificationChannel(
             "background_service_status",
-            "Background Service Status",
+            getString(R.string.notification_channel_background),
             NotificationManager.IMPORTANCE_NONE
         )
 
         val connectedNotificationChannel = NotificationChannel(
             "airpods_connection_status",
-            "AirPods Connection Status",
+            getString(R.string.notification_channel_connection),
             NotificationManager.IMPORTANCE_LOW,
         )
 
         val socketFailureChannel = NotificationChannel(
             "socket_connection_failure",
-            "AirPods BluetoothConnectionManager.aacpSocket? Connection Issues",
+            getString(R.string.notification_channel_connection_issues),
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "Notifications about problems connecting to AirPods protocol"
+            description = getString(R.string.notification_channel_connection_issues_description)
             enableLights(true)
             lightColor = Color.RED
             enableVibration(true)
@@ -1790,8 +1818,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         )
 
         val notification = NotificationCompat.Builder(this, "background_service_status")
-            .setSmallIcon(R.drawable.airpods).setContentTitle("Background Service Running")
-            .setContentText("Useless notification, disable it by clicking on it.")
+            .setSmallIcon(R.drawable.airpods).setContentTitle(getString(R.string.notification_background_running))
+            .setContentText(getString(R.string.notification_disable_background))
             .setContentIntent(pendingIntentNotifDisable).setCategory(Notification.CATEGORY_SERVICE)
             .setPriority(NotificationCompat.PRIORITY_LOW).setOngoing(true).build()
 
@@ -1824,8 +1852,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         )
 
         val notification = NotificationCompat.Builder(this, "socket_connection_failure")
-            .setSmallIcon(R.drawable.airpods).setContentTitle("AirPods Connection Issue")
-            .setContentText("Unable to connect to AirPods over L2CAP").setStyle(
+            .setSmallIcon(R.drawable.airpods).setContentTitle(getString(R.string.notification_connection_issue))
+            .setContentText(getString(R.string.notification_l2cap_connection_failed)).setStyle(
                 NotificationCompat.BigTextStyle().bigText(
                     "Your AirPods are connected via Bluetooth, but AirPods Galaxy couldn't connect using L2CAP. Error: $errorMessage"
                 )
@@ -2521,13 +2549,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 )
                 otherDeviceTookOver = false
                 connectAudio(this, device)
-                showIsland(
+                showConnectionPopup(
                     this,
-                    batteryNotification.getBattery()
-                        .find { it.component == BatteryComponent.LEFT }?.level!!.coerceAtMost(
-                            batteryNotification.getBattery()
-                                .find { it.component == BatteryComponent.RIGHT }?.level!!
-                        ),
+                    sharedPreferences.getString("name", "AirPods Pro") ?: "AirPods",
                     IslandType.CONNECTED
                 )
 
@@ -2634,11 +2658,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
         showIsland(
             this,
-            batteryNotification.getBattery()
-                .find { it.component == BatteryComponent.LEFT }?.level!!.coerceAtMost(
-                    batteryNotification.getBattery()
-                        .find { it.component == BatteryComponent.RIGHT }?.level!!
-                ),
+            lowestKnownBatteryLevel(),
             IslandType.TAKING_OVER
         )
 
@@ -2860,11 +2880,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         Log.d(TAG, "Disconnected from AirPods, showing island.")
         showIsland(
             this,
-            batteryNotification.getBattery()
-                .find { it.component == BatteryComponent.LEFT }?.level!!.coerceAtMost(
-                    batteryNotification.getBattery()
-                        .find { it.component == BatteryComponent.RIGHT }?.level!!
-                ),
+            lowestKnownBatteryLevel(),
             IslandType.MOVED_TO_REMOTE
         )
         val bluetoothAdapter = getSystemService(BluetoothManager::class.java).adapter

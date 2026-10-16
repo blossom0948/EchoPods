@@ -109,6 +109,8 @@ fun HeadTrackingScreen(viewModel: AirPodsViewModel, navigateToPurchase: () -> Un
     val isDarkTheme = isSystemInDarkTheme()
     if (isDarkTheme) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
     val textColor = if (isDarkTheme) Color.White else Color.Black
+    val yesGestureDetectedText = stringResource(R.string.yes_gesture_detected)
+    val noGestureDetectedText = stringResource(R.string.no_gesture_detected)
 
     val backdrop = rememberLayerBackdrop()
 
@@ -159,7 +161,7 @@ fun HeadTrackingScreen(viewModel: AirPodsViewModel, navigateToPurchase: () -> Un
             }
 
             StyledToggle(
-                label = "Head Gestures",
+                label = stringResource(R.string.head_gestures),
                 checked = state.headGesturesEnabled,
                 onCheckedChange = { viewModel.setHeadGesturesEnabled(it) },
                 enabled = state.isPremium || state.headGesturesEnabled,
@@ -170,8 +172,9 @@ fun HeadTrackingScreen(viewModel: AirPodsViewModel, navigateToPurchase: () -> Un
             Spacer(modifier = Modifier.height(16.dp))
 
             Spacer(modifier = Modifier.height(16.dp))
+            val velocityLabel = stringResource(R.string.head_tracking_velocity)
             Text(
-                "Velocity",
+                velocityLabel,
                 style = TextStyle(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
@@ -180,7 +183,10 @@ fun HeadTrackingScreen(viewModel: AirPodsViewModel, navigateToPurchase: () -> Un
                 ),
                 modifier = Modifier.padding(start = 16.dp, bottom = 8.dp, top = 8.dp)
             )
-            Plot()
+            Plot(
+                horizontalLabel = stringResource(R.string.head_tracking_horizontal),
+                verticalLabel = stringResource(R.string.head_tracking_vertical)
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -200,7 +206,7 @@ fun HeadTrackingScreen(viewModel: AirPodsViewModel, navigateToPurchase: () -> Un
                 gestureText = gestureTextValue
                 coroutineScope.launch {
                     val accepted = ServiceManager.getService()?.testHeadGestures() ?: false
-                    gestureText = if (accepted) "\"Yes\" gesture detected." else "\"No\" gesture detected."
+                    gestureText = if (accepted) yesGestureDetectedText else noGestureDetectedText
                 }
             },
             backdrop = backdrop,
@@ -210,7 +216,7 @@ fun HeadTrackingScreen(viewModel: AirPodsViewModel, navigateToPurchase: () -> Un
             maxScale = 0.05f
         ) {
             Text(
-                "Test Head Gestures",
+                stringResource(R.string.test_head_gestures),
                 style = TextStyle(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
@@ -272,7 +278,7 @@ fun HeadTrackingScreen(viewModel: AirPodsViewModel, navigateToPurchase: () -> Un
 }
 
 @Composable
-private fun Plot() {
+private fun Plot(horizontalLabel: String, verticalLabel: String) {
     val acceleration by HeadTracking.acceleration.collectAsState()
     val maxPoints = 100
     val points = remember { mutableStateListOf<Pair<Float, Float>>() }
@@ -387,7 +393,7 @@ private fun Plot() {
                         textSize = 12.sp.toPx()
                         textAlign = Paint.Align.LEFT
                     }
-                    drawText("Horizontal", width - 140.dp.toPx(), textOffsetY, paint)
+                    drawText(horizontalLabel, width - 140.dp.toPx(), textOffsetY, paint)
                 }
 
                 drawCircle(verticalColor, 5.dp.toPx(), Offset(width - 70.dp.toPx(), legendY))
@@ -397,7 +403,7 @@ private fun Plot() {
                         textSize = 12.sp.toPx()
                         textAlign = Paint.Align.LEFT
                     }
-                    drawText("Vertical", width - 60.dp.toPx(), textOffsetY, paint)
+                    drawText(verticalLabel, width - 60.dp.toPx(), textOffsetY, paint)
                 }
             }
         }

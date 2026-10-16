@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import me.kavishdevar.librepods.BuildConfig
 import me.kavishdevar.librepods.billing.BillingManager
+import me.kavishdevar.librepods.data.ConnectionPopupStyle
 import me.kavishdevar.librepods.data.XposedRemotePrefProvider
 import kotlin.math.roundToInt
 
@@ -34,8 +35,7 @@ data class AppSettingsUiState(
     val vendorIdHook: Boolean = false,
     val isPremium: Boolean = false,
     val connectionSuccessful: Boolean = false,
-    val showBottomSheetPopup: Boolean = true,
-    val showIslandPopup: Boolean = true,
+    val connectionPopupStyle: ConnectionPopupStyle = ConnectionPopupStyle.BOTTOM_SHEET,
     val timeUntilFOSSPremiumExpiry: Long = 0L,
     val m3eEnabled: Boolean = false
 )
@@ -133,6 +133,17 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
             }
         }
 
+        val popupStyle = ConnectionPopupStyle.fromPreferences(
+            storedValue = sharedPreferences.getString("connection_popup_style", null),
+            legacyBottomSheetEnabled = sharedPreferences.getBoolean("show_bottom_sheet_popup", true),
+            legacyIslandEnabled = sharedPreferences.getBoolean("show_island_popup", true)
+        )
+        if (!sharedPreferences.contains("connection_popup_style")) {
+            sharedPreferences.edit {
+                putString("connection_popup_style", popupStyle.preferenceValue)
+            }
+        }
+
         _uiState.update { currentState ->
             currentState.copy(
                 showPhoneBatteryInWidget = sharedPreferences.getBoolean("show_phone_battery_in_widget", false),
@@ -150,8 +161,7 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
                 cameraPackageValue = sharedPreferences.getString("custom_camera_package", "") ?: "",
                 vendorIdHook = xposedRemotePref.getBoolean("vendor_id_hook", false),
                 connectionSuccessful = sharedPreferences.getBoolean("connection_successful", false),
-                showBottomSheetPopup = sharedPreferences.getBoolean("show_bottom_sheet_popup", true),
-                showIslandPopup = sharedPreferences.getBoolean("show_island_popup", true),
+                connectionPopupStyle = popupStyle,
                 m3eEnabled = sharedPreferences.getBoolean("m3e_enabled", true)
             )
         }
@@ -243,14 +253,9 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
         _uiState.update { it.copy(vendorIdHook = enabled) }
     }
 
-    fun setShowBottomSheetPopup(enabled: Boolean) {
-        sharedPreferences.edit { putBoolean("show_bottom_sheet_popup", enabled) }
-        _uiState.update { it.copy(showBottomSheetPopup = enabled) }
-    }
-
-    fun setShowIslandPopup(enabled: Boolean) {
-        sharedPreferences.edit { putBoolean("show_island_popup", enabled) }
-        _uiState.update { it.copy(showIslandPopup = enabled) }
+    fun setConnectionPopupStyle(style: ConnectionPopupStyle) {
+        sharedPreferences.edit { putString("connection_popup_style", style.preferenceValue) }
+        _uiState.update { it.copy(connectionPopupStyle = style) }
     }
 
     fun setm3eEnabled(enabled: Boolean) {

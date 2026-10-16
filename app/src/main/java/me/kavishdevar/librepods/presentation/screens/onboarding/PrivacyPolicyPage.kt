@@ -40,68 +40,68 @@ fun PrivacyPolicyPage(
         ) {
             Spacer(modifier = Modifier.height(24.dp))
             Text(
-                text = "Last updated: 16 October 2026",
+                text = stringResource(R.string.privacy_last_updated),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Text(
-                text = "Overview",
+                text = stringResource(R.string.privacy_overview),
                 style = MaterialTheme.typography.titleLarge
             )
 
             Text(
-                text = "AirPods Galaxy does not collect, store, sell, or share personal information for advertising, analytics, tracking, or profiling. The app does not include analytics, advertising SDKs, or tracking services.",
+                text = stringResource(R.string.privacy_overview_text),
                 style = MaterialTheme.typography.bodyMedium
             )
 
             Text(
-                text = "Bluetooth observations and app settings are processed on your device. The app contacts GitHub to check for releases and download an update when one is available. GitHub may receive normal request metadata such as your network address and app version.",
+                text = stringResource(R.string.privacy_local_processing),
                 style = MaterialTheme.typography.bodyMedium
             )
 
             Text(
-                text = "Third Party Services",
+                text = stringResource(R.string.privacy_third_party),
                 style = MaterialTheme.typography.titleLarge
             )
 
             Text(
-                text = "The app links to the AirPods Galaxy GitHub repository for source code and issue reports. It does not send diagnostics or device information automatically.",
+                text = stringResource(R.string.privacy_third_party_text),
                 style = MaterialTheme.typography.bodyMedium
             )
 
             Text(
-                text = "GitHub issue reports",
+                text = stringResource(R.string.privacy_github_reports),
                 style = MaterialTheme.typography.titleMedium
             )
 
             Text(
-                text = "If you choose to create an issue from the app, your browser opens GitHub with the title and details you entered, plus the app version and device model for troubleshooting. Nothing is submitted until you review and submit it on GitHub.",
+                text = stringResource(R.string.privacy_github_report_text),
                 style = MaterialTheme.typography.bodyMedium
             )
 
             Text(
-                text = "You can edit or remove any pre-filled information before submitting the issue.",
+                text = stringResource(R.string.privacy_prefill_edit),
                 style = MaterialTheme.typography.bodyMedium
             )
 
             Text(
-                text = "Project repository",
+                text = stringResource(R.string.privacy_project_repository),
                 style = MaterialTheme.typography.titleMedium
             )
 
             Text(
-                text = "The app provides a link to the public AirPods Galaxy GitHub repository. Opening it is optional and subject to GitHub's privacy policy.",
+                text = stringResource(R.string.privacy_repository_text),
                 style = MaterialTheme.typography.bodyMedium
             )
 
             Text(
-                text = "GitHub Issues",
+                text = stringResource(R.string.privacy_github_issues),
                 style = MaterialTheme.typography.titleMedium
             )
 
             Text(
-                text = "When opening a GitHub issue from AirPods Galaxy, the app may pre-fill:",
+                text = stringResource(R.string.privacy_issue_prefill_intro),
                 style = MaterialTheme.typography.bodyMedium
             )
 
@@ -110,43 +110,43 @@ fun PrivacyPolicyPage(
                 modifier = Modifier.padding(start = 8.dp)
             ) {
                 Text(
-                    "• AirPods Galaxy version name and version code",
+                    stringResource(R.string.privacy_prefill_version),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
-                    text = "• Device manufacturer and model",
+                    text = stringResource(R.string.privacy_prefill_device),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
-                    text = "• Android build information",
+                    text = stringResource(R.string.privacy_prefill_android),
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
 
             Text(
-                text = "This information is only sent to GitHub if you review and submit the issue.",
+                text = stringResource(R.string.privacy_issue_submission),
                 style = MaterialTheme.typography.bodyMedium
             )
 
             Text(
-                text = "Payments",
+                text = stringResource(R.string.privacy_payments),
                 style = MaterialTheme.typography.titleLarge,
             )
             Text(
-                text = "No paid features",
+                text = stringResource(R.string.privacy_no_paid_features),
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(
-                text = "All app-level AirPods Galaxy features are available without payment or a subscription. The app does not process payments or collect billing information.",
+                text = stringResource(R.string.privacy_payment_text),
                 style = MaterialTheme.typography.bodyMedium,
             )
 
             Text(
-                text = "Contact", style = MaterialTheme.typography.titleLarge
+                text = stringResource(R.string.contact), style = MaterialTheme.typography.titleLarge
             )
 
             Text(
-                text = "For questions or privacy requests, open an issue at github.com/blossom0948/Galaxy-AirPods.",
+                text = stringResource(R.string.privacy_contact_text),
                 style = MaterialTheme.typography.bodyMedium
             )
 

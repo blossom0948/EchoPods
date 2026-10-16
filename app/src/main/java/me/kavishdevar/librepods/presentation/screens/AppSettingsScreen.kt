@@ -53,6 +53,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -86,6 +87,7 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import me.kavishdevar.librepods.BuildConfig
 import me.kavishdevar.librepods.R
+import me.kavishdevar.librepods.data.ConnectionPopupStyle
 import me.kavishdevar.librepods.presentation.components.AppInfoCard
 import me.kavishdevar.librepods.presentation.components.DeviceInfoCard
 import me.kavishdevar.librepods.presentation.components.StyledBottomSheet
@@ -94,6 +96,7 @@ import me.kavishdevar.librepods.presentation.components.StyledIconButton
 import me.kavishdevar.librepods.presentation.components.StyledInputField
 import me.kavishdevar.librepods.presentation.components.StyledList
 import me.kavishdevar.librepods.presentation.components.StyledListItem
+import me.kavishdevar.librepods.presentation.components.ListItemOrientation
 import me.kavishdevar.librepods.presentation.components.StyledSlider
 import me.kavishdevar.librepods.presentation.components.StyledToggle
 import me.kavishdevar.librepods.presentation.theme.DesignSystem
@@ -174,6 +177,42 @@ fun AppSettingsScreen(
             enabled = state.isPremium
         )
 
+        Spacer(modifier = Modifier.height(16.dp))
+        StyledList(title = stringResource(R.string.popup_animations)) {
+            StyledListItem(
+                name = stringResource(R.string.popup_style_bottom_sheet),
+                description = stringResource(R.string.popup_style_bottom_sheet_description),
+                orientation = ListItemOrientation.Vertical,
+                selected = state.connectionPopupStyle == ConnectionPopupStyle.BOTTOM_SHEET,
+                onClick = {
+                    viewModel.setConnectionPopupStyle(ConnectionPopupStyle.BOTTOM_SHEET)
+                },
+                trailingContent = {
+                    RadioButton(
+                        selected = state.connectionPopupStyle == ConnectionPopupStyle.BOTTOM_SHEET,
+                        onClick = null
+                    )
+                }
+            )
+
+            StyledListItem(
+                name = stringResource(R.string.popup_style_dynamic_island),
+                description = stringResource(R.string.popup_style_dynamic_island_description),
+                orientation = ListItemOrientation.Vertical,
+                selected = state.connectionPopupStyle == ConnectionPopupStyle.DYNAMIC_ISLAND,
+                onClick = {
+                    viewModel.setConnectionPopupStyle(ConnectionPopupStyle.DYNAMIC_ISLAND)
+                },
+                trailingContent = {
+                    RadioButton(
+                        selected = state.connectionPopupStyle == ConnectionPopupStyle.DYNAMIC_ISLAND,
+                        onClick = null
+                    )
+                }
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+
         if (state.connectionSuccessful) {
             StyledToggle(
                 title = stringResource(R.string.widget),
@@ -183,22 +222,6 @@ fun AppSettingsScreen(
                 onCheckedChange = viewModel::setShowPhoneBatteryInWidget,
                 enabled = state.isPremium
             )
-
-            StyledList(title = stringResource(R.string.popup_animations)) {
-                StyledToggle(
-                    label = stringResource(R.string.show_bottom_sheet_popup),
-                    description = stringResource(R.string.show_bottom_sheet_popup_description),
-                    checked = state.showBottomSheetPopup,
-                    onCheckedChange = viewModel::setShowBottomSheetPopup,
-                )
-
-                StyledToggle(
-                    label = stringResource(R.string.show_island_popup),
-                    description = stringResource(R.string.show_island_popup_description),
-                    checked = state.showIslandPopup,
-                    onCheckedChange = viewModel::setShowIslandPopup,
-                )
-            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -482,7 +505,7 @@ fun AppSettingsScreen(
                         Toast.makeText(context, successText, Toast.LENGTH_SHORT).show()
                     }) {
                     Text(
-                        "Save",
+                        stringResource(R.string.save),
                         fontFamily = FontFamily.SansSerif,
                         fontWeight = FontWeight.Medium
                     )
@@ -491,7 +514,7 @@ fun AppSettingsScreen(
                 TextButton(
                     onClick = { viewModel.setShowCameraDialog(false) }) {
                     Text(
-                        "Cancel",
+                        stringResource(R.string.cancel),
                         fontFamily = FontFamily.SansSerif,
                         fontWeight = FontWeight.Medium
                     )

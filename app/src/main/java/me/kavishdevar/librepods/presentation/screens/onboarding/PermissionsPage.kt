@@ -37,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
@@ -46,6 +47,7 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.google.accompanist.permissions.rememberPermissionState
+import me.kavishdevar.librepods.R
 import me.kavishdevar.librepods.presentation.MaterialIcons
 import me.kavishdevar.librepods.presentation.components.ListItemOrientation
 import me.kavishdevar.librepods.presentation.components.StyledList
@@ -140,21 +142,21 @@ fun PermissionsPage(
                 .verticalScroll(scrollState),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            StyledList(title = "Required Permissions") {
+            StyledList(title = stringResource(R.string.required_permissions)) {
                 val animatedBluetoothIconColor by animateColorAsState(if (bluetoothPermissionsState.allPermissionsGranted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
                 val animatedBluetoothContainerColor by animateColorAsState(
                     if (bluetoothPermissionsState.allPermissionsGranted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest
                 )
 
                 StyledListItem(
-                    name = "Bluetooth",
+                    name = stringResource(R.string.bluetooth),
                     onClick = if (!bluetoothPermissionsState.allPermissionsGranted) {
                         {
                             grantingAll.value = false
                             bluetoothPermissionsState.launchMultiplePermissionRequest()
                         }
                     } else null,
-                    description = "Required to communicate with AirPods",
+                    description = stringResource(R.string.permission_bluetooth_description),
                     orientation = ListItemOrientation.Vertical,
                     leadingContent = {
                         Box(
@@ -169,7 +171,7 @@ fun PermissionsPage(
                         ) {
                             Icon(
                                 imageVector = MaterialIcons.bluetooth,
-                                contentDescription = "bluetooth",
+                                contentDescription = stringResource(R.string.bluetooth),
                                 modifier = Modifier.size(24.dp),
                                 tint = animatedBluetoothIconColor
                             )
@@ -177,7 +179,7 @@ fun PermissionsPage(
                     },
                 )
             }
-            StyledList(title = "Optional Permissions") {
+            StyledList(title = stringResource(R.string.optional_permissions)) {
                 val animatedNotificationsIconColor by animateColorAsState(
                     if (notificationPermissionState.status.isGranted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
                 )
@@ -190,14 +192,14 @@ fun PermissionsPage(
                 )
 
                 StyledListItem(
-                    name = "Notifications",
+                    name = stringResource(R.string.notifications),
                     onClick = if (!notificationPermissionState.status.isGranted) {
                         {
                             grantingAll.value = false
                             notificationPermissionState.launchPermissionRequest()
                         }
                     } else null,
-                    description = "Show battery status",
+                    description = stringResource(R.string.permission_notifications_description),
                     orientation = ListItemOrientation.Vertical,
                     leadingContent = {
                         Box(
@@ -212,7 +214,7 @@ fun PermissionsPage(
                         ) {
                             Icon(
                                 imageVector = MaterialIcons.notifications,
-                                contentDescription = "notifications",
+                                contentDescription = stringResource(R.string.notifications),
                                 modifier = Modifier.size(24.dp),
                                 tint = animatedNotificationsIconColor
                             )
@@ -220,14 +222,14 @@ fun PermissionsPage(
                     },
                 )
                 StyledListItem(
-                    name = "Phone",
+                    name = stringResource(R.string.phone_label),
                     onClick = if (!phonePermissionState.allPermissionsGranted) {
                         {
                             grantingAll.value = false
                             phonePermissionState.launchMultiplePermissionRequest()
                         }
                     } else null,
-                    description = "Respond to phone calls with head gestures",
+                    description = stringResource(R.string.permission_phone_description),
                     orientation = ListItemOrientation.Vertical,
                     leadingContent = {
                         Box(
@@ -242,7 +244,7 @@ fun PermissionsPage(
                         ) {
                             Icon(
                                 imageVector = MaterialIcons.call,
-                                contentDescription = "bluetooth",
+                                contentDescription = stringResource(R.string.phone_label),
                                 modifier = Modifier.size(24.dp),
                                 tint = animatedPhoneIconColor
                             )
@@ -255,14 +257,14 @@ fun PermissionsPage(
             val animatedOverlayContainerColor by animateColorAsState(if (canDrawOverlays.value) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest)
 
             StyledListItem(
-                name = "Display over other apps",
+                name = stringResource(R.string.permission_overlay),
                 onClick = if (!canDrawOverlays.value) {
                     {
                         grantingAll.value = false
                         openOverlayPermissionSettings()
                     }
                 } else null,
-                description = "Show popups when AirPods are nearby or audio switches to them.",
+                description = stringResource(R.string.permission_overlay_description),
                 orientation = ListItemOrientation.Vertical,
                 leadingContent = {
                     Box(
@@ -277,7 +279,7 @@ fun PermissionsPage(
                     ) {
                         Icon(
                             imageVector = MaterialIcons.stack,
-                            contentDescription = "bluetooth",
+                            contentDescription = stringResource(R.string.permission_overlay),
                             modifier = Modifier.size(24.dp),
                             tint = animatedOverlayIconColor
                         )
@@ -318,7 +320,7 @@ fun PermissionsPage(
                     enabled = !bluetoothPermissionsState.allPermissionsGranted || !notificationPermissionState.status.isGranted || !phonePermissionState.allPermissionsGranted || !canDrawOverlays.value
                 ) {
                     Text(
-                        text = "Grant all",
+                        text = stringResource(R.string.grant_all),
                         style = MaterialTheme.typography.labelMedium
                     )
                 }
