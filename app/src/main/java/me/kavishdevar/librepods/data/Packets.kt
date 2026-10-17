@@ -46,7 +46,12 @@ object BatteryStatus {
 }
 
 @Parcelize
-data class Battery(val component: Int, val level: Int, val status: Int) : Parcelable {
+data class Battery(
+    val component: Int,
+    val level: Int,
+    val status: Int,
+    val isLevelKnown: Boolean = level in 0..100,
+) : Parcelable {
     fun getComponentName(): String? {
         return when (component) {
             BatteryComponent.LEFT -> "LEFT"
@@ -154,9 +159,28 @@ class AirPodsNotifications {
     }
 
     class BatteryNotification {
-        private var first: Battery = Battery(BatteryComponent.LEFT, 0, BatteryStatus.DISCONNECTED)
-        private var second: Battery = Battery(BatteryComponent.RIGHT, 0, BatteryStatus.DISCONNECTED)
-        private var case: Battery = Battery(BatteryComponent.CASE, 0, BatteryStatus.DISCONNECTED)
+        private var first: Battery = Battery(BatteryComponent.LEFT, 0, BatteryStatus.DISCONNECTED, false)
+        private var second: Battery = Battery(BatteryComponent.RIGHT, 0, BatteryStatus.DISCONNECTED, false)
+        private var case: Battery = Battery(BatteryComponent.CASE, 0, BatteryStatus.DISCONNECTED, false)
+        private var firstSource = BatterySource.NONE
+        private var secondSource = BatterySource.NONE
+        private var caseSource = BatterySource.NONE
+
+        private enum class BatterySource {
+            NONE,
+            BLE,
+            AACP,
+        }
+
+        /** Restore percentages as stale observations; charging is never restored across a process. */
+        fun restoreLastKnownBattery(leftLevel: Int?, rightLevel: Int?, caseLevel: Int?) {
+            first = Battery(BatteryComponent.LEFT, leftLevel?.takeIf { it in 0..100 } ?: 0, BatteryStatus.DISCONNECTED, leftLevel?.let { it in 0..100 } == true)
+            second = Battery(BatteryComponent.RIGHT, rightLevel?.takeIf { it in 0..100 } ?: 0, BatteryStatus.DISCONNECTED, rightLevel?.let { it in 0..100 } == true)
+            case = Battery(BatteryComponent.CASE, caseLevel?.takeIf { it in 0..100 } ?: 0, BatteryStatus.DISCONNECTED, caseLevel?.let { it in 0..100 } == true)
+            firstSource = BatterySource.NONE
+            secondSource = BatterySource.NONE
+            caseSource = BatterySource.NONE
+        }
 
         fun isBatteryData(data: ByteArray): Boolean {
             if (data.joinToString("") { "%02x".format(it) }.startsWith("040004000400")) {
@@ -183,15 +207,76 @@ class AirPodsNotifications {
             first = Battery(BatteryComponent.LEFT, leftLevel, if (leftCharging) BatteryStatus.CHARGING else BatteryStatus.NOT_CHARGING)
             second = Battery(BatteryComponent.RIGHT, rightLevel, if (rightCharging) BatteryStatus.CHARGING else BatteryStatus.NOT_CHARGING)
             case = Battery(BatteryComponent.CASE, caseLevel, if (caseCharging) BatteryStatus.CHARGING else BatteryStatus.NOT_CHARGING)
+            firstSource = BatterySource.BLE
+            secondSource = BatterySource.BLE
+            caseSource = BatterySource.BLE
+        }
+
+        /** Merge public/encrypted BLE readings without allowing coarse data to replace an
+         * active AACP reading. Missing components are intentionally left untouched. */
+        fun mergeBleBattery(
+            leftLevel: Int?,
+            leftCharging: Boolean?,
+            rightLevel: Int?,
+            rightCharging: Boolean?,
+            caseLevel: Int?,
+            caseCharging: Boolean?,
+        ) {
+            first = mergeBleComponent(first, firstSource, leftLevel, leftCharging).also {
+                if (it !== first || (leftLevel != null && firstSource != BatterySource.AACP)) {
+                    firstSource = BatterySource.BLE
+                }
+            }
+            second = mergeBleComponent(second, secondSource, rightLevel, rightCharging).also {
+                if (it !== second || (rightLevel != null && secondSource != BatterySource.AACP)) {
+                    secondSource = BatterySource.BLE
+                }
+            }
+            case = mergeBleComponent(case, caseSource, caseLevel, caseCharging).also {
+                if (it !== case || (caseLevel != null && caseSource != BatterySource.AACP)) {
+                    caseSource = BatterySource.BLE
+                }
+            }
+        }
+
+        private fun mergeBleComponent(
+            previous: Battery,
+            source: BatterySource,
+            level: Int?,
+            charging: Boolean?,
+        ): Battery {
+            if (level == null || level !in 0..100) return previous
+            if (source == BatterySource.AACP && previous.status != BatteryStatus.DISCONNECTED) {
+                return previous
+            }
+            val status = when (charging) {
+                true -> BatteryStatus.CHARGING
+                false -> BatteryStatus.NOT_CHARGING
+                null -> previous.status.takeIf { it != BatteryStatus.DISCONNECTED }
+                    ?: BatteryStatus.NOT_CHARGING
+            }
+            return Battery(previous.component, level, status)
         }
 
         fun setBattery(data: ByteArray) {
             if (data.size != 22) {
                 return
             }
-            first = parseBatteryComponent(data, 7, 9, 10, first)
-            second = parseBatteryComponent(data, 12, 14, 15, second)
-            case = parseBatteryComponent(data, 17, 19, 20, case)
+            first = parseBatteryComponent(data, 7, 9, 10, first).also {
+                if (data[10].toInt() != BatteryStatus.DISCONNECTED && it !== first) {
+                    firstSource = BatterySource.AACP
+                }
+            }
+            second = parseBatteryComponent(data, 12, 14, 15, second).also {
+                if (data[15].toInt() != BatteryStatus.DISCONNECTED && it !== second) {
+                    secondSource = BatterySource.AACP
+                }
+            }
+            case = parseBatteryComponent(data, 17, 19, 20, case).also {
+                if (data[20].toInt() != BatteryStatus.DISCONNECTED && it !== case) {
+                    caseSource = BatterySource.AACP
+                }
+            }
         }
 
         private fun parseBatteryComponent(
@@ -213,7 +298,7 @@ class AirPodsNotifications {
             }
 
             if (status == BatteryStatus.DISCONNECTED) {
-                return Battery(previous.component, previous.level, status)
+                return Battery(previous.component, previous.level, status, previous.isLevelKnown)
             }
 
             val component = data[componentIndex].toInt()

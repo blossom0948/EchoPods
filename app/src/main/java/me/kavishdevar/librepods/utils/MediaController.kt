@@ -20,9 +20,12 @@
 
 package me.kavishdevar.librepods.utils
 
+import android.Manifest
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.media.AudioPlaybackConfiguration
+import android.media.AudioDeviceInfo
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -30,14 +33,16 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.KeyEvent
 import androidx.annotation.RequiresApi
+import androidx.core.content.ContextCompat
+import me.kavishdevar.librepods.services.MediaSessionResolver
 import me.kavishdevar.librepods.services.ServiceManager
 import kotlin.io.encoding.ExperimentalEncodingApi
 
 object MediaController {
     private var initialVolume: Int? = null
     private lateinit var audioManager: AudioManager
-    var iPausedTheMedia = false
-    var userPlayedTheMedia = false
+    @Volatile var iPausedTheMedia = false
+    @Volatile var userPlayedTheMedia = false
     private lateinit var sharedPreferences: SharedPreferences
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var preferenceChangeListener: SharedPreferences.OnSharedPreferenceChangeListener
@@ -63,8 +68,15 @@ object MediaController {
 
     var recentlyLostOwnership: Boolean = false
 
+    fun cancelAutoResumeAfterExternalMediaChange() {
+        iPausedTheMedia = false
+        userPlayedTheMedia = false
+        Log.i("MediaController", "Auto-resume cancelled because the paused media session changed or was manually resumed/stopped")
+    }
+
     private var lastPlayWithReplay: Boolean = false
     private var lastPlayTime: Long = 0L
+    @Volatile private var lastAirPodsAudioRouteAtMs: Long = 0L
 
     fun initialize(audioManager: AudioManager, sharedPreferences: SharedPreferences) {
         if (this::audioManager.isInitialized) {
@@ -123,6 +135,11 @@ object MediaController {
                 Log.d("MediaController", "Ignoring playback callback because it's likely caused by our own action (${now - lastSelfActionAt}ms since last self-action)")
                 lastKnownIsMusicActive = isActive
                 return
+            }
+
+            if (iPausedTheMedia && isActive) {
+                Log.i("MediaController", "External media playback resumed while auto-paused; cancelling wear auto-resume token")
+                cancelAutoResumeAfterExternalMediaChange()
             }
 
             Log.d("MediaController", "Configs received: ${configs?.size ?: 0} configurations")
@@ -204,7 +221,57 @@ object MediaController {
 
     @Synchronized
     fun getMusicActive(): Boolean {
-        return audioManager.isMusicActive
+        return audioManager.isMusicActive || MediaSessionResolver.hasPlayingSession()
+    }
+
+    @Synchronized
+    fun isAirPodsAudioRouteActive(logResult: Boolean = true): Boolean {
+        if (!this::audioManager.isInitialized) return false
+        val service = ServiceManager.getService() ?: return false
+        val pairedDevice = service.device ?: return false
+        val targetAddress = runCatching { pairedDevice.address }.getOrNull().orEmpty()
+        val canReadBluetoothName = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            ContextCompat.checkSelfPermission(
+                service,
+                Manifest.permission.BLUETOOTH_CONNECT,
+            ) == PackageManager.PERMISSION_GRANTED
+        val targetName = if (canReadBluetoothName) {
+            runCatching { pairedDevice.name }.getOrNull().orEmpty()
+        } else {
+            ""
+        }
+        if (targetAddress.isBlank() && targetName.isBlank()) return false
+
+        val bluetoothOutputTypes = setOf(
+            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+            AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+            AudioDeviceInfo.TYPE_BLE_HEADSET,
+            AudioDeviceInfo.TYPE_BLE_SPEAKER,
+        )
+        val outputs = runCatching { audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).toList() }
+            .getOrElse { return false }
+        val matched = outputs.any { output ->
+            if (output.type !in bluetoothOutputTypes) return@any false
+            val outputAddress = output.address.orEmpty()
+            val outputName = output.productName?.toString().orEmpty()
+            (targetAddress.isNotBlank() && outputAddress.equals(targetAddress, ignoreCase = true)) ||
+                (targetName.isNotBlank() && outputName.equals(targetName, ignoreCase = true))
+        }
+        if (matched) lastAirPodsAudioRouteAtMs = SystemClock.elapsedRealtime()
+        if (logResult) {
+            Log.d(
+                "MediaController",
+                "AirPods audio route active=$matched; bluetoothOutputs=${outputs.count { it.type in bluetoothOutputTypes }}"
+            )
+        }
+        return matched
+    }
+
+    @Synchronized
+    fun wasAirPodsAudioRouteActiveRecently(maxAgeMs: Long = 8_000L): Boolean {
+        if (isAirPodsAudioRouteActive()) return true
+        val lastActiveAt = lastAirPodsAudioRouteAtMs
+        return lastActiveAt > 0L && SystemClock.elapsedRealtime() - lastActiveAt <= maxAgeMs
     }
 
     @Synchronized
@@ -256,23 +323,15 @@ object MediaController {
 
     @Synchronized
     fun sendPause(force: Boolean = false) {
-        Log.d("MediaController", "Sending pause with iPausedTheMedia: $iPausedTheMedia, userPlayedTheMedia: $userPlayedTheMedia, isMusicActive: ${audioManager.isMusicActive}, force: $force")
-        if ((audioManager.isMusicActive) && (!userPlayedTheMedia || force)) {
-            iPausedTheMedia = if (force) audioManager.isMusicActive else true
+        val isPlaying = getMusicActive()
+        Log.d("MediaController", "Pause request: autoPaused=$iPausedTheMedia, userPlayed=$userPlayedTheMedia, playing=$isPlaying, force=$force")
+        if (isPlaying && (!userPlayedTheMedia || force)) {
+            val controlledBySession = MediaSessionResolver.pausePlayingSession()
+            if (!controlledBySession) dispatchMediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)
+            iPausedTheMedia = true
             userPlayedTheMedia = false
-            audioManager.dispatchMediaKeyEvent(
-                KeyEvent(
-                    KeyEvent.ACTION_DOWN,
-                    KeyEvent.KEYCODE_MEDIA_PAUSE
-                )
-            )
-            audioManager.dispatchMediaKeyEvent(
-                KeyEvent(
-                    KeyEvent.ACTION_UP,
-                    KeyEvent.KEYCODE_MEDIA_PAUSE
-                )
-            )
             lastSelfActionAt = SystemClock.uptimeMillis()
+            Log.i("MediaController", "Pause dispatched via ${if (controlledBySession) "MediaSession" else "media-key fallback"}")
         }
     }
 
@@ -284,23 +343,16 @@ object MediaController {
             lastPlayTime = SystemClock.uptimeMillis()
         }
         if (iPausedTheMedia || force) { // very creative, ik. thanks.
-            Log.d("MediaController", "Sending play and setting userPlayedTheMedia to false")
+            val resumeResult = MediaSessionResolver.resumePausedSession()
+            val shouldUseMediaKey = resumeResult == MediaSessionResolver.ResumeResult.NO_PAUSED_SESSION
+            if (shouldUseMediaKey) dispatchMediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
+            Log.i("MediaController", "Resume dispatched via ${if (resumeResult == MediaSessionResolver.ResumeResult.RESUMED) "same MediaSession" else if (shouldUseMediaKey) "media-key fallback" else "no-op (session changed or unsupported)"}")
             userPlayedTheMedia = false
-            audioManager.dispatchMediaKeyEvent(
-                KeyEvent(
-                    KeyEvent.ACTION_DOWN,
-                    KeyEvent.KEYCODE_MEDIA_PLAY
-                )
-            )
-            audioManager.dispatchMediaKeyEvent(
-                KeyEvent(
-                    KeyEvent.ACTION_UP,
-                    KeyEvent.KEYCODE_MEDIA_PLAY
-                )
-            )
+            // Consume the auto-pause token once. A later wear frame cannot issue a duplicate play.
+            iPausedTheMedia = false
             lastSelfActionAt = SystemClock.uptimeMillis()
         }
-        if (!audioManager.isMusicActive) {
+        if (!audioManager.isMusicActive && !MediaSessionResolver.hasPlayingSession()) {
             Log.d("MediaController", "Setting iPausedTheMedia to false")
             iPausedTheMedia = false
         }
@@ -308,6 +360,11 @@ object MediaController {
             Log.d("MediaController", "Setting pausedWhileTakingOver to false")
             pausedWhileTakingOver = false
         }
+    }
+
+    private fun dispatchMediaKey(keyCode: Int) {
+        audioManager.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
+        audioManager.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
     }
 
     @Synchronized

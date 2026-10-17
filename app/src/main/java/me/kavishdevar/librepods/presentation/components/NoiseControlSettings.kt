@@ -193,56 +193,30 @@ fun NoiseControlSettings(
             val textColorSelected = if (isDarkTheme) Color.White else Color.Black
             val selectedBackground = if (isDarkTheme) Color(0xBF5C5A5F) else Color(0xFFFFFFFF)
 
-            val noiseControlMode = remember { mutableStateOf(NoiseControlMode.OFF) }
+            val initialModeIndex = (noiseControlModeValue - 1).coerceIn(0, NoiseControlMode.entries.lastIndex)
+            val noiseControlMode = remember(noiseControlModeValue, showOffListeningMode) {
+                mutableStateOf(NoiseControlMode.entries[initialModeIndex])
+            }
 
-            val d1a = remember { mutableFloatStateOf(0f) }
-            val d2a = remember { mutableFloatStateOf(0f) }
-            val d3a = remember { mutableFloatStateOf(0f) }
-
-            // this function exists solely for the dividers, should get rid of it
-            fun onModeSelected(mode: NoiseControlMode, received: Boolean = false) {
+            fun onModeSelected(mode: NoiseControlMode) {
                 val previousMode = noiseControlMode.value
-
                 val targetMode = if (!showOffListeningMode && mode == NoiseControlMode.OFF) {
                      NoiseControlMode.TRANSPARENCY
                 } else {
                     mode
                 }
-
-                noiseControlMode.value = targetMode
-
-                if (!received && targetMode != previousMode) onNoiseControlModeChanged(targetMode.ordinal + 1)
-
-
-                when (noiseControlMode.value) {
-                    NoiseControlMode.NOISE_CANCELLATION -> {
-                        d1a.floatValue = 1f
-                        d2a.floatValue = 1f
-                        d3a.floatValue = 0f
-                    }
-                    NoiseControlMode.OFF -> {
-                        d1a.floatValue = 0f
-                        d2a.floatValue = 1f
-                        d3a.floatValue = 1f
-                    }
-                    NoiseControlMode.ADAPTIVE -> {
-                        d1a.floatValue = 1f
-                        d2a.floatValue = 0f
-                        d3a.floatValue = 0f
-                    }
-                    NoiseControlMode.TRANSPARENCY -> {
-                        d1a.floatValue = 0f
-                        d2a.floatValue = 0f
-                        d3a.floatValue = 1f
-                    }
+                if (targetMode != previousMode) {
+                    noiseControlMode.value = targetMode
+                    onNoiseControlModeChanged(targetMode.ordinal + 1)
                 }
             }
 
-
-            val index = (noiseControlModeValue - 1).coerceIn(0, NoiseControlMode.entries.size - 1)
-            noiseControlMode.value = NoiseControlMode.entries[index]
-
-            onModeSelected(noiseControlMode.value, received = true)
+            val (d1Alpha, d2Alpha, d3Alpha) = when (noiseControlMode.value) {
+                NoiseControlMode.NOISE_CANCELLATION -> Triple(1f, 1f, 0f)
+                NoiseControlMode.OFF -> Triple(0f, 1f, 1f)
+                NoiseControlMode.ADAPTIVE -> Triple(1f, 0f, 0f)
+                NoiseControlMode.TRANSPARENCY -> Triple(0f, 0f, 1f)
+            }
 
             Box(
                 modifier = Modifier
@@ -280,8 +254,8 @@ fun NoiseControlSettings(
                 }
 
                 val animationSpec: AnimationSpec<Float> = SpringSpec(
-                    dampingRatio = Spring.DampingRatioLowBouncy,
-                    stiffness = Spring.StiffnessMediumLow,
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessHigh,
                     visibilityThreshold = 0.01f
                 )
 
@@ -324,7 +298,7 @@ fun NoiseControlSettings(
                                     thickness = 1.dp,
                                     modifier = Modifier
                                         .padding(vertical = 10.dp)
-                                        .alpha(d1a.floatValue),
+                                        .alpha(d1Alpha),
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                                 )
                             }
@@ -339,7 +313,7 @@ fun NoiseControlSettings(
                                 thickness = 1.dp,
                                 modifier = Modifier
                                     .padding(vertical = 10.dp)
-                                    .alpha(d2a.floatValue),
+                                    .alpha(d2Alpha),
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                             )
                             NoiseControlButton(
@@ -353,7 +327,7 @@ fun NoiseControlSettings(
                                 thickness = 1.dp,
                                 modifier = Modifier
                                     .padding(vertical = 10.dp)
-                                    .alpha(d3a.floatValue),
+                                    .alpha(d3Alpha),
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                             )
                             NoiseControlButton(
@@ -421,7 +395,7 @@ fun NoiseControlSettings(
                                     thickness = 1.dp,
                                     modifier = Modifier
                                         .padding(vertical = 10.dp)
-                                        .alpha(d1a.floatValue),
+                                        .alpha(d1Alpha),
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                                 )
                             }
@@ -436,7 +410,7 @@ fun NoiseControlSettings(
                                 thickness = 1.dp,
                                 modifier = Modifier
                                     .padding(vertical = 10.dp)
-                                    .alpha(d2a.floatValue),
+                                    .alpha(d2Alpha),
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                             )
                             NoiseControlButton(
@@ -450,7 +424,7 @@ fun NoiseControlSettings(
                                 thickness = 1.dp,
                                 modifier = Modifier
                                     .padding(vertical = 10.dp)
-                                    .alpha(d3a.floatValue),
+                                    .alpha(d3Alpha),
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                             )
                             NoiseControlButton(

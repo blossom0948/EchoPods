@@ -46,9 +46,6 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -169,13 +166,28 @@ fun AppSettingsScreen(
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
-        StyledToggle(
-            title = stringResource(R.string.appearance),
-            label = stringResource(R.string.use_material3e),
-            checked = state.m3eEnabled,
-            onCheckedChange = viewModel::setm3eEnabled,
-            enabled = state.isPremium
-        )
+        StyledList(title = stringResource(R.string.appearance)) {
+            StyledListItem(
+                name = stringResource(R.string.appearance_android),
+                description = stringResource(R.string.appearance_android_description),
+                orientation = ListItemOrientation.Vertical,
+                selected = state.m3eEnabled,
+                onClick = { viewModel.setm3eEnabled(true) },
+                trailingContent = {
+                    RadioButton(selected = state.m3eEnabled, onClick = null)
+                }
+            )
+            StyledListItem(
+                name = stringResource(R.string.appearance_ios),
+                description = stringResource(R.string.appearance_ios_description),
+                orientation = ListItemOrientation.Vertical,
+                selected = !state.m3eEnabled,
+                onClick = { viewModel.setm3eEnabled(false) },
+                trailingContent = {
+                    RadioButton(selected = !state.m3eEnabled, onClick = null)
+                }
+            )
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
         StyledList(title = stringResource(R.string.popup_animations)) {
@@ -209,6 +221,13 @@ fun AppSettingsScreen(
                         onClick = null
                     )
                 }
+            )
+
+            StyledToggle(
+                label = stringResource(R.string.show_popup_on_wear_change),
+                description = stringResource(R.string.show_popup_on_wear_change_description),
+                checked = state.popupOnWearChange,
+                onCheckedChange = viewModel::setPopupOnWearChange,
             )
         }
         Spacer(modifier = Modifier.height(16.dp))
@@ -439,6 +458,7 @@ fun AppSettingsScreen(
             onCheck = { updateScope.launch { updateManager.check() } },
             onStart = { info -> updateScope.launch { updateManager.downloadAndInstall(info) } },
             onInstallReady = updateManager::installReady,
+            versionName = BuildConfig.VERSION_NAME.removeSuffix("-debug").removeSuffix("-play"),
         )
         Spacer(modifier = Modifier.height(16.dp))
         DeviceInfoCard()
@@ -611,55 +631,49 @@ private fun UpdateCard(
     onCheck: () -> Unit,
     onStart: (UpdateInfo) -> Unit,
     onInstallReady: (java.io.File) -> Unit,
+    versionName: String,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        ),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text("AirPods Galaxy 업데이트", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "현재 버전 v${BuildConfig.VERSION_NAME}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+    val statusText = when (state) {
+        UpdateState.Idle -> stringResource(R.string.update_auto_check)
+        UpdateState.Checking -> stringResource(R.string.update_checking)
+        UpdateState.UpToDate -> stringResource(R.string.update_latest)
+        is UpdateState.Available -> stringResource(R.string.update_available, state.info.versionName)
+        is UpdateState.Downloading -> stringResource(R.string.update_downloading, state.progress)
+        is UpdateState.Ready -> stringResource(R.string.update_ready)
+        is UpdateState.Installing -> stringResource(R.string.update_installing)
+        is UpdateState.Error -> state.message
+    }
+
+    val busy = state is UpdateState.Checking ||
+        state is UpdateState.Downloading ||
+        state is UpdateState.Installing
+
+    StyledList(title = stringResource(R.string.app_updates)) {
+        StyledListItem(
+            name = stringResource(R.string.current_app_version, versionName),
+            description = statusText,
+            orientation = ListItemOrientation.Vertical,
+            enabled = false,
+        )
+        when (state) {
+            is UpdateState.Available -> StyledListItem(
+                name = stringResource(R.string.download_and_update),
+                onClick = { onStart(state.info) },
             )
-            when (state) {
-                UpdateState.Idle -> Text("새 버전을 자동으로 확인합니다")
-                UpdateState.Checking -> Text("최신 버전 확인 중…")
-                UpdateState.UpToDate -> Text("최신 버전입니다")
-                is UpdateState.Available -> {
-                    Text("새 버전 ${state.info.versionName}을 사용할 수 있습니다")
-                    Button(onClick = { onStart(state.info) }) { Text("다운로드 및 업데이트") }
-                }
-                is UpdateState.Downloading -> Text("다운로드 중 ${state.progress}%")
-                is UpdateState.Ready -> {
-                    Text("다운로드 완료 · 설치를 준비했습니다")
-                    Button(onClick = { onInstallReady(state.file) }) { Text("설치 다시 시도") }
-                }
-                is UpdateState.Installing -> {
-                    Text("시스템 설치 확인을 기다리는 중입니다")
-                    Button(onClick = { onStart(state.info) }) { Text("업데이트 다시 시작") }
-                }
-                is UpdateState.Error -> Text(
-                    state.message,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-            Button(
-                onClick = onCheck,
-                enabled = state !is UpdateState.Checking &&
-                    state !is UpdateState.Downloading &&
-                    state !is UpdateState.Installing,
-            ) {
-                Text("수동으로 업데이트 확인")
-            }
+            is UpdateState.Ready -> StyledListItem(
+                name = stringResource(R.string.retry_install),
+                onClick = { onInstallReady(state.file) },
+            )
+            is UpdateState.Installing -> StyledListItem(
+                name = stringResource(R.string.restart_update),
+                onClick = { onStart(state.info) },
+            )
+            else -> Unit
         }
+        StyledListItem(
+            name = stringResource(R.string.manual_update_check),
+            onClick = onCheck,
+            enabled = !busy,
+        )
     }
 }

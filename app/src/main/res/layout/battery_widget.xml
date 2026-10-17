@@ -26,10 +26,10 @@
             android:id="@+id/phone_battery_widget_container"
             android:orientation="vertical">
             <FrameLayout
-                android:layout_width="90dp"
-                android:layout_height="90dp"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
                 android:layout_margin="0dp"
-                android:padding="6dp"
+                android:padding="2dp"
                 android:layout_gravity="center">
                 <ProgressBar
                     android:id="@+id/phone_battery_progress_background"
@@ -51,8 +51,8 @@
                     android:progressDrawable="@drawable/circular_progress_bar" />
                 <ImageView
                     android:id="@+id/phone_charging_icon"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
                     android:layout_gravity="top|center_horizontal"
                     android:importantForAccessibility="no"
                     android:src="@drawable/ic_power"
@@ -60,8 +60,8 @@
                     android:tint="@color/white"
                     tools:ignore="HardcodedText,UseAppTint" />
                 <ImageView
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
                     android:src="@drawable/smartphone"
                     android:tint="@color/white"
                     android:layout_gravity="center"
@@ -72,12 +72,14 @@
                 android:id="@+id/phone_battery_widget"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textSize="24sp"
+                android:textSize="14sp"
                 android:textColor="@color/white"
                 android:fontFamily="sans-serif"
                 android:gravity="center"
                 android:textFontWeight="300"
                 android:text="Phone"
+                android:maxLines="1"
+                android:includeFontPadding="false"
                 tools:ignore="HardcodedText" />
         </LinearLayout>
 
@@ -85,13 +87,14 @@
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="match_parent"
+            android:id="@+id/left_battery_widget_container"
             android:gravity="center"
             android:orientation="vertical">
             <FrameLayout
-                android:layout_width="90dp"
-                android:layout_height="90dp"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
                 android:layout_margin="0dp"
-                android:padding="6dp"
+                android:padding="2dp"
                 android:layout_gravity="center">
                 <ProgressBar
                     android:id="@+id/left_battery_progress_background"
@@ -113,8 +116,8 @@
                     android:progressDrawable="@drawable/circular_progress_bar" />
                 <ImageView
                     android:id="@+id/left_charging_icon"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
                     android:layout_gravity="top|center_horizontal"
                     android:importantForAccessibility="no"
                     android:src="@drawable/ic_power"
@@ -122,8 +125,9 @@
                     android:tint="@color/white"
                     tools:ignore="HardcodedText,UseAppTint" />
                 <ImageView
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
+                    android:id="@+id/left_battery_icon"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
                     android:src="@drawable/airpods_pro_left_notification"
                     android:tint="@color/white"
                     android:layout_gravity="center"
@@ -134,12 +138,14 @@
                 android:id="@+id/left_battery_widget"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textSize="24sp"
+                android:textSize="14sp"
                 android:textColor="@color/white"
                 android:fontFamily="sans-serif"
                 android:gravity="center"
                 android:textFontWeight="300"
                 android:text="Left"
+                android:maxLines="1"
+                android:includeFontPadding="false"
                 tools:ignore="HardcodedText" />
         </LinearLayout>
 
@@ -147,13 +153,14 @@
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="match_parent"
+            android:id="@+id/right_battery_widget_container"
             android:gravity="center"
             android:orientation="vertical">
             <FrameLayout
-                android:layout_width="90dp"
-                android:layout_height="90dp"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
                 android:layout_margin="0dp"
-                android:padding="6dp"
+                android:padding="2dp"
                 android:layout_gravity="center">
                 <ProgressBar
                     android:id="@+id/right_battery_progress_background"
@@ -174,8 +181,8 @@
                     android:progressDrawable="@drawable/circular_progress_bar" />
                 <ImageView
                     android:id="@+id/right_charging_icon"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
                     android:layout_gravity="top|center_horizontal"
                     android:importantForAccessibility="no"
                     android:src="@drawable/ic_power"
@@ -183,8 +190,9 @@
                     android:tint="@color/white"
                     tools:ignore="HardcodedText,UseAppTint" />
                 <ImageView
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
+                    android:id="@+id/right_battery_icon"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
                     android:importantForAccessibility="no"
                     android:src="@drawable/airpods_pro_right_notification"
                     android:tint="@color/white"
@@ -195,12 +203,14 @@
                 android:id="@+id/right_battery_widget"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textSize="24sp"
+                android:textSize="14sp"
                 android:textFontWeight="300"
                 android:textColor="@color/white"
                 android:fontFamily="sans-serif"
                 android:gravity="center"
                 android:text="Right"
+                android:maxLines="1"
+                android:includeFontPadding="false"
                 tools:ignore="HardcodedText" />
         </LinearLayout>
 
@@ -208,13 +218,14 @@
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="match_parent"
+            android:id="@+id/case_battery_widget_container"
             android:gravity="center"
             android:orientation="vertical">
             <FrameLayout
-                android:layout_width="90dp"
-                android:layout_height="90dp"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
                 android:layout_margin="0dp"
-                android:padding="6dp"
+                android:padding="2dp"
                 android:layout_gravity="center">
                 <ProgressBar
                     android:id="@+id/case_battery_progress_background"
@@ -235,8 +246,8 @@
                     android:progressDrawable="@drawable/circular_progress_bar" />
                 <ImageView
                     android:id="@+id/case_charging_icon"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
                     android:importantForAccessibility="no"
                     android:layout_gravity="top|center_horizontal"
                     android:src="@drawable/ic_power"
@@ -244,8 +255,9 @@
                     android:tint="@color/white"
                     tools:ignore="HardcodedText,UseAppTint" />
                 <ImageView
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
+                    android:id="@+id/case_battery_icon"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
                     android:importantForAccessibility="no"
                     android:src="@drawable/airpods_pro_case_notification"
                     android:tint="@color/white"
@@ -256,12 +268,14 @@
                 android:id="@+id/case_battery_widget"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textSize="24sp"
+                android:textSize="14sp"
                 android:textColor="@color/white"
                 android:gravity="center"
                 android:fontFamily="sans-serif"
                 android:textFontWeight="300"
                 android:text="Case"
+                android:maxLines="1"
+                android:includeFontPadding="false"
                 tools:ignore="HardcodedText" />
         </LinearLayout>
     </LinearLayout>

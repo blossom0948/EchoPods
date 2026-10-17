@@ -16,6 +16,7 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import me.kavishdevar.librepods.bluetooth.AACPManager
+import me.kavishdevar.librepods.data.updates.gettingStartedGuide
 import me.kavishdevar.librepods.data.updates.updates
 import me.kavishdevar.librepods.presentation.screens.AccessibilitySettingsScreen
 import me.kavishdevar.librepods.presentation.screens.AdaptiveStrengthScreen
@@ -49,6 +50,7 @@ import me.kavishdevar.librepods.presentation.viewmodel.PurchaseViewModel
 @Composable
 fun AppNavGraph(
     showReleaseNotes: Boolean = false,
+    firstRunGuide: Boolean = false,
     updatesShown: () -> Unit = {},
     showOnboarding: Boolean = false,
     onboardingComplete: () -> Unit = {},
@@ -260,7 +262,8 @@ fun AppNavGraph(
                     is Screen.ReleaseNotes ->
                         NavEntry(screen) {
                             ReleaseNotesScreen(
-                                updates = updates,
+                                updates = if (firstRunGuide) gettingStartedGuide else updates,
+                                isFirstRun = firstRunGuide,
                                 releaseNotesShown = {
                                     if (showReleaseNotes) {
                                         navigate(Screen.AirPodsSettings)

@@ -1,35 +1,40 @@
 package me.kavishdevar.librepods.data.updates
 
-import androidx.compose.runtime.Composable
 import me.kavishdevar.librepods.R
-import me.kavishdevar.librepods.presentation.screens.AirPodsSettingsScreenPreviewMaterial
-import me.kavishdevar.librepods.presentation.screens.EqualizerScreenPreviewApple
-import me.kavishdevar.librepods.presentation.screens.EqualizerScreenPreviewMaterial
-import me.kavishdevar.librepods.presentation.theme.DesignSystem
-import me.kavishdevar.librepods.presentation.theme.LocalDesignSystem
 
-val update1_0_0 = listOf(
-        UpdateItem(
-            titleRes = R.string.material3e,
-            descriptionRes = R.string.update_m3e_description,
-            demoComposeable = @Composable {
-                AirPodsSettingsScreenPreviewMaterial()
-            }
-        ),
-        UpdateItem(
-            titleRes = R.string.equalizer,
-            descriptionRes = R.string.update_equalizer_description,
-            demoComposeable = @Composable {
-                when (LocalDesignSystem.current) {
-                    DesignSystem.Apple -> {
-                        EqualizerScreenPreviewApple()
-                    }
-                    DesignSystem.Material -> {
-                        EqualizerScreenPreviewMaterial()
-                    }
-                }
-            }
-        ),
-    )
+/** First-run help and the current release's visual changelog use the same page layout. */
+val gettingStartedGuide = listOf(
+    UpdateItem(
+        titleRes = R.string.guide_page_battery_title,
+        descriptionRes = R.string.guide_page_battery_description,
+        screenshotRes = R.drawable.guide_battery,
+    ),
+    UpdateItem(
+        titleRes = R.string.guide_page_controls_title,
+        descriptionRes = R.string.guide_page_controls_description,
+        screenshotRes = R.drawable.guide_controls,
+    ),
+    UpdateItem(
+        titleRes = R.string.guide_page_android_ios_title,
+        descriptionRes = R.string.guide_page_android_ios_description,
+        screenshotRes = R.drawable.guide_design,
+    ),
+)
 
-val updates = update1_0_0
+val updates = listOf(
+    UpdateItem(
+        titleRes = R.string.guide_page_battery_update_title,
+        descriptionRes = R.string.guide_page_battery_update_description,
+        screenshotRes = R.drawable.guide_battery,
+    ),
+    UpdateItem(
+        titleRes = R.string.guide_page_design_update_title,
+        descriptionRes = R.string.guide_page_design_update_description,
+        screenshotRes = R.drawable.guide_design,
+    ),
+    UpdateItem(
+        titleRes = R.string.guide_page_updates_update_title,
+        descriptionRes = R.string.guide_page_updates_update_description,
+        screenshotRes = R.drawable.guide_update,
+    ),
+)

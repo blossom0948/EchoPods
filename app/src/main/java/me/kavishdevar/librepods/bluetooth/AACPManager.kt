@@ -214,14 +214,12 @@ class AACPManager {
     private fun setControlCommandStatusValue(
         identifier: ControlCommandIdentifiers, value: ByteArray
     ) {
-        val existingStatus = getControlCommandStatus(identifier)
-        if (existingStatus?.value.contentEquals(value)) {
-            controlCommandStatusList.remove(existingStatus)
+        controlCommandStatusList.removeAll { it.identifier == identifier }
+        val confirmedValue = value.copyOf()
+        controlCommandStatusList.add(ControlCommandStatus(identifier, confirmedValue))
+        controlCommandListeners[identifier]?.toList()?.forEach { listener ->
+            listener.onControlCommandReceived(ControlCommand(identifier.value, confirmedValue))
         }
-        controlCommandListeners[identifier]?.forEach { listener ->
-            listener.onControlCommandReceived(ControlCommand(identifier.value, value))
-        }
-        controlCommandStatusList.add(ControlCommandStatus(identifier, value))
 
         if (identifier == ControlCommandIdentifiers.OWNS_CONNECTION) {
             owns = value.isNotEmpty() && value[0] == 0x01.toByte()
@@ -308,18 +306,12 @@ class AACPManager {
 
     fun sendControlCommand(identifier: Byte, value: ByteArray): Boolean {
         val controlPacket = createControlCommandPacket(identifier, value)
-        setControlCommandStatusValue(
-            ControlCommandIdentifiers.fromByte(identifier) ?: return false, value
-        )
         return sendDataPacket(controlPacket)
     }
 
     @OptIn(ExperimentalStdlibApi::class)
     fun sendControlCommand(identifier: Byte, value: Byte): Boolean {
         val controlPacket = createControlCommandPacket(identifier, byteArrayOf(value))
-        setControlCommandStatusValue(
-            ControlCommandIdentifiers.fromByte(identifier) ?: return false, byteArrayOf(value)
-        )
         return sendDataPacket(controlPacket)
     }
 
@@ -327,19 +319,11 @@ class AACPManager {
         val controlPacket = createControlCommandPacket(
             identifier, if (value) byteArrayOf(0x01) else byteArrayOf(0x02)
         )
-        setControlCommandStatusValue(
-            ControlCommandIdentifiers.fromByte(identifier) ?: return false,
-            if (value) byteArrayOf(0x01) else byteArrayOf(0x02)
-        )
         return sendDataPacket(controlPacket)
     }
 
     fun sendControlCommand(identifier: Byte, value: Int): Boolean {
         val controlPacket = createControlCommandPacket(identifier, byteArrayOf(value.toByte()))
-        setControlCommandStatusValue(
-            ControlCommandIdentifiers.fromByte(identifier) ?: return false,
-            byteArrayOf(value.toByte())
-        )
         return sendDataPacket(controlPacket)
     }
 
@@ -422,12 +406,7 @@ class AACPManager {
 
                 val controlCommandIdentifier =
                     ControlCommandIdentifiers.fromByte(controlCommand.identifier)
-                if (controlCommandIdentifier != null) {
-                    controlCommandListeners[controlCommandIdentifier]?.forEach { listener ->
-                        Log.d(TAG, "calling listener for ${controlCommandIdentifier.name}")
-                        listener.onControlCommandReceived(controlCommand)
-                    }
-                } else {
+                if (controlCommandIdentifier == null) {
                     Log.w(
                         TAG,
                         "Unknown control command identifier: ${controlCommand.identifier.toHexString()}"
@@ -1097,6 +1076,10 @@ class AACPManager {
     @OptIn(ExperimentalStdlibApi::class)
     fun sendPacket(packet: ByteArray): Boolean {
         try {
+            if (packet.size < 5) {
+                Log.w(TAG, "Refusing to send malformed AAP packet (${packet.size} bytes)")
+                return false
+            }
             Log.d(TAG, "Sending AAP packet (${packet.size} bytes)")
 
             if (packet[4] == Opcodes.CONTROL_COMMAND) {
@@ -1108,10 +1091,6 @@ class AACPManager {
                     return false
                 }
                 Log.d(TAG, "Sending control command ${controlCommand.identifier.toHexString()}")
-                setControlCommandStatusValue(
-                    ControlCommandIdentifiers.fromByte(controlCommand.identifier) ?: return false,
-                    controlCommand.value
-                )
             }
 
             val socket = BluetoothConnectionManager.aacpSocket ?: return false
@@ -1224,7 +1203,6 @@ class AACPManager {
     fun disconnected() {
         Log.d(TAG, "Disconnected, clearing state")
         controlCommandStatusList.clear()
-        controlCommandListeners.clear()
         owns = false
         oldConnectedDevices = listOf()
         connectedDevices = listOf()

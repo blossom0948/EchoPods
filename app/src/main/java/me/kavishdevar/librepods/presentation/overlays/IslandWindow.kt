@@ -70,6 +70,8 @@ import kotlin.math.abs
 enum class IslandType {
     CONNECTED,
     CASE_OPENED,
+    EARBUD_WORN,
+    EARBUD_REMOVED,
     TAKING_OVER,
     MOVED_TO_REMOTE,
     MOVED_TO_OTHER_DEVICE,
@@ -137,23 +139,15 @@ class IslandWindow(private val context: Context) {
         val leftBattery = batteryList.find { it.component == BatteryComponent.LEFT }
         val rightBattery = batteryList.find { it.component == BatteryComponent.RIGHT }
 
-        val leftLevel = leftBattery?.level ?: 0
-        val rightLevel = rightBattery?.level ?: 0
-        leftBattery?.status ?: BatteryStatus.DISCONNECTED
-        rightBattery?.status ?: BatteryStatus.DISCONNECTED
-
         val batteryText = islandView.findViewById<TextView>(R.id.island_battery_text)
         val batteryProgressBar = islandView.findViewById<ProgressBar>(R.id.island_battery_progress)
 
-        val displayBatteryLevel = when {
-            leftLevel > 0 && rightLevel > 0 -> minOf(leftLevel, rightLevel)
-            leftLevel > 0 -> leftLevel
-            rightLevel > 0 -> rightLevel
-            else -> null
-        }
+        val knownBatteries = listOfNotNull(leftBattery, rightBattery).filter { it.isLevelKnown }
+        val displayBatteryLevel = knownBatteries.minOfOrNull { it.level }
 
         if (displayBatteryLevel != null) {
-            batteryText.text = "$displayBatteryLevel%"
+            val isStale = knownBatteries.any { it.status == BatteryStatus.DISCONNECTED }
+            batteryText.text = "${if (isStale) "~" else ""}$displayBatteryLevel%"
             batteryProgressBar.progress = displayBatteryLevel
             batteryProgressBar.isIndeterminate = false
         } else {
@@ -349,6 +343,12 @@ class IslandWindow(private val context: Context) {
             IslandType.CASE_OPENED -> {
                 islandView.findViewById<TextView>(R.id.island_connected_text).text = context.getString(R.string.island_case_opened_text)
             }
+            IslandType.EARBUD_WORN -> {
+                islandView.findViewById<TextView>(R.id.island_connected_text).text = context.getString(R.string.island_earbud_worn_text)
+            }
+            IslandType.EARBUD_REMOVED -> {
+                islandView.findViewById<TextView>(R.id.island_connected_text).text = context.getString(R.string.island_earbud_removed_text)
+            }
             IslandType.TAKING_OVER -> {
                 islandView.findViewById<TextView>(R.id.island_connected_text).text = context.getString(R.string.island_taking_over_text)
             }
@@ -368,7 +368,7 @@ class IslandWindow(private val context: Context) {
         }
 
         val videoView = islandView.findViewById<VideoView>(R.id.island_video_view)
-        val videoUri = "android.resource://me.kavishdevar.librepods/${R.raw.island}".toUri()
+        val videoUri = "android.resource://${context.packageName}/${R.raw.island}".toUri()
         videoView.setAudioFocusRequest(AudioManager.AUDIOFOCUS_NONE)
         videoView.setOnErrorListener { _, what, extra ->
             e("IslandWindow", "Decorative video unavailable (what=$what, extra=$extra)")
@@ -377,7 +377,9 @@ class IslandWindow(private val context: Context) {
             true // Never let VideoView show its default AlertDialog from an overlay.
         }
         videoView.setOnPreparedListener { mediaPlayer ->
-            mediaPlayer.isLooping = true
+            // This is an entrance animation, not an ambient loop. Keeping the
+            // decoder active while the island is idle wastes power and GPU time.
+            mediaPlayer.isLooping = false
             if (!isClosing && containerView.parent != null) videoView.start()
         }
         try {

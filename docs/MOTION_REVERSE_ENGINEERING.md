@@ -25,4 +25,16 @@ normalizedScale = currentScale / finalScale
 progress = frame / totalFrames
 ```
 
-현재 코드의 값은 `MotionTokens.kt`의 Galaxy 탐색 baseline이며, 각 값은 candidate JSON으로 저장할 수 있다.
+## Verified implementation baseline
+
+아래 값은 현재 프로젝트 코드에서 읽은 구현값이지 Apple 내부 애니메이션 값이나 iPhone 영상 측정 결과가 아니다. 코드를 바꾸면 이 표도 함께 갱신한다.
+
+| Surface | Current behavior in source | Source |
+|---|---|---|
+| iOS-style `StyledButton` / `StyledIconButton` | Press/drag highlight progress uses `spring(dampingRatio=0.5, stiffness=300, visibilityThreshold=0.001)`. Drag offset returns with `spring(dampingRatio=1, stiffness=300)`. Interactive highlight follows the press point; API 33+ uses a radial RuntimeShader, with a white-overlay fallback. | `presentation/components/StyledButton.kt`, `StyledIconButton.kt` |
+| Button touch feedback | Click uses `ContextClick`; drag start/movement uses segment tick feedback; release/cancel uses reject feedback. | Same files |
+| Top island expand | Velocity-scaled duration: nominal 600 ms, clamped to 300–700 ms. Container decelerates while custom stretch uses `OvershootInterpolator(0.5)`, then normalizes over 300 ms. | `presentation/overlays/IslandWindow.kt` (`animateExpandWithStretch`) |
+| Top island dismiss fling | Nominal 400 ms, velocity-scaled and clamped to 200–500 ms; translate/fade/scale out with `DecelerateInterpolator(1.2)`. | `presentation/overlays/IslandWindow.kt` (`animateDismissWithInertia`) |
+| Release-guide finish CTA | `Cookie7Sided` → `SoftBurst` morph uses a medium-bouncy/medium-stiffness spring. Idle rotation is 60°/second; pressing eases rotation speed to zero over 1200 ms. | `presentation/screens/ReleaseNotesScreen.kt` (`FinishPage`) |
+
+No frame-by-frame Apple popup motion measurements are currently recorded. Before describing any timing as Apple-like, capture the Apple reference and fill the capture fields above; otherwise call the values Android implementation parameters. New motion should follow `docs/APP_DESIGN_SYSTEM.md`, and reduced-motion behavior must be checked on device before sign-off.

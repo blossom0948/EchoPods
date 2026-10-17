@@ -42,8 +42,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.edit
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -62,7 +64,6 @@ import com.galaxyairpods.update.UpdateManager
 import kotlinx.coroutines.launch
 import kotlin.io.encoding.ExperimentalEncodingApi
 
-lateinit var serviceConnection: ServiceConnection
 lateinit var connectionStatusReceiver: BroadcastReceiver
 lateinit var testReviewReceiver: BroadcastReceiver
 
@@ -87,11 +88,11 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val sharedPreferences = LocalContext.current.getSharedPreferences("settings", MODE_PRIVATE)
-            val m3eEnabled = remember { mutableStateOf(sharedPreferences.getBoolean("m3e_enabled", true)) }
+            val m3eEnabled = remember { mutableStateOf(sharedPreferences.getBoolean("m3e_enabled", false)) }
 
             val sharedPreferenceChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
                 when (key) {
-                    "m3e_enabled" -> m3eEnabled.value = sharedPreferences.getBoolean(key, true)
+                    "m3e_enabled" -> m3eEnabled.value = sharedPreferences.getBoolean(key, false)
                 }
             }
 
@@ -116,12 +117,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         try {
-            unbindService(serviceConnection)
-            Log.d("MainActivity", "Unbound service")
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Error while unbinding service: $e")
-        }
-        try {
             unregisterReceiver(connectionStatusReceiver)
             Log.d("MainActivity", "Unregistered receiver")
         } catch (e: Exception) {
@@ -132,12 +127,6 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
-        try {
-            unbindService(serviceConnection)
-            Log.d("MainActivity", "Unbound service")
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Error while unbinding service: $e")
-        }
         try {
             unregisterReceiver(connectionStatusReceiver)
             Log.d("MainActivity", "Unregistered receiver")
@@ -185,14 +174,26 @@ fun Main() {
         }
     }
 
-    val onboardingComplete = sharedPreferences.getBoolean("onboarding_complete", false)
+    if (!sharedPreferences.contains("onboarding_complete")) {
+        sharedPreferences.edit { putBoolean("initial_guide_required", true) }
+    }
+
+    var onboardingComplete by remember {
+        mutableStateOf(sharedPreferences.getBoolean("onboarding_complete", false))
+    }
+    val firstRunGuide = remember {
+        mutableStateOf(
+            sharedPreferences.getBoolean("initial_guide_required", false) &&
+                !sharedPreferences.getBoolean("first_run_guide_shown", false)
+        )
+    }
 
     val releaseNotesShownPrefKey = "release_notes_shown_${BuildConfig.VERSION_NAME.removeSuffix("-debug").removeSuffix("-play")}"
     val releaseNotesShown = sharedPreferences.getBoolean(releaseNotesShownPrefKey, false)
 
-    fun bindService() {
-        context.startForegroundService(Intent(context, AirPodsService::class.java))
-        serviceConnection = object: ServiceConnection {
+    val applicationContext = context.applicationContext
+    val serviceConnection = remember(airPodsViewModel, applicationContext) {
+        object : ServiceConnection {
             override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
                 val binder = service as AirPodsService.LocalBinder
                 val service = binder.getService()
@@ -200,8 +201,8 @@ fun Main() {
                 airPodsViewModel.init(
                     service = service,
                     controlRepo = ControlCommandRepository(service.aacpManager),
-                    sharedPreferences = context.getSharedPreferences("settings", MODE_PRIVATE),
-                    appContext = context.applicationContext
+                    sharedPreferences = applicationContext.getSharedPreferences("settings", MODE_PRIVATE),
+                    appContext = applicationContext
                 )
 
                 if (!sharedPreferences.contains("first_connection_successful_time")) {
@@ -215,25 +216,39 @@ fun Main() {
                 airPodsService.value = null
             }
         }
-
-        context.bindService(
-            Intent(context, AirPodsService::class.java),
-            serviceConnection,
-            Context.BIND_AUTO_CREATE
-        )
     }
 
-    if (onboardingComplete) {
-        bindService()
+    DisposableEffect(onboardingComplete, serviceConnection) {
+        var bound = false
+        if (onboardingComplete) {
+            val serviceIntent = Intent(applicationContext, AirPodsService::class.java)
+            applicationContext.startForegroundService(serviceIntent)
+            bound = applicationContext.bindService(
+                serviceIntent,
+                serviceConnection,
+                Context.BIND_AUTO_CREATE,
+            )
+        }
+        onDispose {
+            if (bound) runCatching { applicationContext.unbindService(serviceConnection) }
+        }
     }
 
     NavigationRoot(
-        showReleaseNotes = !releaseNotesShown,
-        updatesShown = { sharedPreferences.edit { putBoolean(releaseNotesShownPrefKey, true) } },
+        showReleaseNotes = firstRunGuide.value || !releaseNotesShown,
+        firstRunGuide = firstRunGuide.value,
+        updatesShown = {
+            sharedPreferences.edit {
+                putBoolean(releaseNotesShownPrefKey, true)
+                putBoolean("first_run_guide_shown", true)
+                putBoolean("initial_guide_required", false)
+            }
+            firstRunGuide.value = false
+        },
         showOnboarding = !onboardingComplete,
         onboardingComplete = {
             sharedPreferences.edit { putBoolean("onboarding_complete", true) }
-            bindService()
+            onboardingComplete = true
         },
         airPodsViewModel = airPodsViewModel
     )

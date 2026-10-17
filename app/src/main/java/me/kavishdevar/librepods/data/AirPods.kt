@@ -30,7 +30,8 @@ open class AirPodsBase(
     val leftBudsRes: Int,
     val rightBudsRes: Int,
     val caseRes: Int,
-    val capabilities: Set<Capability>
+    val capabilities: Set<Capability>,
+    val formFactor: AirPodsFormFactor = AirPodsFormFactor.IN_EAR,
 )
 enum class Capability {
     LISTENING_MODE,
@@ -45,6 +46,11 @@ enum class Capability {
     ADAPTIVE_VOLUME,
     SWIPE_FOR_VOLUME,
     HRM
+}
+
+enum class AirPodsFormFactor {
+    IN_EAR,
+    OVER_EAR_HEADPHONES
 }
 
 class AirPods: AirPodsBase(
@@ -229,6 +235,47 @@ class AirPodsPro3: AirPodsBase(
     )
 )
 
+class AirPodsMaxLightning: AirPodsBase(
+    modelNumber = listOf("A2096"),
+    name = "AirPods Max (Lightning)",
+    displayName = "AirPods Max",
+    budsRes = R.drawable.airpods_max_headphones,
+    leftBudsRes = R.drawable.airpods_max_earcup,
+    rightBudsRes = R.drawable.airpods_max_earcup,
+    caseRes = R.drawable.airpods_max_case,
+    capabilities = setOf(Capability.LISTENING_MODE),
+    formFactor = AirPodsFormFactor.OVER_EAR_HEADPHONES,
+)
+
+class AirPodsMaxUSBC: AirPodsBase(
+    modelNumber = listOf("A3184"),
+    name = "AirPods Max (USB-C)",
+    displayName = "AirPods Max",
+    budsRes = R.drawable.airpods_max_headphones,
+    leftBudsRes = R.drawable.airpods_max_earcup,
+    rightBudsRes = R.drawable.airpods_max_earcup,
+    caseRes = R.drawable.airpods_max_case,
+    capabilities = setOf(Capability.LISTENING_MODE),
+    formFactor = AirPodsFormFactor.OVER_EAR_HEADPHONES,
+)
+
+class AirPodsMax2: AirPodsBase(
+    modelNumber = listOf("A3454"),
+    name = "AirPods Max 2",
+    displayName = "AirPods Max 2",
+    budsRes = R.drawable.airpods_max_headphones,
+    leftBudsRes = R.drawable.airpods_max_earcup,
+    rightBudsRes = R.drawable.airpods_max_earcup,
+    caseRes = R.drawable.airpods_max_case,
+    capabilities = setOf(
+        Capability.LISTENING_MODE,
+        Capability.CONVERSATION_AWARENESS,
+        Capability.ADAPTIVE_AUDIO,
+        Capability.ADAPTIVE_VOLUME,
+    ),
+    formFactor = AirPodsFormFactor.OVER_EAR_HEADPHONES,
+)
+
 data class AirPodsInstance(
     val name: String,
     val model: AirPodsBase,
@@ -253,7 +300,10 @@ object AirPodsModels {
         AirPodsPro1(),
         AirPodsPro2Lightning(),
         AirPodsPro2USBC(),
-        AirPodsPro3()
+        AirPodsPro3(),
+        AirPodsMaxLightning(),
+        AirPodsMaxUSBC(),
+        AirPodsMax2(),
     )
 
     fun getModelByModelNumber(modelNumber: String): AirPodsBase? {

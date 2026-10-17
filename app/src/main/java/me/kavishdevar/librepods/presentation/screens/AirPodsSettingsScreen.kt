@@ -102,8 +102,8 @@ import me.kavishdevar.librepods.BuildConfig
 import me.kavishdevar.librepods.R
 import me.kavishdevar.librepods.bluetooth.AACPManager
 import me.kavishdevar.librepods.bluetooth.ATTHandles
-import me.kavishdevar.librepods.data.AirPodsPro3
 import me.kavishdevar.librepods.data.Capability
+import me.kavishdevar.librepods.data.AirPodsFormFactor
 import me.kavishdevar.librepods.presentation.MaterialIcons
 import me.kavishdevar.librepods.presentation.components.AboutCard
 import me.kavishdevar.librepods.presentation.components.AudioSettings
@@ -111,16 +111,21 @@ import me.kavishdevar.librepods.presentation.components.BatteryView
 import me.kavishdevar.librepods.presentation.components.CallControlSettings
 import me.kavishdevar.librepods.presentation.components.ConnectionSettings
 import me.kavishdevar.librepods.presentation.components.HearingHealthSettings
+import me.kavishdevar.librepods.presentation.components.ListItemOrientation
 import me.kavishdevar.librepods.presentation.components.MaterialButtonStyle
 import me.kavishdevar.librepods.presentation.components.NoiseControlSettings
 import me.kavishdevar.librepods.presentation.components.PressAndHoldSettings
 import me.kavishdevar.librepods.presentation.components.StyledButton
-import me.kavishdevar.librepods.presentation.components.StyledListItem
-import me.kavishdevar.librepods.presentation.components.StyledToggle
+import me.kavishdevar.librepods.presentation.components.StyledList
+import me.kavishdevar.librepods.presentation.components.StyledListItem as StyledStandaloneListItem
+import me.kavishdevar.librepods.presentation.components.StyledListItem as StyledListItemInGroup
+import me.kavishdevar.librepods.presentation.components.StyledToggle as StyledToggleInGroup
 import me.kavishdevar.librepods.presentation.theme.DesignSystem
 import me.kavishdevar.librepods.presentation.theme.LibrePodsTheme
 import me.kavishdevar.librepods.presentation.theme.LocalDesignSystem
 import me.kavishdevar.librepods.presentation.viewmodel.AirPodsUiState
+import me.kavishdevar.librepods.utils.XposedState
+import me.kavishdevar.librepods.utils.hasRootlessBluetoothSupport
 import me.kavishdevar.librepods.presentation.viewmodel.AirPodsViewModel
 import me.kavishdevar.librepods.presentation.viewmodel.demoState
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -270,16 +275,30 @@ fun AirPodsSettingsScreen(
             item(key = "battery") {
                 BatteryView(
                     batteryList = state.battery,
-                    budsRes = state.instance?.model?.budsRes ?: R.drawable.airpods_pro_2_buds,
-                    caseRes = state.instance?.model?.caseRes ?: R.drawable.airpods_pro_2_case
+                    budsRes = state.instance?.model?.budsRes,
+                    caseRes = state.instance?.model?.caseRes,
+                    formFactor = state.instance?.model?.formFactor ?: AirPodsFormFactor.IN_EAR,
                 )
             }
             item(key = "spacer_battery") {
                 Spacer(modifier = Modifier.height(32.dp))
             }
 
+            if (state.instance?.model?.capabilities?.contains(Capability.HRM) == true) {
+                item(key = "heart_rate_android_support") {
+                    StyledStandaloneListItem(
+                        name = stringResource(R.string.heart_rate_sensor),
+                        description = stringResource(R.string.heart_rate_android_unavailable),
+                        onClick = null,
+                        enabled = false,
+                        orientation = ListItemOrientation.Vertical,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+
             item(key = "name") {
-                StyledListItem(
+                StyledStandaloneListItem(
                     name = stringResource(R.string.name),
                     description = deviceName.text,
                     onClick = navigateToRename,
@@ -395,15 +414,15 @@ fun AirPodsSettingsScreen(
 
             item(key = "spacer_audio") { Spacer(modifier = Modifier.height(16.dp)) }
             item(key = "audio") {
-                val model = state.instance?.model ?: AirPodsPro3()
+                val capabilities = state.instance?.model?.capabilities.orEmpty()
                 val adaptiveVolumeCapability =
-                    model.capabilities.contains(Capability.ADAPTIVE_VOLUME)
+                    capabilities.contains(Capability.ADAPTIVE_VOLUME)
                 val conversationalAwarenessCapability =
-                    model.capabilities.contains(Capability.CONVERSATION_AWARENESS)
+                    capabilities.contains(Capability.CONVERSATION_AWARENESS)
                 val loudSoundReductionCapability =
-                    model.capabilities.contains(Capability.LOUD_SOUND_REDUCTION)
+                    capabilities.contains(Capability.LOUD_SOUND_REDUCTION)
                 val adaptiveAudioCapability =
-                    model.capabilities.contains(Capability.ADAPTIVE_VOLUME)
+                    capabilities.contains(Capability.ADAPTIVE_AUDIO)
 
                 val adaptiveVolumeChecked =
                     state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.ADAPTIVE_VOLUME_CONFIG]?.getOrNull(
@@ -469,67 +488,60 @@ fun AirPodsSettingsScreen(
                     else -> stringResource(R.string.microphone_automatic)
                 }
 
-                StyledListItem(
+                StyledStandaloneListItem(
                     name = stringResource(R.string.microphone_mode),
                     description = selectedModeText,
                     onClick = navigateToMicrophoneSettings
                 )
             }
 
-            if (capabilities.contains(Capability.SLEEP_DETECTION)) {
-                item(key = "spacer_sleep") { Spacer(modifier = Modifier.height(16.dp)) }
-                item(key = "sleep_detection") {
-                    val id = AACPManager.Companion.ControlCommandIdentifiers.SLEEP_DETECTION_CONFIG
-                    StyledToggle(
-                        label = stringResource(R.string.sleep_detection),
-                        checked = state.controlStates[id]?.getOrNull(0) == 0x01.toByte(),
-                        onCheckedChange = { setControlCommandBoolean(id, it) },
-                        enabled = state.isPremium
+            item(key = "spacer_general_controls") {
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            item(key = "general_controls") {
+                StyledList {
+                    if (capabilities.contains(Capability.SLEEP_DETECTION)) {
+                        val id = AACPManager.Companion.ControlCommandIdentifiers.SLEEP_DETECTION_CONFIG
+                        StyledToggleInGroup(
+                            label = stringResource(R.string.sleep_detection),
+                            checked = state.controlStates[id]?.getOrNull(0) == 0x01.toByte(),
+                            onCheckedChange = { setControlCommandBoolean(id, it) }
+                        )
+                    }
+
+                    if (capabilities.contains(Capability.HEAD_GESTURES)) {
+                        StyledListItemInGroup(
+                            name = stringResource(R.string.head_gestures),
+                            description = if (sharedPreferences.getBoolean("head_gestures", false)) {
+                                stringResource(R.string.on)
+                            } else {
+                                stringResource(R.string.off)
+                            },
+                            onClick = navigateToHeadTracking
+                        )
+                    }
+
+                    StyledToggleInGroup(
+                        label = stringResource(R.string.optimized_charging),
+                        description = stringResource(R.string.optimized_charging_description),
+                        checked = state.dynamicEndOfCharge,
+                        onCheckedChange = setDynamicEndOfCharge
                     )
-                }
-            }
 
-            if (capabilities.contains(Capability.HEAD_GESTURES)) {
-                item(key = "spacer_head_tracking") { Spacer(modifier = Modifier.height(16.dp)) }
-                item(key = "head_tracking") {
-                    StyledListItem(
-                        name = stringResource(R.string.head_gestures),
-                        description = if (sharedPreferences.getBoolean(
-                                "head_gestures", false
-                            )
-                        ) stringResource(R.string.on) else stringResource(R.string.off),
-                        onClick = navigateToHeadTracking
+                    StyledListItemInGroup(
+                        name = stringResource(R.string.accessibility),
+                        onClick = navigateToAccessibility
                     )
-                }
-            }
 
-            item(key = "spacer_dynamic_end_of_charge") { Spacer(modifier = Modifier.height(16.dp)) }
-            item(key = "dynamic_end_of_charge") {
-                StyledToggle(
-                    label = stringResource(R.string.optimized_charging),
-                    description = stringResource(R.string.optimized_charging_description),
-                    checked = state.dynamicEndOfCharge,
-                    onCheckedChange = setDynamicEndOfCharge
-                )
-            }
-
-            item(key = "spacer_accessibility") { Spacer(modifier = Modifier.height(16.dp)) }
-            item(key = "accessibility") {
-                StyledListItem(
-                    name = stringResource(R.string.accessibility), onClick = navigateToAccessibility
-                )
-            }
-
-            if (capabilities.contains(Capability.LOUD_SOUND_REDUCTION)) {
-                item(key = "spacer_off_listening") { Spacer(modifier = Modifier.height(16.dp)) }
-                item(key = "off_listening") {
-                    val id = AACPManager.Companion.ControlCommandIdentifiers.ALLOW_OFF_OPTION
-                    StyledToggle(
-                        label = stringResource(R.string.off_listening_mode),
-                        description = stringResource(R.string.off_listening_mode_description),
-                        checked = state.controlStates[id]?.getOrNull(0) == 0x01.toByte(),
-                        onCheckedChange = setOffListeningMode
-                    )
+                    if (capabilities.contains(Capability.LOUD_SOUND_REDUCTION)) {
+                        val id = AACPManager.Companion.ControlCommandIdentifiers.ALLOW_OFF_OPTION
+                        StyledToggleInGroup(
+                            label = stringResource(R.string.off_listening_mode),
+                            description = stringResource(R.string.off_listening_mode_description),
+                            checked = state.controlStates[id]?.getOrNull(0) == 0x01.toByte(),
+                            onCheckedChange = setOffListeningMode
+                        )
+                    }
                 }
             }
 
@@ -765,12 +777,19 @@ fun AirPodsSettingsScreen(
                                     style = MaterialTheme.typography.headlineMedium,
                                     color = MaterialTheme.colorScheme.primary
                                 )
-                                if (sharedPreferences.getBoolean("bypass_device_check.v2", false)) {
+                                if (!hasRootlessBluetoothSupport() && !XposedState.bluetoothScopeEnabled) {
                                     Spacer(modifier = Modifier.height(16.dp))
                                     Text(
-                                        text = stringResource(R.string.compatibility_check_bypassed),
+                                        text = stringResource(R.string.device_bluetooth_support_limited),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurface,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = stringResource(R.string.minimum_android_support),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         textAlign = TextAlign.Center
                                     )
                                 }
@@ -816,6 +835,24 @@ fun AirPodsSettingsScreen(
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.fillMaxWidth(),
                             )
+                            if (!hasRootlessBluetoothSupport() && !XposedState.bluetoothScopeEnabled) {
+                                Spacer(Modifier.height(16.dp))
+                                Text(
+                                    text = stringResource(R.string.device_bluetooth_support_limited),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    text = stringResource(R.string.minimum_android_support),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
                         }
 
                         if (state.connectionSuccessful) {

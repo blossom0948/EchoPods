@@ -23,18 +23,26 @@ import android.os.Build
 import androidx.core.content.edit
 
 fun isSupported(sharedPreferences: SharedPreferences): Boolean {
-    if (Build.VERSION.SDK_INT >= 37) return true
-
     val isBypassFlagActive = sharedPreferences.getBoolean("bypass_device_check.v2", false)
-    if (isBypassFlagActive) return true
+    return isBypassFlagActive || hasRootlessBluetoothSupport()
+}
 
-    val isPixel = Build.MANUFACTURER.lowercase() == "google"
-    val isOppoFamily = Build.MANUFACTURER.lowercase() in listOf("oneplus", "oppo", "realme")
+/** True only when this OS/build is in the known rootless Bluetooth support set. */
+fun hasRootlessBluetoothSupport(): Boolean {
+    return isKnownRootlessSupport(Build.MANUFACTURER, Build.VERSION.SDK_INT, Build.ID)
+}
 
-    if (isPixel && Build.VERSION.SDK_INT == 36) {
-        return Build.ID.startsWith("CP1A")
+internal fun isKnownRootlessSupport(manufacturer: String, sdk: Int, buildId: String): Boolean {
+    if (sdk >= 37) return true
+
+    val normalizedManufacturer = manufacturer.lowercase()
+    val isPixel = normalizedManufacturer == "google"
+    val isOppoFamily = normalizedManufacturer in listOf("oneplus", "oppo", "realme")
+
+    if (isPixel && sdk == 36) {
+        return buildId.startsWith("CP1A")
     } else if (isOppoFamily) {
-        return Build.VERSION.SDK_INT >= 36
+        return sdk >= 36
     }
     return false
 }

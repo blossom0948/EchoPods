@@ -38,7 +38,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -164,16 +163,6 @@ fun StyledScaffold(
             Scaffold(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
                 snackbarHost = { SnackbarHost(snackbarHostState) },
-                modifier = Modifier
-                    .then(
-                        if (!isDarkTheme) Modifier.shadow(
-                            elevation = 36.dp,
-                            shape = RoundedCornerShape(52.dp),
-                            ambientColor = Color.Black,
-                            spotColor = Color.Black
-                        ) else Modifier
-                    )
-                    .clip(RoundedCornerShape(52.dp))
             ) { paddingValues ->
                 val topPadding = paddingValues.calculateTopPadding()
                 val startPadding = paddingValues.calculateLeftPadding(LocalLayoutDirection.current)

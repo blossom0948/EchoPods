@@ -36,6 +36,7 @@ data class AppSettingsUiState(
     val isPremium: Boolean = false,
     val connectionSuccessful: Boolean = false,
     val connectionPopupStyle: ConnectionPopupStyle = ConnectionPopupStyle.BOTTOM_SHEET,
+    val popupOnWearChange: Boolean = true,
     val timeUntilFOSSPremiumExpiry: Long = 0L,
     val m3eEnabled: Boolean = false
 )
@@ -49,8 +50,13 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
     private val xposedRemotePref = XposedRemotePrefProvider.create()
 
     val sharedPrefListener = SharedPreferences.OnSharedPreferenceChangeListener { sharedPref, key ->
-        if (key == "connection_successful") {
-            _uiState.update { it.copy(connectionSuccessful = sharedPref.getBoolean(key, false)) }
+        when (key) {
+            "connection_successful" -> _uiState.update {
+                it.copy(connectionSuccessful = sharedPref.getBoolean(key, false))
+            }
+            "popup_on_wear_change" -> _uiState.update {
+                it.copy(popupOnWearChange = sharedPref.getBoolean(key, true))
+            }
         }
     }
 
@@ -162,7 +168,8 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
                 vendorIdHook = xposedRemotePref.getBoolean("vendor_id_hook", false),
                 connectionSuccessful = sharedPreferences.getBoolean("connection_successful", false),
                 connectionPopupStyle = popupStyle,
-                m3eEnabled = sharedPreferences.getBoolean("m3e_enabled", true)
+                popupOnWearChange = sharedPreferences.getBoolean("popup_on_wear_change", true),
+                m3eEnabled = sharedPreferences.getBoolean("m3e_enabled", false)
             )
         }
     }
@@ -256,6 +263,11 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
     fun setConnectionPopupStyle(style: ConnectionPopupStyle) {
         sharedPreferences.edit { putString("connection_popup_style", style.preferenceValue) }
         _uiState.update { it.copy(connectionPopupStyle = style) }
+    }
+
+    fun setPopupOnWearChange(enabled: Boolean) {
+        sharedPreferences.edit { putBoolean("popup_on_wear_change", enabled) }
+        _uiState.update { it.copy(popupOnWearChange = enabled) }
     }
 
     fun setm3eEnabled(enabled: Boolean) {

@@ -43,7 +43,7 @@ import androidx.compose.ui.unit.dp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import kotlinx.coroutines.launch
 import me.kavishdevar.librepods.R
-import me.kavishdevar.librepods.presentation.theme.LibrePodsTheme
+import me.kavishdevar.librepods.presentation.components.AppearanceStyleToggle
 import me.kavishdevar.librepods.utils.XposedState
 import me.kavishdevar.librepods.utils.bypassDeviceCheck
 import me.kavishdevar.librepods.utils.isSupported
@@ -83,18 +83,24 @@ fun OnboardingScreen(
         }
     }
 
-    LibrePodsTheme(
-        m3eEnabled = true
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
+        Spacer(modifier = Modifier.height(topPadding))
+        Box(
             modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxWidth()
+                .height(40.dp)
+                .padding(horizontal = 12.dp),
+            contentAlignment = Alignment.CenterEnd
         ) {
-            Spacer(modifier = Modifier.height(topPadding))
-            HorizontalUncontainedCarousel(
+            AppearanceStyleToggle()
+        }
+        HorizontalUncontainedCarousel(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
@@ -214,9 +220,8 @@ fun OnboardingScreen(
                         }
                     }
                 }
-            }
-            Spacer(modifier = Modifier.height(bottomPadding))
         }
+        Spacer(modifier = Modifier.height(bottomPadding))
     }
 }
 

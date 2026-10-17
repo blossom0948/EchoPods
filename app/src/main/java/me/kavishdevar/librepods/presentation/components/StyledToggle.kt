@@ -22,8 +22,8 @@ package me.kavishdevar.librepods.presentation.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,8 +51,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -253,34 +253,42 @@ private fun StyledToggleContent(
             }
         }
     } else {
-        val isPressed = remember { mutableStateOf(false) }
+        val interactionSource = remember { MutableInteractionSource() }
+        val isPressed by interactionSource.collectIsPressedAsState()
+        val appleRowShape = when {
+            count == 1 -> RoundedCornerShape(28.dp)
+            index == 0 -> RoundedCornerShape(
+                topStart = 28.dp,
+                topEnd = 28.dp,
+                bottomStart = 0.dp,
+                bottomEnd = 0.dp
+            )
+            index == count - 1 -> RoundedCornerShape(
+                topStart = 0.dp,
+                topEnd = 0.dp,
+                bottomStart = 28.dp,
+                bottomEnd = 28.dp
+            )
+            else -> RectangleShape
+        }
         Column {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .clip(appleRowShape)
                     .background(
-                        shape = RoundedCornerShape(28.dp),
-                        color = if (isPressed.value) Color(0xFFE0E0E0) else Color.Transparent
+                        shape = appleRowShape,
+                        color = if (isPressed) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f) else Color.Transparent
                     )
-                    .padding(16.dp)
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onPress = {
-                                isPressed.value = true
-                                tryAwaitRelease()
-                                isPressed.value = false
-                            }
-                        )
-                    }
                     .clickable(
+                        enabled = enabled,
                         indication = null,
-                        interactionSource = remember { MutableInteractionSource() }
+                        interactionSource = interactionSource
                     ) {
-                        if (enabled) {
-                            scope.launch { haptics.performHapticFeedback(if (!currentChecked) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff) }
-                            onCheckedChange(!currentChecked)
-                        }
-                    },
+                        scope.launch { haptics.performHapticFeedback(if (!currentChecked) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff) }
+                        onCheckedChange(!currentChecked)
+                    }
+                    .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(

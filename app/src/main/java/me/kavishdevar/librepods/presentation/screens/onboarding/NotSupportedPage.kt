@@ -38,6 +38,10 @@ fun NotSupportedPage(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
+                text = stringResource(R.string.minimum_android_support),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
                 text = stringResource(R.string.check_the_repository_for_more_info),
                 style = MaterialTheme.typography.bodyMedium,
             )

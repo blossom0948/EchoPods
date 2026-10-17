@@ -29,6 +29,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.PixelFormat
+import android.net.Uri
 import android.media.AudioManager
 import android.os.Build
 import android.os.Handler
@@ -138,16 +139,17 @@ class PopupWindow(
                 updateBatteryStatus(batteryNotification)
 
                 val vid = mView.findViewById<VideoView>(R.id.video)
+                val fallbackArtwork = mView.findViewById<View>(R.id.video_fallback)
                 vid.setAudioFocusRequest(AudioManager.AUDIOFOCUS_NONE)
                 vid.setOnErrorListener { _, what, extra ->
                     Log.w("PopupWindow", "Decorative video unavailable (what=$what, extra=$extra)")
                     vid.visibility = View.GONE
+                    fallbackArtwork.visibility = View.VISIBLE
                     true // Consume the error; VideoView's default dialog crashes for overlays.
                 }
                 vid.setOnPreparedListener {
-                    if (!isClosing && mView.parent != null) vid.start()
-                }
-                vid.setOnCompletionListener {
+                    fallbackArtwork.visibility = View.GONE
+                    vid.alpha = 1f
                     if (!isClosing && mView.parent != null) vid.start()
                 }
                 val screenHeight = mView.context.resources.displayMetrics.heightPixels
@@ -161,7 +163,9 @@ class PopupWindow(
                     onCloseCallback()
                     return false
                 }
-                vid.setVideoPath("android.resource://me.kavishdevar.librepods/" + R.raw.connected)
+                vid.alpha = 0f
+                fallbackArtwork.visibility = View.VISIBLE
+                vid.setVideoURI(Uri.parse("android.resource://${context.packageName}/${R.raw.connected}"))
 
                 mView.alpha = 1f
 
@@ -235,29 +239,25 @@ class PopupWindow(
         val batteryRightText = mView.findViewById<TextView>(R.id.right_battery)
         val batteryCaseText = mView.findViewById<TextView>(R.id.case_battery)
 
-        batteryLeftText.text = batteryList.find { it.component == BatteryComponent.LEFT }?.let {
-            if (it.status != BatteryStatus.DISCONNECTED) {
-                "L    ${it.level}%"
+        fun batteryLabel(battery: Battery?, labelRes: Int): String {
+            if (battery == null || !battery.isLevelKnown) return ""
+            val freshness = if (battery.status == BatteryStatus.DISCONNECTED) {
+                context.getString(R.string.popup_battery_stale_suffix)
             } else {
                 ""
             }
-        } ?: ""
+            return context.getString(labelRes, battery.level) + freshness
+        }
 
-        batteryRightText.text = batteryList.find { it.component == BatteryComponent.RIGHT }?.let {
-            if (it.status != BatteryStatus.DISCONNECTED) {
-                "R    ${it.level}%"
-            } else {
-                ""
-            }
-        } ?: ""
-
-        batteryCaseText.text = batteryList.find { it.component == BatteryComponent.CASE }?.let {
-            if (it.status != BatteryStatus.DISCONNECTED) {
-                "Case    ${it.level}%"
-            } else {
-                ""
-            }
-        } ?: ""
+        batteryLeftText.text = batteryLabel(
+            batteryList.find { it.component == BatteryComponent.LEFT }, R.string.popup_battery_left
+        )
+        batteryRightText.text = batteryLabel(
+            batteryList.find { it.component == BatteryComponent.RIGHT }, R.string.popup_battery_right
+        )
+        batteryCaseText.text = batteryLabel(
+            batteryList.find { it.component == BatteryComponent.CASE }, R.string.popup_battery_case
+        )
     }
 
     @SuppressLint("SetTextI18s")

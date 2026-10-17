@@ -289,10 +289,13 @@ class BLEManager(private val context: Context) {
                     listener.onBroadcastFromNewAddress(parsedStatus)
                     Log.d(TAG, "New AirPods advertisement detected")
 
-                    if (currentGlobalLidState == null || currentGlobalLidState != parsedStatus.lidOpen) {
-                        currentGlobalLidState = parsedStatus.lidOpen
+                    val previousGlobalState = currentGlobalLidState
+                    currentGlobalLidState = parsedStatus.lidOpen
+                    if (LidStateTransitionPolicy.shouldEmitTransition(previousGlobalState, parsedStatus.lidOpen)) {
                         listener.onLidStateChanged(parsedStatus.lidOpen)
-                        Log.d(TAG, "Lid state ${if (parsedStatus.lidOpen) "opened" else "closed"} (detected from new device)")
+                        Log.d(TAG, "Lid state changed to ${if (parsedStatus.lidOpen) "open" else "closed"} after BLE address rotation")
+                    } else if (previousGlobalState == null) {
+                        Log.d(TAG, "Initial BLE lid state recorded without generating a case-open event")
                     }
                 } else {
                     if (parsedStatus != previousStatus) {
@@ -303,7 +306,7 @@ class BLEManager(private val context: Context) {
                         val previousGlobalState = currentGlobalLidState
                         currentGlobalLidState = parsedStatus.lidOpen
 
-                        if (previousGlobalState != parsedStatus.lidOpen) {
+                        if (LidStateTransitionPolicy.shouldEmitTransition(previousGlobalState, parsedStatus.lidOpen)) {
                             listener.onLidStateChanged(parsedStatus.lidOpen)
                             Log.d(TAG, "Lid state changed from $previousGlobalState to ${parsedStatus.lidOpen}")
                         }
@@ -402,16 +405,17 @@ class BLEManager(private val context: Context) {
         }
 
         if (hadDevices && deviceStatusMap.isEmpty()) {
+            currentGlobalLidState = null
+            lastBroadcastTime = 0L
             airPodsStatusListener?.onDeviceDisappeared()
         }
     }
 
     private fun checkLidStateTimeout() {
         val currentTime = System.currentTimeMillis()
-        if (currentTime - lastBroadcastTime > LID_CLOSE_TIMEOUT_MS && currentGlobalLidState == true) {
-            Log.d(TAG, "No broadcasts for ${LID_CLOSE_TIMEOUT_MS}ms, forcing lid state to closed")
-            currentGlobalLidState = false
-            airPodsStatusListener?.onLidStateChanged(false)
+        if (lastBroadcastTime > 0L && currentTime - lastBroadcastTime > STALE_DEVICE_TIMEOUT_MS && currentGlobalLidState != null) {
+            Log.d(TAG, "BLE lid state became stale after ${STALE_DEVICE_TIMEOUT_MS}ms without advertisements; no lid-close event emitted")
+            currentGlobalLidState = null
         }
     }
 
@@ -493,6 +497,5 @@ class BLEManager(private val context: Context) {
         private const val TAG = "AirPodsBLE"
         private const val CLEANUP_INTERVAL_MS = 10000L
         private const val STALE_DEVICE_TIMEOUT_MS = 15000L
-        private const val LID_CLOSE_TIMEOUT_MS = 2500L
     }
 }

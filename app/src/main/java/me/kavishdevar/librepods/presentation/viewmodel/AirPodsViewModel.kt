@@ -36,7 +36,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.kavishdevar.librepods.BuildConfig
+import me.kavishdevar.librepods.R
 import me.kavishdevar.librepods.billing.BillingManager
 import me.kavishdevar.librepods.bluetooth.AACPManager
 import me.kavishdevar.librepods.bluetooth.AACPManager.Companion.ControlCommandIdentifiers
@@ -198,6 +200,16 @@ class AirPodsViewModel(
         private set
 
     fun init(service: AirPodsService, controlRepo: ControlCommandRepository, sharedPreferences: SharedPreferences, appContext: Context) {
+        if (this::controlRepo.isInitialized) {
+            listeners.forEach { (identifier, listener) ->
+                this.controlRepo.remove(identifier, listener)
+            }
+            listeners.clear()
+        }
+        if (this::broadcastReceiver.isInitialized && this::appContext.isInitialized) {
+            runCatching { this.appContext.unregisterReceiver(broadcastReceiver) }
+        }
+
         this.service = service
         this.controlRepo = controlRepo
         this.sharedPreferences = sharedPreferences
@@ -226,6 +238,7 @@ class AirPodsViewModel(
 
     private val listeners =
         mutableMapOf<ControlCommandIdentifiers, AACPManager.ControlCommandListener>()
+    private val controlCommandGenerations = mutableMapOf<ControlCommandIdentifiers, Long>()
 
     private val xposedRemotePref = XposedRemotePrefProvider.create()
 
@@ -268,11 +281,14 @@ class AirPodsViewModel(
     }
 
     override fun onCleared() {
-        listeners.forEach { (id, listener) ->
-            controlRepo.remove(id, listener)
+        if (this::controlRepo.isInitialized) {
+            listeners.forEach { (id, listener) -> controlRepo.remove(id, listener) }
+            listeners.clear()
         }
-        service.aacpManager.customEqCallback = null
-        appContext.unregisterReceiver(broadcastReceiver)
+        if (this::service.isInitialized) service.aacpManager.customEqCallback = null
+        if (this::broadcastReceiver.isInitialized && this::appContext.isInitialized) {
+            runCatching { appContext.unregisterReceiver(broadcastReceiver) }
+        }
     }
 
     private fun loadName() {
@@ -329,7 +345,11 @@ class AirPodsViewModel(
 
                     AirPodsNotifications.AIRPODS_DISCONNECTED -> {
                         _uiState.update {
-                            it.copy(isLocallyConnected = false)
+                            it.copy(
+                                isLocallyConnected = false,
+                                controlStates = emptyMap(),
+                                ancMode = 0,
+                            )
                         }
                     }
 
@@ -371,11 +391,51 @@ class AirPodsViewModel(
     fun setControlCommandValue(
         identifier: ControlCommandIdentifiers, value: ByteArray
     ) {
-        if (!isDemoMode) controlRepo.setValue(identifier, value)
-        _uiState.update {
-            it.copy(
-                controlStates = it.controlStates + (identifier to value)
-            )
+        if (isDemoMode) {
+            _uiState.update { it.copy(controlStates = it.controlStates + (identifier to value)) }
+            return
+        }
+
+        val requestedValue = value.copyOf()
+        val previousValue = _uiState.value.controlStates[identifier]?.copyOf()
+        val generation = synchronized(controlCommandGenerations) {
+            (controlCommandGenerations[identifier] ?: 0L).plus(1L).also {
+                controlCommandGenerations[identifier] = it
+            }
+        }
+
+        // Update the control immediately; the Bluetooth socket write must never block Compose.
+        _uiState.update { state ->
+            state.copy(controlStates = state.controlStates + (identifier to requestedValue))
+        }
+
+        viewModelScope.launch {
+            val sent = withContext(Dispatchers.IO) {
+                runCatching { controlRepo.setValue(identifier, requestedValue) }.getOrDefault(false)
+            }
+            if (sent) return@launch
+
+            val isLatestRequest = synchronized(controlCommandGenerations) {
+                controlCommandGenerations[identifier] == generation
+            }
+            if (isLatestRequest) {
+                _uiState.update { state ->
+                    val currentValue = state.controlStates[identifier]
+                    if (currentValue?.contentEquals(requestedValue) != true) {
+                        state
+                    } else {
+                        val reverted = state.controlStates.toMutableMap()
+                        if (previousValue == null) reverted.remove(identifier)
+                        else reverted[identifier] = previousValue
+                        state.copy(controlStates = reverted)
+                    }
+                }
+            }
+            Toast.makeText(
+                appContext,
+                appContext.getString(R.string.airpods_control_unavailable),
+                Toast.LENGTH_SHORT,
+            ).show()
         }
     }
 
@@ -400,14 +460,21 @@ class AirPodsViewModel(
     }
 
     fun observeControl(identifier: ControlCommandIdentifiers) {
+        listeners.remove(identifier)?.let { controlRepo.remove(identifier, it) }
         val listener = controlRepo.observe(identifier) { value ->
             _uiState.update { state ->
+                if (value.isEmpty()) return@update state
                 val current = state.controlStates[identifier]
                 if (current?.contentEquals(value) == true) return@update state
 
                 if (identifier == ControlCommandIdentifiers.DYNAMIC_END_OF_CHARGE) {
                     state.copy(
                         dynamicEndOfCharge = value[0] == 0x01.toByte(),
+                        controlStates = state.controlStates + (identifier to value)
+                    )
+                } else if (identifier == ControlCommandIdentifiers.LISTENING_MODE) {
+                    state.copy(
+                        ancMode = value[0].toInt() and 0xFF,
                         controlStates = state.controlStates + (identifier to value)
                     )
                 } else {

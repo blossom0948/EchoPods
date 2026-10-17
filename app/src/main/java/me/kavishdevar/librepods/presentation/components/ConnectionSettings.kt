@@ -20,9 +20,13 @@
 
 package me.kavishdevar.librepods.presentation.components
 
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import me.kavishdevar.librepods.R
+import me.kavishdevar.librepods.services.MediaSessionResolver
 import kotlin.io.encoding.ExperimentalEncodingApi
 
 @Composable
@@ -32,6 +36,7 @@ fun ConnectionSettings(
     automaticConnectionEnabled: Boolean,
     onAutomaticConnectionChanged: (Boolean) -> Unit,
 ) {
+    val context = LocalContext.current
     StyledList {
         StyledToggle(
             label = stringResource(R.string.ear_detection),
@@ -44,6 +49,22 @@ fun ConnectionSettings(
             description = stringResource(R.string.automatically_connect_description),
             checked = automaticConnectionEnabled,
             onCheckedChange = onAutomaticConnectionChanged
+        )
+
+        StyledListItem(
+            name = stringResource(R.string.media_session_access),
+            description = stringResource(
+                if (MediaSessionResolver.hasNotificationAccess(context)) {
+                    R.string.media_session_access_enabled
+                } else {
+                    R.string.media_session_access_needs_permission
+                }
+            ),
+            onClick = {
+                runCatching {
+                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                }
+            }
         )
     }
 }

@@ -1,5 +1,6 @@
 package me.kavishdevar.librepods.presentation.screens.onboarding
 
+import android.os.Build
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.animation.animateColorAsState
@@ -93,6 +94,8 @@ fun PermissionsPage(
             else if (!canDrawOverlays.value) openOverlayPermissionSettings()
         }
     }
+    val notificationsGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        notificationPermissionState.status.isGranted
 
 
     val bluetoothPermissionsState = rememberMultiplePermissionsState(
@@ -105,7 +108,9 @@ fun PermissionsPage(
         )
     ) {
         if (grantingAll.value) {
-            if (!notificationPermissionState.status.isGranted) notificationPermissionState.launchPermissionRequest()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                !notificationPermissionState.status.isGranted
+            ) notificationPermissionState.launchPermissionRequest()
             else if (!phonePermissionState.allPermissionsGranted) phonePermissionState.launchMultiplePermissionRequest()
             else if (!canDrawOverlays.value) openOverlayPermissionSettings()
         }
@@ -181,10 +186,10 @@ fun PermissionsPage(
             }
             StyledList(title = stringResource(R.string.optional_permissions)) {
                 val animatedNotificationsIconColor by animateColorAsState(
-                    if (notificationPermissionState.status.isGranted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                    if (notificationsGranted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
                 )
                 val animatedNotificationsContainerColor by animateColorAsState(
-                    if (notificationPermissionState.status.isGranted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest
+                    if (notificationsGranted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest
                 )
                 val animatedPhoneIconColor by animateColorAsState(if (phonePermissionState.allPermissionsGranted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
                 val animatedPhoneContainerColor by animateColorAsState(
@@ -193,7 +198,7 @@ fun PermissionsPage(
 
                 StyledListItem(
                     name = stringResource(R.string.notifications),
-                    onClick = if (!notificationPermissionState.status.isGranted) {
+                    onClick = if (!notificationsGranted) {
                         {
                             grantingAll.value = false
                             notificationPermissionState.launchPermissionRequest()
@@ -310,14 +315,14 @@ fun PermissionsPage(
                     onClick = {
                         grantingAll.value = true
                         if (!bluetoothPermissionsState.allPermissionsGranted) bluetoothPermissionsState.launchMultiplePermissionRequest()
-                        else if (!notificationPermissionState.status.isGranted) notificationPermissionState.launchPermissionRequest()
+                        else if (!notificationsGranted) notificationPermissionState.launchPermissionRequest()
                         else if (!phonePermissionState.allPermissionsGranted) phonePermissionState.launchMultiplePermissionRequest()
                         else if (!canDrawOverlays.value) openOverlayPermissionSettings()
                     },
                     modifier = Modifier
                         .height(IconButtonDefaults.mediumContainerSize(IconButtonDefaults.IconButtonWidthOption.Narrow).height)
                         .weight(1f),
-                    enabled = !bluetoothPermissionsState.allPermissionsGranted || !notificationPermissionState.status.isGranted || !phonePermissionState.allPermissionsGranted || !canDrawOverlays.value
+                    enabled = !bluetoothPermissionsState.allPermissionsGranted || !notificationsGranted || !phonePermissionState.allPermissionsGranted || !canDrawOverlays.value
                 ) {
                     Text(
                         text = stringResource(R.string.grant_all),

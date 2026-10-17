@@ -29,6 +29,7 @@ import me.kavishdevar.librepods.presentation.viewmodel.AirPodsViewModel
 @Composable
 fun NavigationRoot(
     showReleaseNotes: Boolean = false,
+    firstRunGuide: Boolean = false,
     updatesShown: () -> Unit = {},
     showOnboarding: Boolean = false,
     onboardingComplete: () -> Unit = {},
@@ -148,6 +149,7 @@ fun NavigationRoot(
     ) {
         AppNavGraph(
             showReleaseNotes = showReleaseNotes,
+            firstRunGuide = firstRunGuide,
             updatesShown = updatesShown,
             showOnboarding = showOnboarding,
             onboardingComplete = onboardingComplete,

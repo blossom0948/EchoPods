@@ -44,13 +44,24 @@
             app:layout_constraintTop_toTopOf="parent"
             tools:ignore="HardcodedText" />
     </androidx.constraintlayout.widget.ConstraintLayout>
-    <VideoView
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:id="@+id/video"
-        android:contentDescription="AirPods"
-        android:src="@raw/connected"
-        tools:ignore="HardcodedText" />
+        android:layout_height="220dp">
+
+        <ImageView
+            android:id="@+id/video_fallback"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@string/airpods_artwork_desc"
+            android:scaleType="centerInside"
+            android:src="@drawable/airpods" />
+
+        <VideoView
+            android:id="@+id/video"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@string/airpods_artwork_desc" />
+    </FrameLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
