@@ -116,6 +116,8 @@ import me.kavishdevar.librepods.utils.GestureDetector
 import me.kavishdevar.librepods.utils.EarWearAction
 import me.kavishdevar.librepods.utils.EarWearPosition
 import me.kavishdevar.librepods.utils.EarWearTransitionPolicy
+import me.kavishdevar.librepods.utils.CallGesturePolicy
+import me.kavishdevar.librepods.utils.PhoneCallPhase
 import me.kavishdevar.librepods.utils.BluetoothConnectionEventPolicy
 import me.kavishdevar.librepods.utils.HeadTracking
 import me.kavishdevar.librepods.utils.MediaController
@@ -256,7 +258,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     private val maxLogEntries = 1000
     private val inMemoryLogs = mutableSetOf<String>()
 
-    private var handleIncomingCallOnceConnected = false
+    @Volatile private var handleIncomingCallOnceConnected = false
+    @Volatile private var phoneCallPhase = PhoneCallPhase.IDLE
+    @Volatile private var callGestureDecisionRequested = false
     private var lastWearPosition: EarWearPosition? = null
     @Volatile private var pendingWearResume = false
     @Volatile private var wearResumeRouteAttempts = 0
@@ -630,6 +634,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             override fun onCallStateChanged(state: Int) {
                 when (state) {
                     TelephonyManager.CALL_STATE_RINGING -> {
+                        phoneCallPhase = PhoneCallPhase.RINGING
                         val leAvailableForAudio =
                             bleManager.getMostRecentStatus()?.isLeftInEar == true || bleManager.getMostRecentStatus()?.isRightInEar == true
 //                        if ((CrossDevice.isAvailable && !isConnectedLocally && earDetectionNotification.status.contains(0x00)) || leAvailableForAudio) CoroutineScope(Dispatchers.IO).launch {
@@ -648,18 +653,43 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         if (leAvailableForAudio) updateCheckScope.launch {
                             takeOver("call")
                         }
+                        phoneCallPhase = PhoneCallPhase.ACTIVE
+                        callGestureDecisionRequested = false
                         isInCall = true
+                        stopCallGestureRecognition("call became active")
                     }
 
                     TelephonyManager.CALL_STATE_IDLE -> {
+                        phoneCallPhase = PhoneCallPhase.IDLE
+                        callGestureDecisionRequested = false
                         isInCall = false
-                        gestureDetector?.stopDetection()
+                        stopCallGestureRecognition("call ended")
                     }
                 }
             }
         }
         if (checkSelfPermission("android.permission.READ_PHONE_STATE") == PackageManager.PERMISSION_GRANTED) {
             telephonyManager.registerTelephonyCallback(mainExecutor, phoneStateListener)
+            // TelephonyCallback is change-driven; initialize from the current
+            // call state too so a service started mid-call cannot leave head
+            // tracking enabled until the next call-state transition.
+            @Suppress("DEPRECATION")
+            val currentCallState = telephonyManager.callState
+            when (currentCallState) {
+                TelephonyManager.CALL_STATE_RINGING -> {
+                    phoneCallPhase = PhoneCallPhase.RINGING
+                    if (config.headGestures) handleIncomingCall()
+                }
+                TelephonyManager.CALL_STATE_OFFHOOK -> {
+                    phoneCallPhase = PhoneCallPhase.ACTIVE
+                    isInCall = true
+                    stopCallGestureRecognition("service started during active call")
+                }
+                else -> {
+                    phoneCallPhase = PhoneCallPhase.IDLE
+                    isInCall = false
+                }
+            }
         }
 
         if (config.showPhoneBatteryInWidget) {
@@ -1701,7 +1731,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     private var gestureDetector: GestureDetector? = null
-    private var isInCall = false
+    @Volatile private var isInCall = false
     private var callNumber: String? = null
 
     private fun initGestureDetector() {
@@ -2442,21 +2472,36 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     fun handleIncomingCall() {
-        if (isInCall) return
-        if (config.headGestures) {
-            initGestureDetector()
-            startHeadTracking()
-            gestureDetector?.startDetection { accepted ->
-                if (accepted) {
-                    answerCall()
-                    handleIncomingCallOnceConnected = false
-                } else {
-                    rejectCall()
-                    handleIncomingCallOnceConnected = false
-                }
-            }
-
+        if (isInCall || !CallGesturePolicy.canRecognize(config.headGestures, phoneCallPhase, callGestureDecisionRequested)) {
+            Log.d(TAG, "Call head gestures are unavailable outside the incoming ringing state")
+            return
         }
+        initGestureDetector()
+        startHeadTracking()
+        gestureDetector?.startDetection { accepted ->
+            // A gesture may have been recognized just before OFFHOOK was
+            // delivered. Re-check immediately before acting so it can never
+            // reject/end a call that has already been answered.
+            if (isInCall || !CallGesturePolicy.canRecognize(
+                    config.headGestures,
+                    phoneCallPhase,
+                    callGestureDecisionRequested,
+                )
+            ) {
+                Log.d(TAG, "Ignoring call gesture because the call is no longer ringing")
+            } else if (accepted) {
+                answerCall()
+            } else {
+                rejectCall()
+            }
+        }
+    }
+
+    private fun stopCallGestureRecognition(reason: String) {
+        handleIncomingCallOnceConnected = false
+        gestureDetector?.stopDetection()
+        if (isHeadTrackingActive) stopHeadTracking()
+        Log.d(TAG, "Stopped call head-gesture recognition: $reason")
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -2473,11 +2518,17 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     private fun answerCall() {
+        callGestureDecisionRequested = true
+        stopCallGestureRecognition("answer requested")
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val telecomManager = getSystemService(TELECOM_SERVICE) as TelecomManager
                 if (checkSelfPermission(Manifest.permission.ANSWER_PHONE_CALLS) == PackageManager.PERMISSION_GRANTED) {
                     telecomManager.acceptRingingCall() // TODO: Switch to InCallService (needs CDM association)
+                } else {
+                    callGestureDecisionRequested = false
+                    sendToast("Phone permission is required to answer with a head gesture")
+                    return
                 }
             } else {
                 val telephonyService = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
@@ -2492,6 +2543,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
             sendToast("Call answered via head gesture")
         } catch (e: Exception) {
+            callGestureDecisionRequested = false
             e.printStackTrace()
             sendToast("Failed to answer call: ${e.message}")
         } finally {
@@ -2500,6 +2552,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     private fun rejectCall() {
+        callGestureDecisionRequested = true
+        stopCallGestureRecognition("reject requested")
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val telecomManager = getSystemService(TELECOM_SERVICE) as TelecomManager
@@ -3201,13 +3255,23 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     aacpManager.sendSomePacketIDontKnowWhatItIs()
                     delay(200)
                     aacpManager.sendRequestProximityKeys((AACPManager.Companion.ProximityKeyType.IRK.value + AACPManager.Companion.ProximityKeyType.ENC_KEY.value).toByte())
-                    if (!handleIncomingCallOnceConnected) startHeadTracking() else handleIncomingCall()
+                    when {
+                        isInCall || phoneCallPhase == PhoneCallPhase.ACTIVE || callGestureDecisionRequested -> {
+                            stopCallGestureRecognition("AAP session connected after call answer")
+                        }
+                        !handleIncomingCallOnceConnected -> startHeadTracking()
+                        else -> handleIncomingCall()
+                    }
                     Handler(Looper.getMainLooper()).postDelayed({
                         aacpManager.sendPacket(aacpManager.createHandshakePacket())
                         aacpManager.sendSetFeatureFlagsPacket()
                         aacpManager.sendNotificationRequest()
                         aacpManager.sendRequestProximityKeys(AACPManager.Companion.ProximityKeyType.IRK.value)
-                        if (!handleIncomingCallOnceConnected) stopHeadTracking()
+                        if (isInCall || phoneCallPhase == PhoneCallPhase.ACTIVE ||
+                            callGestureDecisionRequested || !handleIncomingCallOnceConnected
+                        ) {
+                            stopHeadTracking()
+                        }
                     }, 5000)
 
                     sendBroadcast(
@@ -3605,9 +3669,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         super.onDestroy()
     }
 
-    var isHeadTrackingActive = false
+    @Volatile var isHeadTrackingActive = false
 
     fun startHeadTracking() {
+        if (isInCall || phoneCallPhase == PhoneCallPhase.ACTIVE || callGestureDecisionRequested) {
+            Log.d(TAG, "Refusing to start head tracking after call answer")
+            isHeadTrackingActive = false
+            gestureDetector?.stopDetection()
+            return
+        }
         isHeadTrackingActive = true
         val useAlternatePackets =
             sharedPreferences.getBoolean("use_alternate_head_tracking_packets", true)

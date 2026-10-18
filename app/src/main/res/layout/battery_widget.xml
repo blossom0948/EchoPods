@@ -110,11 +110,11 @@
                         android:progressDrawable="@drawable/circular_progress_bar_airpods" />
                     <ImageView
                         android:id="@+id/left_battery_icon"
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
                         android:layout_gravity="center"
                         android:importantForAccessibility="no"
-                        android:src="@drawable/ic_airpod_widget"
+                        android:src="@drawable/ic_airpod_regular_widget"
                         android:visibility="gone"
                         />
                     <ImageView
@@ -168,11 +168,11 @@
                         android:progressDrawable="@drawable/circular_progress_bar_airpods" />
                     <ImageView
                         android:id="@+id/right_battery_icon"
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
                         android:layout_gravity="center"
                         android:importantForAccessibility="no"
-                        android:src="@drawable/ic_airpod_widget"
+                        android:src="@drawable/ic_airpod_regular_right_widget"
                         android:visibility="gone" />
                     <ImageView
                         android:id="@+id/right_charging_icon"
@@ -218,8 +218,8 @@
                         android:progressDrawable="@drawable/circular_progress_bar_airpods" />
                     <ImageView
                         android:id="@+id/case_battery_icon"
-                        android:layout_width="30dp"
-                        android:layout_height="24dp"
+                        android:layout_width="32dp"
+                        android:layout_height="28dp"
                         android:layout_gravity="center"
                         android:importantForAccessibility="no"
                         android:src="@drawable/ic_airpods_case_widget"

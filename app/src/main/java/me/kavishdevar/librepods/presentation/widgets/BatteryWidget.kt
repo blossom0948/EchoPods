@@ -37,6 +37,23 @@ import me.kavishdevar.librepods.R
 import me.kavishdevar.librepods.services.ServiceManager
 import kotlin.io.encoding.ExperimentalEncodingApi
 
+internal data class BatteryWidgetIcons(val left: Int, val right: Int)
+
+internal object BatteryWidgetIconPolicy {
+    fun iconsForModel(model: AirPodsBase?): BatteryWidgetIcons = when {
+        model?.formFactor == AirPodsFormFactor.OVER_EAR_HEADPHONES ->
+            BatteryWidgetIcons(R.drawable.ic_headphones_widget, R.drawable.ic_headphones_widget)
+        model?.name?.contains("Pro", ignoreCase = true) == true -> BatteryWidgetIcons(
+            R.drawable.ic_airpod_pro_left_widget,
+            R.drawable.ic_airpod_pro_right_widget,
+        )
+        else -> BatteryWidgetIcons(
+            R.drawable.ic_airpod_regular_widget,
+            R.drawable.ic_airpod_regular_right_widget,
+        )
+    }
+}
+
 class BatteryWidget : AppWidgetProvider() {
     override fun onUpdate(
         context: Context,
@@ -130,6 +147,7 @@ class BatteryWidget : AppWidgetProvider() {
                         WidgetGlassBackground.create(context, size.width / size.height),
                     )
                     val overEar = model?.formFactor == AirPodsFormFactor.OVER_EAR_HEADPHONES
+                    val earbudIcons = BatteryWidgetIconPolicy.iconsForModel(model)
                     setViewVisibility(
                         R.id.right_battery_widget_container,
                         if (overEar) View.GONE else View.VISIBLE,
@@ -140,14 +158,11 @@ class BatteryWidget : AppWidgetProvider() {
                     )
                     setImageViewResource(
                         R.id.left_battery_icon,
-                        when {
-                            overEar -> R.drawable.ic_headphones_widget
-                            else -> R.drawable.ic_airpod_widget
-                        },
+                        earbudIcons.left,
                     )
                     setImageViewResource(
                         R.id.right_battery_icon,
-                        if (overEar) R.drawable.ic_headphones_widget else R.drawable.ic_airpod_widget,
+                        earbudIcons.right,
                     )
                     setImageViewResource(R.id.case_battery_icon, R.drawable.ic_airpods_case_widget)
                     configure(this, layoutId)
