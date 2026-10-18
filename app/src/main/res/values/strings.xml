@@ -34,6 +34,9 @@
     <string name="volume_control_description">Adjust the volume by swiping up or down on the sensor located on the AirPods Pro stem.</string>
     <string name="airpods_not_connected">AirPods not connected</string>
     <string name="airpods_not_connected_description">Please connect your AirPods to access settings.</string>
+    <string name="android_audio_connected_control_unavailable">Bluetooth audio is connected, but AirPods controls are not</string>
+    <string name="android_audio_connected_control_description">Basic audio is connected. Advanced battery and device settings appear when a control session or a trusted BLE battery advertisement is available.</string>
+    <string name="retry_airpods_control_connection">Retry AirPods controls</string>
     <string name="airpods_control_unavailable">AirPods control session is unavailable. Close other AirPods apps and reconnect.</string>
     <string name="back">Back</string>
     <string name="customizations">Customizations</string>
@@ -271,16 +274,15 @@
     <string name="bypass_compatibility_check">Bypass compatibility check</string>
     <string name="bypass_compatiblity_check_confirmation">Are you sure your device is supported natively/you have Xposed module enabled?</string>
     <string name="not_supported">Not supported</string>
+    <string name="limited_bluetooth_support">Limited Bluetooth support</string>
     <string name="check_the_repository_for_more_info">
-        Many devices are not supported due to limitations in the Android Bluetooth stack.
-        \nOn these devices, root access with an Xposed framework is required for full functionality.
-        \n\nThis limitation has been addressed in newer Android versions. The following device configurations can run the app natively:
-        \n• Google Pixel® running Android 16 March update and later with the lateset Play system update
-        \n• Google Pixel® running 17 Beta 3 and above
-        \n• OnePlus devices running OxygenOS 16 or later
-        \n• Oppo devices running ColorOS 16 or later
-        \n\nFor details, see the project documentation.
+        Standard Bluetooth audio remains available, but advanced features such as AirPods battery, ear detection, and listening-mode controls require the device Bluetooth stack to allow the required L2CAP connection. Support depends on manufacturer firmware as well as Android version.
+        \n\nThe verified device list can change with app updates. This app does not modify the system or require root access, and you can continue with basic features.
     </string>
+    <string name="continue_with_basic_features">Continue with basic features</string>
+    <string name="continue_with_basic_features_description">Use the app without root or system changes. Advanced features unavailable on this device may remain unavailable.</string>
+    <string name="continue_with_compatibility_override">Continue with compatibility override</string>
+    <string name="continue_with_compatibility_override_description">Choose this only if you have already applied a Bluetooth fix or an Xposed-compatible module.</string>
     <string name="name_your_own_price">(Name your own price)</string>
     <string name="compatibility_play_dialog_confirmation">
         This device may not be supported due to platform limitations and requires an Xposed framework. Tick the checkbox below and type OK to continue.

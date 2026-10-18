@@ -121,6 +121,14 @@ class UpdateManager(context: Context) {
             .onFailure { _state.value = UpdateState.Error("업데이트 설치를 시작하지 못했습니다") }
     }
 
+    /** Resumes a downloaded install after the user returns from unknown-source settings. */
+    fun resumeReadyInstallIfPermitted() {
+        if (!appContext.packageManager.canRequestPackageInstalls()) return
+        val ready = _state.value as? UpdateState.Ready ?: return
+        runCatching { install(ready.info, ready.file) }
+            .onFailure { _state.value = UpdateState.Error("업데이트 설치를 시작하지 못했습니다") }
+    }
+
     fun markInstallFailure(message: String) {
         preferences.edit()
             .remove(ATTEMPTED_VERSION_KEY)

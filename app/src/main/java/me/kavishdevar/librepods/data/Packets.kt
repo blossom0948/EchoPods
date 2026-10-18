@@ -87,6 +87,8 @@ class AirPodsNotifications {
         const val CA_DATA = "me.kavishdevar.librepods.CA_DATA"
         const val AIRPODS_DISCONNECTED = "me.kavishdevar.librepods.AIRPODS_DISCONNECTED"
         const val AIRPODS_CONNECTION_DETECTED = "me.kavishdevar.librepods.AIRPODS_CONNECTION_DETECTED"
+        const val AIRPODS_AUDIO_PROFILE_EVENT = "me.kavishdevar.librepods.AIRPODS_AUDIO_PROFILE_EVENT"
+        const val AIRPODS_AUDIO_ROUTE_STATE = "me.kavishdevar.librepods.AIRPODS_AUDIO_ROUTE_STATE"
         const val DISCONNECT_RECEIVERS = "me.kavishdevar.librepods.DISCONNECT_RECEIVERS"
         const val EQ_DATA = "me.kavishdevar.librepods.HEADPHONE_ACCOMMODATION"
         const val AIRPODS_INFORMATION_UPDATED = "me.kavishdevar.librepods.AIRPODS_INFORMATION_UPDATED"

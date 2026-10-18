@@ -68,7 +68,7 @@ fun OnboardingScreen(
     val titles = listOf(
         null,
         stringResource(R.string.privacy_policy),
-        stringResource(R.string.not_supported),
+        stringResource(R.string.limited_bluetooth_support),
         stringResource(R.string.permissions),
     )
 
@@ -196,7 +196,12 @@ fun OnboardingScreen(
                             }
                             2 -> {
                                 NotSupportedPage(
-                                    bypassCompatibilityCheck = {
+                                    continueWithBasicFeatures = {
+                                        animationScope.launch {
+                                            state.animateScrollToItem(3)
+                                        }
+                                    },
+                                    continueWithCompatibilityOverride = {
                                         bypassDeviceCheck(sharedPreferences)
                                         animationScope.launch {
                                             state.animateScrollToItem(3)

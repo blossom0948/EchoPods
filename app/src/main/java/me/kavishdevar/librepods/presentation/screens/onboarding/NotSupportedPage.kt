@@ -21,7 +21,8 @@ import me.kavishdevar.librepods.presentation.components.StyledListItem
 
 @Composable
 fun NotSupportedPage(
-    bypassCompatibilityCheck: () -> Unit
+    continueWithBasicFeatures: () -> Unit,
+    continueWithCompatibilityOverride: () -> Unit,
 ) {
     val scrollState = rememberScrollState()
 
@@ -38,23 +39,25 @@ fun NotSupportedPage(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = stringResource(R.string.minimum_android_support),
+                text = stringResource(R.string.device_bluetooth_support_limited),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
                 text = stringResource(R.string.check_the_repository_for_more_info),
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Text(
-                text = stringResource(R.string.enable_app_in_xposed_or_update_device),
-                style = MaterialTheme.typography.bodyMedium,
-            )
             DeviceInfoCard()
             AppInfoCard()
 
             StyledListItem(
-                name = stringResource(R.string.bypass_compatibility_check),
-                onClick = bypassCompatibilityCheck
+                name = stringResource(R.string.continue_with_basic_features),
+                description = stringResource(R.string.continue_with_basic_features_description),
+                onClick = continueWithBasicFeatures,
+            )
+            StyledListItem(
+                name = stringResource(R.string.continue_with_compatibility_override),
+                description = stringResource(R.string.continue_with_compatibility_override_description),
+                onClick = continueWithCompatibilityOverride,
             )
         }
     }

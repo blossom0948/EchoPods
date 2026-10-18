@@ -34,6 +34,9 @@
     <string name="volume_control_description">AirPods Pro 스템의 센서를 위아래로 쓸어 음량을 조절합니다.</string>
     <string name="airpods_not_connected">AirPods가 연결되지 않음</string>
     <string name="airpods_not_connected_description">설정을 사용하려면 AirPods를 연결하세요.</string>
+    <string name="android_audio_connected_control_unavailable">Bluetooth 오디오는 연결됐지만 AirPods 제어 세션은 연결되지 않음</string>
+    <string name="android_audio_connected_control_description">기본 오디오는 연결됐습니다. 고급 배터리·기기 설정은 제어 세션 또는 신뢰할 수 있는 BLE 배터리 광고가 확인될 때 표시됩니다.</string>
+    <string name="retry_airpods_control_connection">제어 연결 다시 시도</string>
     <string name="airpods_control_unavailable">AirPods 제어 연결을 사용할 수 없습니다. 다른 AirPods 앱을 닫고 다시 연결하세요.</string>
     <string name="back">뒤로</string>
     <string name="customizations">사용자 설정</string>
@@ -271,7 +274,12 @@
     <string name="bypass_compatibility_check">호환성 검사 건너뛰기</string>
     <string name="bypass_compatiblity_check_confirmation">기기가 기본 지원되거나 Xposed 모듈을 활성화했는지 확인했나요?</string>
     <string name="not_supported">지원되지 않음</string>
-    <string name="check_the_repository_for_more_info">Android Bluetooth 스택의 제한으로 지원되지 않는 기기가 많습니다.\n이러한 기기에서 모든 기능을 사용하려면 루트 권한과 Xposed 프레임워크가 필요합니다.\n\n최신 Android에서는 이 제한이 개선되었습니다. 다음 기기는 기본 상태에서 앱을 실행할 수 있습니다:\n• 2026년 3월 업데이트와 최신 Play 시스템 업데이트가 적용된 Google Pixel\n• Android 17 Beta 3 이상을 실행하는 Google Pixel\n• OxygenOS 16 이상을 실행하는 OnePlus 기기\n• ColorOS 16 이상을 실행하는 Oppo 기기\n\n자세한 내용은 프로젝트 문서를 확인하세요.</string>
+    <string name="limited_bluetooth_support">Bluetooth 기능 제한</string>
+    <string name="check_the_repository_for_more_info">일반 Bluetooth 오디오는 사용할 수 있지만, AirPods 배터리·착용 감지·청취 모드 같은 고급 기능은 기기의 Bluetooth 시스템이 필요한 L2CAP 연결을 허용해야 합니다. 지원 여부는 Android 버전뿐 아니라 제조사 펌웨어에 따라 달라집니다.\n\n현재 확인된 지원 기기 목록은 앱 업데이트에 따라 달라질 수 있습니다. 이 앱은 시스템을 수정하거나 루트 권한을 요구하지 않으며, 기본 기능으로 계속 사용할 수 있습니다.</string>
+    <string name="continue_with_basic_features">기본 기능으로 계속</string>
+    <string name="continue_with_basic_features_description">루트나 시스템 변경 없이 앱을 사용합니다. 이 기기에서 제공되지 않는 고급 기능은 표시되지 않을 수 있습니다.</string>
+    <string name="continue_with_compatibility_override">호환성 검사를 건너뛰고 계속</string>
+    <string name="continue_with_compatibility_override_description">기기에 Bluetooth 수정 사항 또는 Xposed 호환 모듈을 이미 적용한 경우에만 선택하세요.</string>
     <string name="name_your_own_price">원하는 가격 입력</string>
     <string name="compatibility_play_dialog_confirmation">플랫폼 제한으로 이 기기가 지원되지 않을 수 있으며 Xposed 프레임워크가 필요할 수 있습니다. 아래 확인란을 선택하고 계속하려면 확인을 입력하세요.</string>
     <string name="type_ok_to_continue">계속하려면 "%s" 입력</string>

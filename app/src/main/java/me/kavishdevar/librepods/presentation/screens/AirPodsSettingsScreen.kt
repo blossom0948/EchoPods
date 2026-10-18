@@ -677,7 +677,7 @@ fun AirPodsSettingsScreen(
 
                             val animatedShapeColor by animateColorAsState(if (reconnecting) primaryContainerColor else secondaryContainerColor)
 
-                            if (state.connectionSuccessful) {
+                            if (state.connectionSuccessful || state.isAndroidAudioProfileConnected) {
                                 Box(
                                     modifier = Modifier
                                         .size(240.dp)
@@ -767,13 +767,16 @@ fun AirPodsSettingsScreen(
                                 Spacer(Modifier.height(40.dp))
 
                                 Text(
-                                    text = if (reconnecting) stringResource(R.string.reconnecting) else stringResource(R.string.tap_to_reconnect),
+                                    text = if (reconnecting) stringResource(R.string.reconnecting) else if (state.isAndroidAudioProfileConnected) stringResource(R.string.retry_airpods_control_connection) else stringResource(R.string.tap_to_reconnect),
                                     style = MaterialTheme.typography.labelSmallEmphasized,
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             } else {
                                 Text(
-                                    text = stringResource(R.string.airpods_not_connected),
+                                    text = stringResource(
+                                        if (state.isAndroidAudioProfileConnected) R.string.android_audio_connected_control_unavailable
+                                        else R.string.airpods_not_connected
+                                    ),
                                     style = MaterialTheme.typography.headlineMedium,
                                     color = MaterialTheme.colorScheme.primary
                                 )
@@ -823,14 +826,20 @@ fun AirPodsSettingsScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = stringResource(R.string.airpods_not_connected),
+                                text = stringResource(
+                                    if (state.isAndroidAudioProfileConnected) R.string.android_audio_connected_control_unavailable
+                                    else R.string.airpods_not_connected
+                                ),
                                 style = MaterialTheme.typography.displaySmall,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.fillMaxWidth()
                             )
                             Spacer(Modifier.height(24.dp))
                             Text(
-                                text = stringResource(R.string.airpods_not_connected_description),
+                                text = stringResource(
+                                    if (state.isAndroidAudioProfileConnected) R.string.android_audio_connected_control_description
+                                    else R.string.airpods_not_connected_description
+                                ),
                                 style = MaterialTheme.typography.bodyLarge,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.fillMaxWidth(),
@@ -855,7 +864,7 @@ fun AirPodsSettingsScreen(
                             }
                         }
 
-                        if (state.connectionSuccessful) {
+                        if (state.connectionSuccessful || state.isAndroidAudioProfileConnected) {
                             StyledButton(
                                 onClick = { reconnectFromSavedMac(); reconnecting = true },
                                 backdrop = backdrop,
@@ -866,7 +875,10 @@ fun AirPodsSettingsScreen(
                                 enabled = !reconnecting
                             ) {
                                 Text(
-                                    text = stringResource(R.string.reconnect_to_last_device),
+                                    text = stringResource(
+                                        if (state.isAndroidAudioProfileConnected) R.string.retry_airpods_control_connection
+                                        else R.string.reconnect_to_last_device
+                                    ),
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                             }

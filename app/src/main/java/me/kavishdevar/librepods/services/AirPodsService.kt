@@ -92,6 +92,7 @@ import me.kavishdevar.librepods.bluetooth.ATTHandles
 import me.kavishdevar.librepods.bluetooth.ATTManagerv2
 import me.kavishdevar.librepods.bluetooth.BLEManager
 import me.kavishdevar.librepods.bluetooth.BluetoothConnectionManager
+import me.kavishdevar.librepods.bluetooth.BluetoothSocketConnectTimeout
 import me.kavishdevar.librepods.bluetooth.createBluetoothSocket
 import me.kavishdevar.librepods.data.AirPodsInstance
 import me.kavishdevar.librepods.data.AirPodsModels
@@ -115,6 +116,7 @@ import me.kavishdevar.librepods.utils.GestureDetector
 import me.kavishdevar.librepods.utils.EarWearAction
 import me.kavishdevar.librepods.utils.EarWearPosition
 import me.kavishdevar.librepods.utils.EarWearTransitionPolicy
+import me.kavishdevar.librepods.utils.BluetoothConnectionEventPolicy
 import me.kavishdevar.librepods.utils.HeadTracking
 import me.kavishdevar.librepods.utils.MediaController
 import me.kavishdevar.librepods.utils.SystemApisUtils
@@ -145,6 +147,7 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.time.Duration.Companion.milliseconds
 
 private const val TAG = "AirPodsService"
+private const val EXTRA_ANDROID_AUDIO_PROFILE_CONNECTED = "android_audio_profile_connected"
 
 object ServiceManager {
     private var service: AirPodsService? = null
@@ -166,6 +169,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     private val socketConnectInProgress = AtomicBoolean(false)
     var macAddress = ""
     var localMac = ""
+    @Volatile
+    var isAndroidAudioProfileConnected: Boolean = false
+        private set
+    private val connectedAndroidAudioProfiles = mutableSetOf<Int>()
     lateinit var aacpManager: AACPManager
     lateinit var attManager: ATTManagerv2
     var airpodsInstance: AirPodsInstance? = null
@@ -679,37 +686,71 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         connectionReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent?.action == AirPodsNotifications.AIRPODS_CONNECTION_DETECTED) {
-                    device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        intent.getParcelableExtra("device", BluetoothDevice::class.java)!!
+                if (intent?.action == AirPodsNotifications.AIRPODS_AUDIO_PROFILE_EVENT) {
+                    val profile = intent.getIntExtra("profile", -1)
+                    val connected = intent.getBooleanExtra("connected", false)
+                    synchronized(connectedAndroidAudioProfiles) {
+                        if (connected) connectedAndroidAudioProfiles.add(profile)
+                        else connectedAndroidAudioProfiles.remove(profile)
+                        isAndroidAudioProfileConnected = connectedAndroidAudioProfiles.isNotEmpty()
+                    }
+                    sendBroadcast(
+                        Intent(AirPodsNotifications.AIRPODS_AUDIO_ROUTE_STATE)
+                            .putExtra("connected", isAndroidAudioProfileConnected)
+                            .setPackage(packageName)
+                    )
+                } else if (intent?.action == AirPodsNotifications.AIRPODS_CONNECTION_DETECTED) {
+                    val connectedDevice = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        intent.getParcelableExtra("device", BluetoothDevice::class.java)
                     } else {
                         intent.getParcelableExtra("device") as BluetoothDevice?
+                    } ?: run {
+                        Log.w(TAG, "Ignoring AirPods connection event without a Bluetooth device")
+                        return
                     }
+                    device = connectedDevice
 
-                    if (config.deviceName == "AirPods" && device?.name != null) {
-                        config.deviceName = device?.name ?: "AirPods"
+                    if (config.deviceName == "AirPods" && connectedDevice.name != null) {
+                        config.deviceName = connectedDevice.name ?: "AirPods"
                         sharedPreferences.edit { putString("name", config.deviceName) }
                     }
 
-//                    Log.d("AirPodsCrossDevice", CrossDevice.isAvailable.toString())
-//                    if (!CrossDevice.isAvailable) {
-                    Log.d(TAG, "${config.deviceName} connected")
-                    CoroutineScope(Dispatchers.IO).launch {
-                        val bluetoothManager = getSystemService(BluetoothManager::class.java)
-                        connectToSocket(bluetoothManager.adapter, device!!)
+                    macAddress = connectedDevice.address
+                    sharedPreferences.edit { putString("mac_address", macAddress) }
+                    bleManager.refreshSelectedBondFilter()
+
+                    val androidAudioProfileConnected =
+                        intent.getBooleanExtra(EXTRA_ANDROID_AUDIO_PROFILE_CONNECTED, false)
+                    if (androidAudioProfileConnected) {
+                        Log.i(TAG, "Selected AirPods Android audio profile confirmed; showing popup")
+                        showConnectionPopup(
+                            this@AirPodsService,
+                            config.deviceName.ifBlank { "AirPods" },
+                            IslandType.CONNECTED,
+                        )
                     }
-                    Log.d(TAG, "Setting metadata")
-                    setMetadatas(device!!)
-//                    isConnectedLocally = true
-                    macAddress = device!!.address
-                    sharedPreferences.edit {
-                        putString("mac_address", macAddress)
+
+                    if (BluetoothConnectionEventPolicy.shouldStartControlSession(
+                            androidAudioProfileConnected = androidAudioProfileConnected,
+                        )
+                    ) {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            val bluetoothManager = getSystemService(BluetoothManager::class.java)
+                            connectToSocket(bluetoothManager.adapter, connectedDevice)
+                        }
+                        Log.d(TAG, "Setting metadata")
+                        setMetadatas(connectedDevice)
+                    } else {
+                        Log.d(
+                            TAG,
+                            "ACL link only; deferring AACP control socket until Android audio profile is connected",
+                        )
                     }
-//                    }
 
                 } else if (intent?.action == AirPodsNotifications.AIRPODS_DISCONNECTED) {
+                    runCatching { BluetoothConnectionManager.aacpSocket?.close() }
+                    runCatching { BluetoothConnectionManager.attSocket?.close() }
                     device = null
-//                    isConnectedLocally = false
                     popupShown = false
                     updateNotificationContent(false)
                     aacpManager.disconnected()
@@ -751,6 +792,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         val deviceIntentFilter = IntentFilter().apply {
             addAction(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED)
             addAction(AirPodsNotifications.AIRPODS_DISCONNECTED)
+            addAction(AirPodsNotifications.AIRPODS_AUDIO_PROFILE_EVENT)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -765,31 +807,48 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         val bluetoothAdapter = getSystemService(BluetoothManager::class.java).adapter
 
-        bluetoothAdapter.getProfileProxy(
-            this,
-            object : BluetoothProfile.ServiceListener {
-                override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
-                    try {
-                        if (profile != BluetoothProfile.A2DP) return
-                        val selected = proxy.connectedDevices.firstOrNull {
-                            it.address == macAddress
-                        } ?: proxy.connectedDevices.firstOrNull(::isLikelyAirPods)
-                        if (selected != null) {
-                            sendBroadcast(
-                                Intent(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED)
-                                    .putExtra("device", selected)
-                                    .setPackage(packageName)
+        for (audioProfile in listOf(BluetoothProfile.A2DP, BluetoothProfile.HEADSET)) {
+            bluetoothAdapter.getProfileProxy(
+                this,
+                object : BluetoothProfile.ServiceListener {
+                    override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
+                        try {
+                            if (profile != audioProfile) return
+                            val connectedDevices = proxy.connectedDevices
+                            val selectedAddress = BluetoothConnectionEventPolicy.selectConnectedAddress(
+                                selectedAddress = macAddress,
+                                connectedCandidates = connectedDevices.map { candidate ->
+                                    candidate.address to isLikelyAirPods(candidate)
+                                },
                             )
+                            val selected = connectedDevices.firstOrNull { it.address == selectedAddress }
+                            if (selected != null) {
+                                Log.i(TAG, "Found selected AirPods in an active audio profile at service start")
+                                sendBroadcast(
+                                    Intent(AirPodsNotifications.AIRPODS_AUDIO_PROFILE_EVENT)
+                                        .putExtra("profile", profile)
+                                        .putExtra("connected", true)
+                                        .setPackage(packageName)
+                                )
+                                sendBroadcast(
+                                    Intent(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED)
+                                        .putExtra("device", selected)
+                                        .putExtra(EXTRA_ANDROID_AUDIO_PROFILE_CONNECTED, true)
+                                        .setPackage(packageName)
+                                )
+                            } else {
+                                Log.i(TAG, "No unambiguous selected AirPods device found in the active audio profile")
+                            }
+                        } finally {
+                            bluetoothAdapter.closeProfileProxy(profile, proxy)
                         }
-                    } finally {
-                        bluetoothAdapter.closeProfileProxy(profile, proxy)
                     }
-                }
 
-                override fun onServiceDisconnected(profile: Int) = Unit
-            },
-            BluetoothProfile.A2DP
-        )
+                    override fun onServiceDisconnected(profile: Int) = Unit
+                },
+                audioProfile
+            )
+        }
 
 //        if (!isConnectedLocally && !CrossDevice.isAvailable) {
 //            clearPacketLogs()
@@ -1720,8 +1779,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     private fun lowestKnownBatteryLevel(): Int = batteryNotification.getBattery()
         .asSequence()
         .filter { it.component == BatteryComponent.LEFT || it.component == BatteryComponent.RIGHT }
+        .filter { it.isLevelKnown }
         .map { it.level }
-        .filter { it in 1..100 }
+        .filter { it in 0..100 }
         .minOrNull() ?: 0
 
     var islandOpen = false
@@ -2511,10 +2571,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
             val action = intent.action
             val context = context?.applicationContext
-            val name = context?.getSharedPreferences("settings", MODE_PRIVATE)
-                ?.getString("name", bluetoothDevice?.name)
             if (bluetoothDevice != null && !action.isNullOrEmpty()) {
-                Log.d(TAG, "Received bluetooth connection broadcast: action=$action")
                 val uuid = ParcelUuid.fromString("74ec2172-0bad-4d01-8f77-997b2be0722a")
 
                 val savedMac = context?.getSharedPreferences("settings", MODE_PRIVATE)
@@ -2528,16 +2585,86 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     matchedByUuid || matchedByName
                 }
 
-                if (BluetoothDevice.ACTION_ACL_CONNECTED == action &&
-                    !matchesSelectedDevice
-                ) {
+                val profileState = intent.getIntExtra(
+                    BluetoothProfile.EXTRA_STATE,
+                    BluetoothProfile.STATE_DISCONNECTED,
+                )
+                val event = BluetoothConnectionEventPolicy.classify(
+                    action = action,
+                    profileState = profileState,
+                    isSelectedAirPods = matchesSelectedDevice,
+                )
+
+                if (action == BluetoothDevice.ACTION_ACL_CONNECTED && !matchesSelectedDevice) {
                     bluetoothDevice.fetchUuidsWithSdp()
-                } else if (matchesSelectedDevice) {
-                    val detected = Intent(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED)
-                        .putExtra("name", name)
-                        .putExtra("device", bluetoothDevice)
-                        .setPackage(context?.packageName)
-                    context?.sendBroadcast(detected)
+                    return
+                }
+
+                when (event) {
+                    BluetoothConnectionEventPolicy.Event.LINK_CANDIDATE -> {
+                        Log.d(TAG, "Selected AirPods link appeared; waiting for an audio profile")
+                        context?.let { appContext ->
+                            appContext.sendBroadcast(
+                                Intent(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED)
+                                    .putExtra("device", bluetoothDevice)
+                                    .setPackage(appContext.packageName)
+                            )
+                        }
+                    }
+
+                    BluetoothConnectionEventPolicy.Event.CONNECTED -> {
+                        Log.i(TAG, "Selected AirPods Android audio profile connected")
+                        val profile = BluetoothConnectionEventPolicy.profileForAction(action)
+                        if (profile != null) {
+                            context?.let { appContext ->
+                                appContext.sendBroadcast(
+                                    Intent(AirPodsNotifications.AIRPODS_AUDIO_PROFILE_EVENT)
+                                        .putExtra("profile", profile)
+                                        .putExtra("connected", true)
+                                        .setPackage(appContext.packageName)
+                                )
+                            }
+                        }
+                        val detected = Intent(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED)
+                            .putExtra("device", bluetoothDevice)
+                            .putExtra(EXTRA_ANDROID_AUDIO_PROFILE_CONNECTED, true)
+                            .setPackage(context?.packageName)
+                        context?.sendBroadcast(detected)
+                    }
+
+                    BluetoothConnectionEventPolicy.Event.PROFILE_DISCONNECTED -> {
+                        val profile = BluetoothConnectionEventPolicy.profileForAction(action)
+                        if (profile != null) {
+                            context?.let { appContext ->
+                                appContext.sendBroadcast(
+                                    Intent(AirPodsNotifications.AIRPODS_AUDIO_PROFILE_EVENT)
+                                        .putExtra("profile", profile)
+                                        .putExtra("connected", false)
+                                        .setPackage(appContext.packageName)
+                                )
+                            }
+                        }
+                    }
+
+                    BluetoothConnectionEventPolicy.Event.DISCONNECTED -> {
+                        Log.i(TAG, "Selected AirPods Bluetooth link disconnected")
+                        context?.let { appContext ->
+                            listOf(BluetoothProfile.A2DP, BluetoothProfile.HEADSET).forEach { profile ->
+                                appContext.sendBroadcast(
+                                    Intent(AirPodsNotifications.AIRPODS_AUDIO_PROFILE_EVENT)
+                                        .putExtra("profile", profile)
+                                        .putExtra("connected", false)
+                                        .setPackage(appContext.packageName)
+                                )
+                            }
+                            appContext.sendBroadcast(
+                                Intent(AirPodsNotifications.AIRPODS_DISCONNECTED)
+                                    .setPackage(appContext.packageName)
+                            )
+                        }
+                    }
+
+                    BluetoothConnectionEventPolicy.Event.IGNORE -> Unit
                 }
             }
         }
@@ -2764,7 +2891,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             runBlocking {
                 withTimeout(5000.milliseconds) {
                     try {
-                        socket.connect()
+                        BluetoothSocketConnectTimeout.connect(
+                            timeoutMs = 5_000,
+                            closeSocket = { socket.close() },
+                            connectSocket = { socket.connect() },
+                        )
                         this@AirPodsService.device = device
                         val xposedRemotePref = XposedRemotePrefProvider.create()
                         val attSocket = if (xposedRemotePref.getBoolean("vendor_id_hook", false)) {
@@ -2775,7 +2906,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                                 31
                             )
                         } else null
-                        attSocket?.connect()
+                        attSocket?.let { socket ->
+                            BluetoothSocketConnectTimeout.connect(
+                                timeoutMs = 5_000,
+                                closeSocket = { socket.close() },
+                                connectSocket = { socket.connect() },
+                            )
+                        }
 
                         if (attSocket != null) {
                             attManager.startReader()
@@ -3323,7 +3460,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             CoroutineScope(Dispatchers.IO).launch {
                 Log.d(TAG, "Reconnecting to the saved paired AirPods device")
                 connectToSocket(bluetoothAdapter, device!!, manual = true)
-                connectAudio(this@AirPodsService, device!!)
+                if (!isAndroidAudioProfileConnected) {
+                    connectAudio(this@AirPodsService, device!!)
+                } else {
+                    Log.d(TAG, "Audio profiles already connected; retrying only the AirPods control socket")
+                }
             }
         }
     }

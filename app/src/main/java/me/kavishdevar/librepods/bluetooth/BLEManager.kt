@@ -19,6 +19,7 @@
 package me.kavishdevar.librepods.bluetooth
 
 import android.annotation.SuppressLint
+import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
@@ -85,6 +86,8 @@ class BLEManager(private val context: Context) {
     private val processedAddresses = mutableSetOf<String>()
 
     private val lastValidCaseBatteryMap = mutableMapOf<String, Int>()
+    private var lastIdentityRejectionLogAt = 0L
+    private var selectedBondAddressAtScanStart: String? = null
     private val modelNames = mapOf(
         0x0E20 to "AirPods Pro",
         0x1420 to "AirPods Pro 2",
@@ -165,9 +168,20 @@ class BLEManager(private val context: Context) {
             manufacturerDataMask[0] = -1
             manufacturerDataMask[1] = -1
 
-            val scanFilter = ScanFilter.Builder()
+            val selectedBondAddress = sharedPreferences.getString("mac_address", null)
+                ?.takeIf(BluetoothAdapter::checkBluetoothAddress)
+            selectedBondAddressAtScanStart = selectedBondAddress
+            val scanFilterBuilder = ScanFilter.Builder()
                 .setManufacturerData(76, manufacturerData, manufacturerDataMask)
-                .build()
+            if (selectedBondAddress != null) {
+                // Let Android's bonded-device address resolution (including its IRK) match
+                // AirPods' rotating BLE address before it reaches our identity gate.
+                scanFilterBuilder.setDeviceAddress(selectedBondAddress)
+                Log.i(TAG, "BLE scan constrained to the selected paired AirPods identity")
+            } else {
+                Log.i(TAG, "BLE scan has no selected paired identity yet; advertisements are discovery-only")
+            }
+            val scanFilter = scanFilterBuilder.build()
 
             mScanCallback = object : ScanCallback() {
                 override fun onScanResult(callbackType: Int, result: ScanResult) {
@@ -208,6 +222,24 @@ class BLEManager(private val context: Context) {
         } catch (t: Throwable) {
             Log.e(TAG, "Error stopping BLE scanner", t)
         }
+    }
+
+    /** Rebuild the scanner filter when Android reports the selected paired AirPods device. */
+    @SuppressLint("MissingPermission")
+    fun refreshSelectedBondFilter() {
+        val selectedBondAddress = sharedPreferences.getString("mac_address", null)
+            ?.takeIf(BluetoothAdapter::checkBluetoothAddress)
+        if (selectedBondAddress.equals(selectedBondAddressAtScanStart, ignoreCase = true)) return
+        if (mScanCallback == null) return
+        Log.i(TAG, "Selected AirPods identity changed; refreshing the BLE scan filter")
+        deviceStatusMap.clear()
+        verifiedAddresses.clear()
+        processedAddresses.clear()
+        lastValidCaseBatteryMap.clear()
+        currentGlobalLidState = null
+        lastBroadcastTime = 0L
+        stopScanning()
+        startScanning()
     }
 
     @OptIn(ExperimentalEncodingApi::class)
@@ -263,11 +295,29 @@ class BLEManager(private val context: Context) {
 
             if (!verifiedAddresses.contains(address)) {
                 val irk = getIrkFromPreferences()
-                if (irk == null || !BluetoothCryptography.verifyRPA(address, irk)) {
+                val verifiedByIrk = irk?.let { BluetoothCryptography.verifyRPA(address, it) } == true
+                val selectedBondAddress = sharedPreferences.getString("mac_address", null)
+                if (!BleAdvertisementIdentityPolicy.isTrusted(
+                        observedAddress = address,
+                        selectedBondAddress = selectedBondAddress,
+                        verifiedByIrk = verifiedByIrk,
+                        matchedSelectedBondAddressFilter =
+                            selectedBondAddressAtScanStart != null &&
+                                selectedBondAddressAtScanStart.equals(selectedBondAddress, ignoreCase = true),
+                    )
+                ) {
+                    logIdentityRejection(irkAvailable = irk != null)
                     return
                 }
                 verifiedAddresses.add(address)
-                Log.d(TAG, "Verified a rotating AirPods address and added it to the trusted set")
+                Log.d(
+                    TAG,
+                    if (verifiedByIrk) {
+                        "Verified a rotating AirPods address with the stored identity key"
+                    } else {
+                        "Android BLE address matches the selected paired AirPods; accepting coarse public battery data"
+                    },
+                )
             }
 
             processedAddresses.add(address)
@@ -298,7 +348,7 @@ class BLEManager(private val context: Context) {
                         Log.d(TAG, "Initial BLE lid state recorded without generating a case-open event")
                     }
                 } else {
-                    if (parsedStatus != previousStatus) {
+                    if (parsedStatus.copy(lastSeen = previousStatus.lastSeen) != previousStatus) {
                         listener.onDeviceStatusChanged(parsedStatus, previousStatus)
                     }
 
@@ -333,6 +383,20 @@ class BLEManager(private val context: Context) {
         } catch (t: Throwable) {
             Log.e(TAG, "Error processing scan result", t)
         }
+    }
+
+    private fun logIdentityRejection(irkAvailable: Boolean) {
+        val now = System.currentTimeMillis()
+        if (now - lastIdentityRejectionLogAt < 15_000L) return
+        lastIdentityRejectionLogAt = now
+        Log.i(
+            TAG,
+            if (irkAvailable) {
+                "Ignoring BLE advertisement: it did not match the stored identity key or selected paired address"
+            } else {
+                "Ignoring BLE advertisement: no identity key is available and Android did not resolve it to the selected paired address"
+            },
+        )
     }
 
     private fun parseProximityMessageWithDecryption(address: String, data: ByteArray, decrypted: ByteArray): AirPodsStatus {

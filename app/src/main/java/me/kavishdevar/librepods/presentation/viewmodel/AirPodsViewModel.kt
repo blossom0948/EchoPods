@@ -24,6 +24,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.os.Build
 import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +64,7 @@ data class AirPodsUiState(
     val deviceName: String = "AirPods",
 
     val isLocallyConnected: Boolean = false,
+    val isAndroidAudioProfileConnected: Boolean = false,
 
     val instance: AirPodsInstance? = null,
     val capabilities: Set<Capability> = emptySet(),
@@ -353,6 +355,11 @@ class AirPodsViewModel(
                         }
                     }
 
+                    AirPodsNotifications.AIRPODS_AUDIO_ROUTE_STATE -> {
+                        val connected = intent.getBooleanExtra("connected", false)
+                        _uiState.update { it.copy(isAndroidAudioProfileConnected = connected) }
+                    }
+
                     AirPodsNotifications.BATTERY_DATA -> {
                         _uiState.update {
                             it.copy(battery = service.getBattery())
@@ -378,14 +385,22 @@ class AirPodsViewModel(
             addAction(AirPodsNotifications.AIRPODS_CONNECTED)
             addAction(AirPodsNotifications.AIRPODS_L2CAP_CONNECTED)
             addAction(AirPodsNotifications.AIRPODS_DISCONNECTED)
+            addAction(AirPodsNotifications.AIRPODS_AUDIO_ROUTE_STATE)
             addAction(AirPodsNotifications.BATTERY_DATA)
             addAction(AirPodsNotifications.EQ_DATA)
             addAction(AirPodsNotifications.AIRPODS_INFORMATION_UPDATED)
         }
 
-        appContext.registerReceiver(
-            broadcastReceiver, filter, Context.RECEIVER_NOT_EXPORTED
-        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            appContext.registerReceiver(
+                broadcastReceiver,
+                filter,
+                Context.RECEIVER_NOT_EXPORTED,
+            )
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            appContext.registerReceiver(broadcastReceiver, filter)
+        }
     }
 
     fun setControlCommandValue(
@@ -532,6 +547,7 @@ class AirPodsViewModel(
             _uiState.update {
                 it.copy(
                     isLocallyConnected = BluetoothConnectionManager.aacpSocket?.isConnected == true,
+                    isAndroidAudioProfileConnected = service.isAndroidAudioProfileConnected,
                     battery = service.getBattery(),
                     ancMode = controlRepo.getValue(ControlCommandIdentifiers.LISTENING_MODE)?.get(0)?.toInt() ?: 1,
                     controlStates = controlRepo.getMap()

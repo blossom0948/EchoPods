@@ -54,8 +54,8 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -80,6 +80,9 @@ import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import me.kavishdevar.librepods.BuildConfig
@@ -121,6 +124,7 @@ fun AppSettingsScreen(
     val updateManager = remember { UpdateManager.shared(context) }
     val updateState by updateManager.state.collectAsState()
     val updateScope = rememberCoroutineScope()
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     val backdrop = rememberLayerBackdrop()
 
@@ -132,6 +136,16 @@ fun AppSettingsScreen(
 
     LaunchedEffect(Unit) {
         updateManager.check(automatic = true)
+    }
+
+    DisposableEffect(lifecycleOwner, updateManager) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                updateManager.resumeReadyInstallIfPermitted()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     val m3eEnabled = LocalDesignSystem.current == DesignSystem.Material

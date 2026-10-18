@@ -64,6 +64,7 @@ import me.kavishdevar.librepods.data.Battery
 import me.kavishdevar.librepods.data.BatteryComponent
 import me.kavishdevar.librepods.data.BatteryStatus
 import me.kavishdevar.librepods.services.ServiceManager
+import me.kavishdevar.librepods.utils.BatterySummaryPolicy
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.math.abs
 
@@ -172,26 +173,11 @@ class IslandWindow(private val context: Context) {
         val batteryText = islandView.findViewById<TextView>(R.id.island_battery_text)
         val batteryProgressBar = islandView.findViewById<ProgressBar>(R.id.island_battery_progress)
 
-        val displayBatteryLevel = if (batteryList != null) {
-            val leftBattery = batteryList.find { it.component == BatteryComponent.LEFT }
-            val rightBattery = batteryList.find { it.component == BatteryComponent.RIGHT }
-
-            when {
-                (leftBattery?.level ?: 0) > 0 && (rightBattery?.level ?: 0) > 0 ->
-                    minOf(leftBattery!!.level, rightBattery!!.level)
-                (leftBattery?.level ?: 0) > 0 -> leftBattery!!.level
-                (rightBattery?.level ?: 0) > 0 -> rightBattery!!.level
-                batteryPercentage > 0 -> batteryPercentage
-                else -> null
-            }
-        } else if (batteryPercentage > 0) {
-            batteryPercentage
-        } else {
-            null
-        }
+        val batterySummary = BatterySummaryPolicy.primaryEarbudBattery(batteryList.orEmpty())
+        val displayBatteryLevel = batterySummary?.level ?: batteryPercentage.takeIf { it in 1..100 }
 
         if (displayBatteryLevel != null) {
-            batteryText.text = "$displayBatteryLevel%"
+            batteryText.text = "${if (batterySummary?.isStale == true) "~" else ""}$displayBatteryLevel%"
             batteryProgressBar.progress = displayBatteryLevel
         } else {
             batteryText.text = "?"

@@ -23,10 +23,61 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
 import android.os.ParcelUuid
 import android.util.Log
+import java.net.SocketTimeoutException
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 object BluetoothConnectionManager {
     var aacpSocket: BluetoothSocket? = null
     var attSocket: BluetoothSocket? = null
+}
+
+/** Applies a real deadline to BluetoothSocket.connect(), which is a blocking API. */
+internal object BluetoothSocketConnectTimeout {
+    private const val CONNECTING = 0
+    private const val CONNECTED = 1
+    private const val TIMED_OUT = 2
+    private const val FAILED = 3
+
+    private val timeoutScheduler = Executors.newSingleThreadScheduledExecutor { task ->
+        Thread(task, "AirPodsSocketConnectTimeout").apply { isDaemon = true }
+    }
+
+    fun connect(
+        timeoutMs: Long,
+        closeSocket: () -> Unit,
+        connectSocket: () -> Unit,
+    ) {
+        require(timeoutMs > 0) { "timeoutMs must be positive" }
+        val state = AtomicInteger(CONNECTING)
+        val timeoutTask = timeoutScheduler.schedule(
+            {
+                if (state.compareAndSet(CONNECTING, TIMED_OUT)) {
+                    runCatching(closeSocket)
+                }
+            },
+            timeoutMs,
+            TimeUnit.MILLISECONDS,
+        )
+
+        try {
+            connectSocket()
+            if (!state.compareAndSet(CONNECTING, CONNECTED)) {
+                throw SocketTimeoutException("Bluetooth socket connection timed out after ${timeoutMs}ms")
+            }
+        } catch (error: Throwable) {
+            state.compareAndSet(CONNECTING, FAILED)
+            runCatching(closeSocket)
+            if (state.get() == TIMED_OUT) {
+                throw SocketTimeoutException("Bluetooth socket connection timed out after ${timeoutMs}ms")
+                    .also { it.initCause(error) }
+            }
+            throw error
+        } finally {
+            timeoutTask.cancel(false)
+        }
+    }
 }
 
 fun createBluetoothSocket(

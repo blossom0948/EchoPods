@@ -177,15 +177,30 @@ private fun StyledListItemContent(
     trailingContent: (@Composable () -> Unit)? = null
 ) {
     val isDarkTheme = isSystemInDarkTheme()
-    val surfaceColor = MaterialTheme.colorScheme.surface
     val surfaceDimColor = MaterialTheme.colorScheme.surfaceDim
-    var backgroundColor by remember { mutableStateOf(surfaceColor) }
+    var backgroundColor by remember { mutableStateOf(Color.Transparent) }
     val animatedBackgroundColor by animateColorAsState(targetValue = backgroundColor, animationSpec = tween(durationMillis = 500))
     val haptics = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
 
     when (LocalDesignSystem.current) {
         DesignSystem.Apple -> {
+            val appleRowShape = when {
+                count == 1 -> RoundedCornerShape(28.dp)
+                index == 0 -> RoundedCornerShape(
+                    topStart = 28.dp,
+                    topEnd = 28.dp,
+                    bottomStart = 0.dp,
+                    bottomEnd = 0.dp
+                )
+                index == count - 1 -> RoundedCornerShape(
+                    topStart = 0.dp,
+                    topEnd = 0.dp,
+                    bottomStart = 28.dp,
+                    bottomEnd = 28.dp
+                )
+                else -> RectangleShape
+            }
             val trailingContentDefault: @Composable () -> Unit = {
                 if (trailingContent == null) {
                     if (onClick != null) {
@@ -220,43 +235,18 @@ private fun StyledListItemContent(
             }
             Column (
                 modifier = Modifier
-                    .background(
-                        animatedBackgroundColor,
-                        when {
-                            (index == 0 && count == 1) -> {
-                                RoundedCornerShape(28.dp)
-                            }
-
-                            (index == 0) -> {
-                                RoundedCornerShape(
-                                    topStart = 28.dp,
-                                    topEnd = 28.dp,
-                                    bottomStart = 0.dp,
-                                    bottomEnd = 0.dp
-                                )
-                            }
-
-                            (index + 1 == count) -> {
-                                RoundedCornerShape(
-                                    topStart = 0.dp,
-                                    topEnd = 0.dp,
-                                    bottomStart = 28.dp,
-                                    bottomEnd = 28.dp
-                                )
-                            }
-
-                            else -> {
-                                RectangleShape
-                            }
-                        }
-                    )
+                    // The list owns the resting surface and its outer rounded corners.
+                    // Rows stay transparent so they cannot look like separate rounded cards.
+                    // Clip only the pressed tint to the row's group position.
+                    .clip(appleRowShape)
+                    .background(animatedBackgroundColor)
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onPress = {
                                 if (enabled) {
                                     backgroundColor = surfaceDimColor
                                     tryAwaitRelease()
-                                    backgroundColor = surfaceColor
+                                    backgroundColor = Color.Transparent
                                 }
                             },
                             onTap = {
