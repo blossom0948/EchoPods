@@ -1,81 +1,17 @@
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    style="@style/Widget.LibrePods.AppWidget.Container"
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/battery_widget"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@android:color/transparent"
-    android:theme="@style/Theme.LibrePods.AppWidgetContainer">
+    android:clipChildren="false"
+    android:clipToPadding="false">
 
     <ImageView
-        android:id="@+id/widget_glass_background"
+        android:id="@+id/battery_widget_canvas"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:importantForAccessibility="no"
-        android:scaleType="fitXY" />
-
-    <LinearLayout
-        android:id="@android:id/background"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:gravity="center"
-        android:orientation="vertical"
-        android:padding="6dp">
-
-        <FrameLayout
-            android:id="@+id/phone_battery_widget_container"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:contentDescription="@string/widget_phone_battery_description">
-            <FrameLayout android:layout_width="56dp" android:layout_height="56dp" android:layout_gravity="center" android:clipChildren="false" android:clipToPadding="false">
-                <ProgressBar android:id="@+id/phone_battery_progress_background" style="@style/Widget.AppCompat.ProgressBar.Horizontal" android:layout_width="match_parent" android:layout_height="match_parent" android:indeterminate="false" android:max="100" android:progress="100" android:progressDrawable="@drawable/progress_bar_background" />
-                <ProgressBar android:id="@+id/phone_battery_progress" style="@style/Widget.AppCompat.ProgressBar.Horizontal" android:layout_width="match_parent" android:layout_height="match_parent" android:indeterminate="false" android:max="100" android:progressDrawable="@drawable/circular_progress_bar" />
-                <ImageView android:id="@+id/phone_battery_icon" android:layout_width="24dp" android:layout_height="24dp" android:layout_gravity="center" android:importantForAccessibility="no" android:src="@drawable/smartphone" android:tint="@color/widget_icon_tint" android:visibility="gone" tools:ignore="UseAppTint" />
-                <ImageView android:id="@+id/phone_charging_icon" android:layout_width="12dp" android:layout_height="12dp" android:layout_gravity="bottom|end" android:importantForAccessibility="no" android:src="@drawable/ic_power" android:tint="@color/widget_icon_tint" android:visibility="gone" tools:ignore="UseAppTint" />
-            </FrameLayout>
-        </FrameLayout>
-
-        <FrameLayout
-            android:id="@+id/left_battery_widget_container"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:contentDescription="@string/widget_left_battery_description">
-            <FrameLayout android:layout_width="56dp" android:layout_height="56dp" android:layout_gravity="center" android:clipChildren="false" android:clipToPadding="false">
-                <ProgressBar android:id="@+id/left_battery_progress_background" style="@style/Widget.AppCompat.ProgressBar.Horizontal" android:layout_width="match_parent" android:layout_height="match_parent" android:indeterminate="false" android:max="100" android:progress="100" android:progressDrawable="@drawable/progress_bar_background" />
-                <ProgressBar android:id="@+id/left_battery_progress" style="@style/Widget.AppCompat.ProgressBar.Horizontal" android:layout_width="match_parent" android:layout_height="match_parent" android:indeterminate="false" android:max="100" android:progressDrawable="@drawable/circular_progress_bar_airpods" />
-                <ImageView android:id="@+id/left_battery_icon" android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="center" android:importantForAccessibility="no" android:src="@drawable/ic_airpod_regular_widget" android:visibility="gone" />
-                <ImageView android:id="@+id/left_charging_icon" android:layout_width="12dp" android:layout_height="12dp" android:layout_gravity="top|center_horizontal" android:importantForAccessibility="no" android:src="@drawable/ic_charging_bolt_widget" android:translationY="-3dp" android:visibility="gone" />
-            </FrameLayout>
-        </FrameLayout>
-
-        <FrameLayout
-            android:id="@+id/right_battery_widget_container"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:contentDescription="@string/widget_right_battery_description">
-            <FrameLayout android:layout_width="56dp" android:layout_height="56dp" android:layout_gravity="center" android:clipChildren="false" android:clipToPadding="false">
-                <ProgressBar android:id="@+id/right_battery_progress_background" style="@style/Widget.AppCompat.ProgressBar.Horizontal" android:layout_width="match_parent" android:layout_height="match_parent" android:indeterminate="false" android:max="100" android:progress="100" android:progressDrawable="@drawable/progress_bar_background" />
-                <ProgressBar android:id="@+id/right_battery_progress" style="@style/Widget.AppCompat.ProgressBar.Horizontal" android:layout_width="match_parent" android:layout_height="match_parent" android:indeterminate="false" android:max="100" android:progressDrawable="@drawable/circular_progress_bar_airpods" />
-                <ImageView android:id="@+id/right_battery_icon" android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="center" android:importantForAccessibility="no" android:src="@drawable/ic_airpod_regular_right_widget" android:visibility="gone" />
-                <ImageView android:id="@+id/right_charging_icon" android:layout_width="12dp" android:layout_height="12dp" android:layout_gravity="top|center_horizontal" android:importantForAccessibility="no" android:src="@drawable/ic_charging_bolt_widget" android:translationY="-3dp" android:visibility="gone" />
-            </FrameLayout>
-        </FrameLayout>
-
-        <FrameLayout
-            android:id="@+id/case_battery_widget_container"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:contentDescription="@string/widget_case_battery_description">
-            <FrameLayout android:layout_width="56dp" android:layout_height="56dp" android:layout_gravity="center" android:clipChildren="false" android:clipToPadding="false">
-                <ProgressBar android:id="@+id/case_battery_progress_background" style="@style/Widget.AppCompat.ProgressBar.Horizontal" android:layout_width="match_parent" android:layout_height="match_parent" android:indeterminate="false" android:max="100" android:progress="100" android:progressDrawable="@drawable/progress_bar_background" />
-                <ProgressBar android:id="@+id/case_battery_progress" style="@style/Widget.AppCompat.ProgressBar.Horizontal" android:layout_width="match_parent" android:layout_height="match_parent" android:indeterminate="false" android:max="100" android:progressDrawable="@drawable/circular_progress_bar_airpods" />
-                <ImageView android:id="@+id/case_battery_icon" android:layout_width="30dp" android:layout_height="26dp" android:layout_gravity="center" android:importantForAccessibility="no" android:src="@drawable/ic_airpods_case_widget" android:visibility="gone" />
-                <ImageView android:id="@+id/case_charging_icon" android:layout_width="12dp" android:layout_height="12dp" android:layout_gravity="top|center_horizontal" android:importantForAccessibility="no" android:src="@drawable/ic_charging_bolt_widget" android:translationY="-3dp" android:visibility="gone" />
-            </FrameLayout>
-        </FrameLayout>
-    </LinearLayout>
-</RelativeLayout>
+        android:contentDescription="@string/battery_widget_accessibility_description"
+        android:importantForAccessibility="yes"
+        android:scaleType="fitCenter" />
+</FrameLayout>

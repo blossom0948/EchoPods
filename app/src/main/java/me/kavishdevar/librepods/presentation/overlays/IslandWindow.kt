@@ -30,8 +30,11 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.res.Resources
 import android.graphics.PixelFormat
+import android.graphics.SurfaceTexture
 import android.graphics.drawable.GradientDrawable
-import android.media.AudioManager
+import android.media.AudioAttributes
+import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -39,6 +42,8 @@ import android.util.Log.e
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
+import android.view.Surface
+import android.view.TextureView
 import android.view.VelocityTracker
 import android.view.View
 import android.view.WindowManager
@@ -46,11 +51,11 @@ import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import android.widget.VideoView
 import androidx.core.net.toUri
 import androidx.dynamicanimation.animation.DynamicAnimation
 import androidx.dynamicanimation.animation.SpringAnimation
@@ -109,6 +114,33 @@ class IslandWindow(private val context: Context) {
     private var islandVideoPrepared = false
     private var islandVideoSetupStarted = false
     private var islandEntranceComplete = false
+    private var islandVideoFrameRevealed = false
+    private var islandVideoPlayer: MediaPlayer? = null
+    private var islandVideoSurface: Surface? = null
+    private var islandVideoTextureView: TextureView? = null
+    private var islandVideoFallbackView: ImageView? = null
+    private var islandRequestedVideoUri: Uri? = null
+
+    private val islandSurfaceTextureListener = object : TextureView.SurfaceTextureListener {
+        override fun onSurfaceTextureAvailable(surfaceTexture: SurfaceTexture, width: Int, height: Int) {
+            islandVideoSurface?.release()
+            islandVideoSurface = Surface(surfaceTexture)
+            prepareIslandVideoIfReady()
+        }
+
+        override fun onSurfaceTextureSizeChanged(surfaceTexture: SurfaceTexture, width: Int, height: Int) = Unit
+
+        override fun onSurfaceTextureDestroyed(surfaceTexture: SurfaceTexture): Boolean {
+            releaseIslandVideoPlayer()
+            islandVideoSurface?.release()
+            islandVideoSurface = null
+            return true
+        }
+
+        override fun onSurfaceTextureUpdated(surfaceTexture: SurfaceTexture) {
+            revealIslandVideoFrame()
+        }
+    }
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -353,35 +385,29 @@ class IslandWindow(private val context: Context) {
             }
         }
 
-        val videoView = islandView.findViewById<VideoView>(R.id.island_video_view)
+        val videoView = islandView.findViewById<TextureView>(R.id.island_video_view)
+        val videoFallbackView = islandView.findViewById<ImageView>(R.id.island_video_fallback)
         val videoUri = "android.resource://${context.packageName}/${R.raw.island}".toUri()
         islandVideoPrepared = false
         islandVideoSetupStarted = false
         islandEntranceComplete = false
-        fun startVideoWhenReady() {
-            if (islandVideoPrepared && islandEntranceComplete && !isClosing && !videoView.isPlaying) {
-                videoView.start()
-            }
-        }
+        islandVideoFrameRevealed = false
+        islandRequestedVideoUri = null
+        islandVideoTextureView = videoView
+        islandVideoFallbackView = videoFallbackView
+        videoView.isOpaque = false
+        videoView.alpha = 0f
+        videoView.visibility = View.VISIBLE
+        videoView.surfaceTextureListener = islandSurfaceTextureListener
+        videoFallbackView.setImageResource(R.drawable.airpods)
+        videoFallbackView.alpha = 1f
+        videoFallbackView.visibility = View.VISIBLE
         fun prepareVideoAfterEntrance() {
             if (islandEntranceComplete && !islandVideoSetupStarted && !isClosing) {
                 islandVideoSetupStarted = true
-                videoView.setVideoURI(videoUri)
+                islandRequestedVideoUri = videoUri
+                prepareIslandVideoIfReady()
             }
-        }
-        videoView.setAudioFocusRequest(AudioManager.AUDIOFOCUS_NONE)
-        videoView.setOnErrorListener { _, what, extra ->
-            e("IslandWindow", "Decorative video unavailable (what=$what, extra=$extra)")
-            videoView.setBackgroundResource(R.drawable.airpods)
-            videoView.visibility = View.VISIBLE
-            true // Never let VideoView show its default AlertDialog from an overlay.
-        }
-        videoView.setOnPreparedListener { mediaPlayer ->
-            // Video preparation/decoding starts only after the container entrance;
-            // starting setVideoURI early still caused frame drops on foldables.
-            mediaPlayer.isLooping = false
-            islandVideoPrepared = true
-            startVideoWhenReady()
         }
         try {
             windowManager.addView(containerView, params)
@@ -432,7 +458,6 @@ class IslandWindow(private val context: Context) {
                     islandEntranceComplete = true
                     containerView.animate().setListener(null)
                     prepareVideoAfterEntrance()
-                    startVideoWhenReady()
                 }
             })
             .start()
@@ -440,11 +465,101 @@ class IslandWindow(private val context: Context) {
         resetAutoCloseTimer()
     }
 
+    private fun prepareIslandVideoIfReady() {
+        if (!islandVideoSetupStarted || isClosing || islandVideoPlayer != null) return
+        val surface = islandVideoSurface ?: return
+        val uri = islandRequestedVideoUri ?: return
+        val player = MediaPlayer()
+        islandVideoPlayer = player
+        try {
+            player.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
+                    .build(),
+            )
+            player.setVolume(0f, 0f)
+            player.setSurface(surface)
+            player.setOnPreparedListener { preparedPlayer ->
+                if (isClosing) {
+                    releaseIslandVideoPlayer()
+                    return@setOnPreparedListener
+                }
+                preparedPlayer.isLooping = false
+                islandVideoPrepared = true
+                runCatching { preparedPlayer.start() }
+                    .onFailure { error ->
+                        e("IslandWindow", "Unable to start decorative island video", error)
+                        showIslandVideoFallback()
+                        releaseIslandVideoPlayer()
+                    }
+            }
+            player.setOnErrorListener { _, what, extra ->
+                e("IslandWindow", "Decorative video unavailable (what=$what, extra=$extra)")
+                showIslandVideoFallback()
+                releaseIslandVideoPlayer()
+                true
+            }
+            player.setDataSource(context, uri)
+            player.prepareAsync()
+        } catch (error: Exception) {
+            e("IslandWindow", "Unable to prepare decorative island video", error)
+            showIslandVideoFallback()
+            releaseIslandVideoPlayer()
+        }
+    }
+
+    private fun revealIslandVideoFrame() {
+        if (!islandVideoPrepared || islandVideoFrameRevealed || isClosing ||
+            islandVideoPlayer?.isPlaying != true
+        ) return
+        val videoView = islandVideoTextureView ?: return
+        val fallbackView = islandVideoFallbackView ?: return
+        islandVideoFrameRevealed = true
+        videoView.animate().cancel()
+        fallbackView.animate().cancel()
+        videoView.animate()
+            .alpha(1f)
+            .setDuration(100L)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
+        fallbackView.animate()
+            .alpha(0f)
+            .setDuration(110L)
+            .withEndAction {
+                if (islandVideoFrameRevealed) fallbackView.visibility = View.GONE
+            }
+            .start()
+    }
+
+    private fun showIslandVideoFallback() {
+        islandVideoTextureView?.apply {
+            animate().cancel()
+            alpha = 0f
+            visibility = View.GONE
+        }
+        islandVideoFallbackView?.apply {
+            animate().cancel()
+            alpha = 1f
+            visibility = View.VISIBLE
+        }
+    }
+
+    private fun releaseIslandVideoPlayer() {
+        val player = islandVideoPlayer
+        islandVideoPlayer = null
+        islandVideoPrepared = false
+        runCatching { player?.setOnPreparedListener(null) }
+        runCatching { player?.setOnErrorListener(null) }
+        runCatching { player?.reset() }
+        runCatching { player?.release() }
+    }
+
     private fun captureInitialPositions() {
         val connectedText = islandView.findViewById<TextView>(R.id.island_connected_text)
         val deviceText = islandView.findViewById<TextView>(R.id.island_device_name)
         val batteryView = islandView.findViewById<FrameLayout>(R.id.island_battery_container)
-        val videoView = islandView.findViewById<VideoView>(R.id.island_video_view)
+        val videoView = islandView.findViewById<TextureView>(R.id.island_video_view)
 
         connectedText.post {
             initialConnectedTextY = connectedText.y
@@ -462,7 +577,6 @@ class IslandWindow(private val context: Context) {
             islandView.findViewById<TextView>(R.id.island_connected_text)
             val deviceText = islandView.findViewById<TextView>(R.id.island_device_name)
             islandView.findViewById<FrameLayout>(R.id.island_battery_container)
-            islandView.findViewById<VideoView>(R.id.island_video_view)
 
             val stretchFactor = 1f + (stretchAmount / 300f).coerceAtMost(4.0f)
             val newMinHeight = (initialHeight * stretchFactor).toInt()
@@ -633,7 +747,7 @@ class IslandWindow(private val context: Context) {
             containerView.alpha = progress
 
             if (progress < 0.7f) {
-                islandView.findViewById<VideoView>(R.id.island_video_view).visibility = View.GONE
+                islandView.findViewById<View>(R.id.island_video_container).visibility = View.GONE
             }
         }
         normalizeAnimator.addListener(object : AnimatorListenerAdapter() {
@@ -697,13 +811,6 @@ class IslandWindow(private val context: Context) {
 
             resetStretchEffects()
 
-            val videoView = islandView.findViewById<VideoView>(R.id.island_video_view)
-            try {
-                videoView.stopPlayback()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-
             containerView.animate().setListener(null).cancel()
             containerView.animate()
                 .alpha(0f)
@@ -742,6 +849,12 @@ class IslandWindow(private val context: Context) {
         } catch (e: Exception) {
             e("IslandWindow", "Error removing view: $e")
         }
+        releaseIslandVideoPlayer()
+        runCatching { islandVideoSurface?.release() }
+        islandVideoSurface = null
+        islandVideoTextureView = null
+        islandVideoFallbackView = null
+        islandRequestedVideoUri = null
         isClosing = false
         // Make sure all animations are canceled
         try {
@@ -778,10 +891,6 @@ class IslandWindow(private val context: Context) {
             containerView.animate().setListener(null).cancel()
             springAnimation.cancel()
             flingAnimator.cancel()
-            runCatching {
-                islandView.findViewById<VideoView>(R.id.island_video_view).stopPlayback()
-            }
-
             // Immediately remove the view without animations
             cleanupAndRemoveView()
         } catch (e: Exception) {

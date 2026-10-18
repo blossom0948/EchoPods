@@ -111,6 +111,8 @@ import me.kavishdevar.librepods.presentation.overlays.IslandWindow
 import me.kavishdevar.librepods.presentation.overlays.LowBatteryAlertWindow
 import me.kavishdevar.librepods.presentation.overlays.PopupWindow
 import me.kavishdevar.librepods.presentation.widgets.BatteryWidget
+import me.kavishdevar.librepods.presentation.widgets.BatteryWidgetState
+import me.kavishdevar.librepods.presentation.widgets.WidgetBatteryComponent
 import me.kavishdevar.librepods.presentation.widgets.NoiseControlWidget
 import me.kavishdevar.librepods.utils.GestureDetector
 import me.kavishdevar.librepods.utils.EarWearAction
@@ -300,6 +302,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         private const val MAX_WEAR_RESUME_ROUTE_ATTEMPTS = 32
         private const val LOW_BATTERY_CHANNEL_ID = "airpods_low_battery_alert_v1"
         private const val LOW_BATTERY_NOTIFICATION_ID = 7_200
+        private const val LOW_BATTERY_QUEUE_LIMIT = 8
 
         init {
             System.loadLibrary("bluetooth_socket")
@@ -2157,60 +2160,22 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             phoneBatteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_STATUS) ==
             BatteryManager.BATTERY_STATUS_CHARGING
 
-        val responsiveViews = BatteryWidget.responsiveViews(this, model) { views, layoutId ->
+        fun widgetComponent(battery: Battery?, visible: Boolean = true) = WidgetBatteryComponent(
+            level = battery?.takeIf { it.isLevelKnown }?.level,
+            charging = battery?.let { it.isLevelKnown && it.isChargingFresh() } == true,
+            visible = visible,
+        )
 
-            fun applyComponent(
-                progressId: Int,
-                iconId: Int,
-                chargingId: Int,
-                level: Int?,
-                charging: Boolean,
-                showIconWhenUnknown: Boolean,
-            ) {
-                val hasLevel = level != null && level in 0..100
-                views.setProgressBar(progressId, 100, level?.takeIf { hasLevel } ?: 0, false)
-                views.setViewVisibility(progressId, if (hasLevel) View.VISIBLE else View.GONE)
-                views.setViewVisibility(iconId, if (hasLevel || showIconWhenUnknown) View.VISIBLE else View.GONE)
-                views.setViewVisibility(chargingId, if (hasLevel && charging) View.VISIBLE else View.GONE)
-            }
-
-            val leftKnown = leftBattery?.isLevelKnown == true
-            applyComponent(
-                R.id.left_battery_progress,
-                R.id.left_battery_icon,
-                R.id.left_charging_icon,
-                leftBattery?.level?.takeIf { leftKnown },
-                leftKnown && (leftBattery.status == BatteryStatus.CHARGING || leftBattery.status == BatteryStatus.OPTIMIZED_CHARGING),
-                showIconWhenUnknown = true,
-            )
-            val rightKnown = rightBattery?.isLevelKnown == true
-            applyComponent(
-                R.id.right_battery_progress,
-                R.id.right_battery_icon,
-                R.id.right_charging_icon,
-                rightBattery?.level?.takeIf { rightKnown },
-                rightKnown && (rightBattery.status == BatteryStatus.CHARGING || rightBattery.status == BatteryStatus.OPTIMIZED_CHARGING),
-                showIconWhenUnknown = !isOverEar,
-            )
-            val caseKnown = caseBattery?.isLevelKnown == true
-            applyComponent(
-                R.id.case_battery_progress,
-                R.id.case_battery_icon,
-                R.id.case_charging_icon,
-                caseBattery?.level?.takeIf { caseKnown },
-                caseKnown && (caseBattery.status == BatteryStatus.CHARGING || caseBattery.status == BatteryStatus.OPTIMIZED_CHARGING),
-                showIconWhenUnknown = !isOverEar,
-            )
-            applyComponent(
-                R.id.phone_battery_progress,
-                R.id.phone_battery_icon,
-                R.id.phone_charging_icon,
-                phoneLevel,
-                phoneCharging,
-                showIconWhenUnknown = widgetMobileBatteryEnabled,
-            )
-            views.setImageViewResource(R.id.phone_battery_icon, R.drawable.smartphone)
-        }
+        val responsiveViews = BatteryWidget.responsiveViews(
+            context = this,
+            model = model,
+            state = BatteryWidgetState(
+                phone = WidgetBatteryComponent(phoneLevel, phoneCharging, widgetMobileBatteryEnabled),
+                left = widgetComponent(leftBattery),
+                right = widgetComponent(rightBattery, visible = !isOverEar),
+                case = widgetComponent(caseBattery, visible = !isOverEar),
+            ),
+        )
         appWidgetManager.updateAppWidget(widgetIds, responsiveViews)
     }
 
@@ -2236,13 +2201,30 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 val battery = current[component] ?: return@forEach
                 if (!LowBatteryAlertPolicy.isFresh(battery)) return@forEach
                 val key = lowBatteryAlertPreferenceKey(component)
-                val wasAlreadyAlerted = sharedPreferences.getBoolean(key, false)
-                if (LowBatteryAlertPolicy.shouldAlert(battery, wasAlreadyAlerted)) {
-                    newlyLow += battery
-                    putBoolean(key, true)
-                } else if (LowBatteryAlertPolicy.shouldRearm(battery)) {
-                    putBoolean(key, false)
+                val thresholdKey = "${key}_threshold"
+                val legacyKey = legacyLowBatteryAlertPreferenceKey(component)
+                val lastThreshold = when {
+                    sharedPreferences.contains(thresholdKey) ->
+                        sharedPreferences.getInt(thresholdKey, -1).takeIf { it in 0..20 }
+                    sharedPreferences.getBoolean(legacyKey, false) -> 20
+                    else -> null
                 }
+
+                if (LowBatteryAlertPolicy.shouldRearm(battery)) {
+                    putInt(thresholdKey, -1)
+                    putBoolean(legacyKey, false)
+                    putInt("${key}_last_level", battery.level)
+                    remove("${key}_last_alert_at")
+                    return@forEach
+                }
+
+                putInt("${key}_last_level", battery.level)
+                val nextThreshold = LowBatteryAlertPolicy.nextThresholdToAlert(battery, lastThreshold)
+                    ?: return@forEach
+                newlyLow += battery
+                putInt(thresholdKey, nextThreshold)
+                putBoolean(legacyKey, true)
+                putLong("${key}_last_alert_at", System.currentTimeMillis())
             }
         }
 
@@ -2250,7 +2232,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             Handler(Looper.getMainLooper()).post {
                 val warnings = newlyLow.sortedBy { it.level }
                 if (Settings.canDrawOverlays(this)) {
-                    pendingLowBatteryWarnings.addAll(warnings)
+                    warnings.forEach { warning ->
+                        pendingLowBatteryWarnings.removeIf { it.component == warning.component }
+                        pendingLowBatteryWarnings.addLast(warning)
+                    }
+                    while (pendingLowBatteryWarnings.size > LOW_BATTERY_QUEUE_LIMIT) {
+                        pendingLowBatteryWarnings.removeFirst()
+                    }
                     showNextLowBatteryWarning()
                 } else {
                     warnings.forEach(::postLowBatteryNotification)
@@ -2276,11 +2264,19 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 showNextLowBatteryWarning()
             }
         }.also { lowBatteryAlertWindow = it }
-        alert.show(
+        val shown = alert.show(
             sharedPreferences.getString("name", "AirPods") ?: "AirPods",
             lowBatteryArtwork(battery),
             battery.level,
+            lowBatteryComponentName(battery.component),
         )
+        if (!shown) {
+            isLowBatteryWarningShowing = false
+            postLowBatteryNotification(battery)
+            // If the prior view is still completing teardown, let its close
+            // callback run before trying the next queued component.
+            Handler(Looper.getMainLooper()).postDelayed({ showNextLowBatteryWarning() }, 300L)
+        }
     }
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -2357,7 +2353,27 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
     }
 
-    private fun lowBatteryAlertPreferenceKey(component: Int): String = when (component) {
+    private fun lowBatteryComponentName(component: Int): String = getString(
+        when (component) {
+            BatteryComponent.LEFT -> R.string.left
+            BatteryComponent.RIGHT -> R.string.right
+            else -> R.string.case_alt
+        },
+    )
+
+    private fun lowBatteryAlertPreferenceKey(component: Int): String {
+        val modelProfile = (sharedPreferences.getString("airpods_model_number", null) ?: "unknown")
+            .filter { it.isLetterOrDigit() || it == '-' || it == '_' }
+            .ifBlank { "unknown" }
+        val part = when (component) {
+            BatteryComponent.LEFT -> "left"
+            BatteryComponent.RIGHT -> "right"
+            else -> "case"
+        }
+        return "low_battery_${modelProfile}_$part"
+    }
+
+    private fun legacyLowBatteryAlertPreferenceKey(component: Int): String = when (component) {
         BatteryComponent.LEFT -> "low_battery_alerted_left"
         BatteryComponent.RIGHT -> "low_battery_alerted_right"
         else -> "low_battery_alerted_case"

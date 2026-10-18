@@ -8,7 +8,8 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.LinearGradient
-import android.os.Build
+import android.content.res.Configuration
+import kotlin.math.roundToInt
 
 /**
  * A compact RemoteViews-safe glass surface. Android widgets cannot sample/blur the
@@ -18,16 +19,57 @@ import android.os.Build
  */
 internal object WidgetGlassBackground {
     fun create(context: Context, aspectRatio: Float): Bitmap {
-        val width = 256
-        val height = (width / aspectRatio.coerceIn(0.45f, 3.5f)).toInt().coerceIn(96, 512)
+        return create(
+            context = context,
+            aspectRatio = aspectRatio,
+            wallpaperMix = 0.28f,
+            upperAlpha = 218,
+            lowerAlpha = 194,
+            cornerFraction = 0.16f,
+        )
+    }
+
+    fun createBattery(context: Context, aspectRatio: Float): Bitmap {
+        return create(
+            context = context,
+            aspectRatio = aspectRatio,
+            wallpaperMix = 0.40f,
+            upperAlpha = 215,
+            lowerAlpha = 190,
+            cornerFraction = 0.20f,
+        )
+    }
+
+    private fun create(
+        context: Context,
+        aspectRatio: Float,
+        wallpaperMix: Float,
+        upperAlpha: Int,
+        lowerAlpha: Int,
+        cornerFraction: Float,
+    ): Bitmap {
+        val safeAspect = aspectRatio.takeIf { it.isFinite() && it > 0f }
+            ?.coerceIn(0.25f, 4f) ?: 1f
+        val width: Int
+        val height: Int
+        if (safeAspect >= 1f) {
+            width = 256
+            height = (width / safeAspect).roundToInt().coerceAtLeast(64)
+        } else {
+            height = 256
+            width = (height * safeAspect).roundToInt().coerceAtLeast(64)
+        }
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val wallpaperColor = readWallpaperAccent(context) ?: 0xFF55515F.toInt()
-        val tinted = mix(0xFF202024.toInt(), wallpaperColor, 0.28f)
-        val upper = withAlpha(mix(tinted, 0xFFFFFFFF.toInt(), 0.10f), 218)
-        val lower = withAlpha(tinted, 194)
+        val themeBase = if ((context.resources.configuration.uiMode and
+                Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        ) 0xFF17171D.toInt() else 0xFF24242B.toInt()
+        val tinted = mix(themeBase, wallpaperColor, wallpaperMix)
+        val upper = withAlpha(mix(tinted, 0xFFFFFFFF.toInt(), 0.08f), upperAlpha)
+        val lower = withAlpha(tinted, lowerAlpha)
         val bounds = RectF(1f, 1f, width - 1f, height - 1f)
-        val radius = minOf(width, height) * 0.16f
+        val radius = minOf(width, height) * cornerFraction
 
         val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             shader = LinearGradient(
@@ -45,14 +87,18 @@ internal object WidgetGlassBackground {
         return bitmap
     }
 
-    @Suppress("DEPRECATION")
     private fun readWallpaperAccent(context: Context): Int? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return null
         return runCatching {
-            WallpaperManager.getInstance(context)
-                .getWallpaperColors(WallpaperManager.FLAG_SYSTEM)
-                ?.primaryColor
-                ?.toArgb()
+            val colors = WallpaperManager.getInstance(context)
+                .getWallpaperColors(WallpaperManager.FLAG_SYSTEM) ?: return@runCatching null
+            val primary = colors.primaryColor.toArgb()
+            val secondary = colors.secondaryColor?.toArgb()
+            val tertiary = colors.tertiaryColor?.toArgb()
+            when {
+                secondary != null && tertiary != null -> mix(mix(primary, secondary, 0.5f), tertiary, 0.25f)
+                secondary != null -> mix(primary, secondary, 0.35f)
+                else -> primary
+            }
         }.getOrNull()
     }
 

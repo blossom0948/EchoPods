@@ -1,12 +1,14 @@
 package me.kavishdevar.librepods.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BatteryNotificationTest {
     @Test
     fun disconnectedComponentsKeepTheirLastReportedPercentages() {
-        val notification = AirPodsNotifications.BatteryNotification()
+        val notification = AirPodsNotifications.BatteryNotification { 100L }
         val active = batteryPacket(left = 63, right = 88, case = 41)
         notification.setBattery(active)
 
@@ -27,11 +29,12 @@ class BatteryNotificationTest {
         assertEquals(true, battery.getValue(BatteryComponent.LEFT).isLevelKnown)
         assertEquals(true, battery.getValue(BatteryComponent.RIGHT).isLevelKnown)
         assertEquals(true, battery.getValue(BatteryComponent.CASE).isLevelKnown)
+        assertEquals(100L, battery.getValue(BatteryComponent.LEFT).levelCapturedAtElapsedMs)
     }
 
     @Test
     fun missingRestoredValuesAreUnknownButZeroPercentIsKnown() {
-        val notification = AirPodsNotifications.BatteryNotification()
+        val notification = AirPodsNotifications.BatteryNotification { 100L }
         notification.restoreLastKnownBattery(leftLevel = 0, rightLevel = null, caseLevel = 57)
 
         val battery = notification.getBattery().associateBy { it.component }
@@ -43,7 +46,7 @@ class BatteryNotificationTest {
 
     @Test
     fun malformedPercentageDoesNotOverwriteTheLastValidReading() {
-        val notification = AirPodsNotifications.BatteryNotification()
+        val notification = AirPodsNotifications.BatteryNotification { 100L }
         notification.setBattery(batteryPacket(left = 63, right = 88, case = 41))
 
         val malformed = batteryPacket(left = 63, right = 88, case = 41).apply {
@@ -57,7 +60,7 @@ class BatteryNotificationTest {
 
     @Test
     fun bleReadingsUpdateUnknownComponentsAndIgnoreMissingValues() {
-        val notification = AirPodsNotifications.BatteryNotification()
+        val notification = AirPodsNotifications.BatteryNotification { 100L }
         notification.mergeBleBattery(
             leftLevel = 60,
             leftCharging = false,
@@ -84,7 +87,7 @@ class BatteryNotificationTest {
 
     @Test
     fun activeAacpReadingsWinButBleCanFillAacpDisconnectedCase() {
-        val notification = AirPodsNotifications.BatteryNotification()
+        val notification = AirPodsNotifications.BatteryNotification { 100L }
         notification.setBattery(batteryPacket(left = 63, right = 88, case = 41))
 
         val caseDisconnected = batteryPacket(left = 63, right = 88, case = 0).apply {
@@ -109,7 +112,7 @@ class BatteryNotificationTest {
 
     @Test
     fun restoredPercentagesAreStaleAndDoNotRestoreCharging() {
-        val notification = AirPodsNotifications.BatteryNotification()
+        val notification = AirPodsNotifications.BatteryNotification { 100L }
         notification.restoreLastKnownBattery(leftLevel = 51, rightLevel = 76, caseLevel = 38)
 
         val battery = notification.getBattery().associateBy { it.component }
@@ -123,7 +126,7 @@ class BatteryNotificationTest {
 
     @Test
     fun restoredValuesCanBeReplacedByFreshBleSamples() {
-        val notification = AirPodsNotifications.BatteryNotification()
+        val notification = AirPodsNotifications.BatteryNotification { 100L }
         notification.restoreLastKnownBattery(leftLevel = 51, rightLevel = 76, caseLevel = 38)
         notification.mergeBleBattery(
             leftLevel = 52,
@@ -138,6 +141,38 @@ class BatteryNotificationTest {
         assertEquals(52, battery.getValue(BatteryComponent.LEFT).level)
         assertEquals(76, battery.getValue(BatteryComponent.RIGHT).level)
         assertEquals(38, battery.getValue(BatteryComponent.CASE).level)
+    }
+
+    @Test
+    fun chargingExpiresWithoutDiscardingTheLastKnownPercentage() {
+        var now = 10_000L
+        val notification = AirPodsNotifications.BatteryNotification { now }
+        val packet = batteryPacket(left = 15, right = 90, case = 85).apply {
+            this[10] = BatteryStatus.CHARGING.toByte()
+        }
+        notification.setBattery(packet)
+
+        val left = notification.getBattery().first { it.component == BatteryComponent.LEFT }
+        assertTrue(left.isChargingFresh(nowElapsedMs = now))
+        assertEquals(15, left.level)
+        assertEquals(now, left.levelCapturedAtElapsedMs)
+
+        now += Battery.CHARGING_FRESHNESS_TTL_MS + 1L
+        assertFalse(left.isChargingFresh(nowElapsedMs = now))
+        assertEquals(15, left.level)
+        assertEquals(10_000L, left.levelCapturedAtElapsedMs)
+
+        val restored = AirPodsNotifications.BatteryNotification { now }
+        restored.restoreLastKnownBattery(leftLevel = 15, rightLevel = 90, caseLevel = 85)
+        assertEquals(
+            0L,
+            restored.getBattery().first { it.component == BatteryComponent.LEFT }
+                .levelCapturedAtElapsedMs,
+        )
+        assertFalse(
+            restored.getBattery().first { it.component == BatteryComponent.LEFT }
+                .isChargingFresh(nowElapsedMs = now),
+        )
     }
 
     private fun batteryPacket(left: Int, right: Int, case: Int) = ByteArray(22).apply {

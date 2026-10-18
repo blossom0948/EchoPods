@@ -7,6 +7,7 @@
     <string name="app_description">Manage AirPods on Android with EchoPods.</string>
     <string name="app_widget_description">See AirPods battery levels at a glance from your home screen.</string>
     <string name="widget_phone_battery_description">Phone battery</string>
+    <string name="battery_widget_accessibility_description">Battery widget with phone and AirPods battery states</string>
     <string name="widget_left_battery_description">Left AirPod battery</string>
     <string name="widget_right_battery_description">Right AirPod battery</string>
     <string name="widget_case_battery_description">Charging case battery</string>

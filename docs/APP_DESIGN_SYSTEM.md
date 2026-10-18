@@ -36,6 +36,8 @@ This is the persistent implementation memory for UI work in this repository. Rea
 
 - The selected popup style is user-configurable: bottom sheet or top island. Keep both options routed through the shared preference and `IslandWindow`/popup infrastructure rather than showing a second in-app copy of the same connection event.
 - Preserve the distinction between the compact top-island state and its expanded/product-detail state. Keep content hierarchy, safe insets, and hit targets correct on Samsung foldable and narrow screens.
+- Embedded island video must use a view-composited surface (`TextureView`) rather than `SurfaceView`/`VideoView`, so parent entrance and exit transforms apply to the artwork. Keep the static product-art fallback visible until a decoded video frame is ready, then crossfade; on decode failure, retain the fallback without a modal error.
+- Low-battery alerts are independent per component and only use fresh measured samples. Queue component alerts rather than stacking windows, use notifications when the overlay cannot be shown, and clear the close-animation state if a new alert refreshes a fading window.
 - Use existing, licensed product artwork and the project's layered artwork/animation assets. Do not substitute a random AirPods drawing, stretch a flat case image into a 3D motion, or use Apple system screenshots as app assets. If a model-specific asset is unavailable, show the supported neutral artwork rather than inventing a model-specific silhouette.
 - Keep battery values, source/freshness, case state, and charging indicators tied to actual data; the visual design must not imply unavailable telemetry.
 
@@ -45,6 +47,10 @@ This is the persistent implementation memory for UI work in this repository. Rea
 - Use a compact single-earbud glyph inside each earbud ring and a distinct closed-case glyph inside the case ring. Keep the glyphs vector-based so they remain crisp at launcher widget sizes.
 - Show a small green charging bolt centered at the 12-o'clock edge of a component ring only when that component has a fresh charging sample. Do not show a bolt based only on a remembered percentage.
 - Preserve the widget's translucent adaptive background and keep its layout free of percentage labels; unknown values must not be represented as 0%.
+- Render the battery widget's circles, icons, and adaptive glass surface together on a proportionally fitted Canvas bitmap. Keep the square grid's semantic order as host phone, right earbud, left earbud, case; map the Apple reference's laptop glyph to the Galaxy phone battery rather than implying that a Mac battery is being read.
+- Use a red arc at 20% and below, a green arc above 20%, and a gray track with no progress for missing/invalid samples. Draw arcs clockwise from 12 o'clock with round caps; maintain four-across and four-down layouts only for wide and tall widget sizes.
+- Android AppWidget cannot sample/blur wallpaper pixels as iOS does. Tint the translucent surface from `WallpaperColors` and preserve the same dark contrast in light/dark system modes; do not claim live wallpaper blur.
+- Keep the 95/90/15-charging/85 visual fixture in the debug-only `BatteryWidgetDesignPreviewActivity`; never feed sample values to the live widget or release build.
 
 ## Onboarding and release notes
 

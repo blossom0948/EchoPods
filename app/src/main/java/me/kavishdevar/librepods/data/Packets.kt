@@ -19,6 +19,7 @@
 package me.kavishdevar.librepods.data
 
 import android.os.Parcelable
+import android.os.SystemClock
 import android.util.Log
 import kotlinx.parcelize.Parcelize
 
@@ -51,7 +52,18 @@ data class Battery(
     val level: Int,
     val status: Int,
     val isLevelKnown: Boolean = level in 0..100,
+    val chargingCapturedAtElapsedMs: Long = 0L,
+    val levelCapturedAtElapsedMs: Long = 0L,
 ) : Parcelable {
+    fun isChargingFresh(
+        nowElapsedMs: Long = SystemClock.elapsedRealtime(),
+        maxAgeMs: Long = CHARGING_FRESHNESS_TTL_MS,
+    ): Boolean {
+        val age = nowElapsedMs - chargingCapturedAtElapsedMs
+        return (status == BatteryStatus.CHARGING || status == BatteryStatus.OPTIMIZED_CHARGING) &&
+            chargingCapturedAtElapsedMs > 0L && age in 0..maxAgeMs
+    }
+
     fun getComponentName(): String? {
         return when (component) {
             BatteryComponent.LEFT -> "LEFT"
@@ -69,6 +81,11 @@ data class Battery(
             BatteryStatus.OPTIMIZED_CHARGING -> "OPTIMIZED_CHARGING"
             else -> null
         }
+    }
+
+    companion object {
+        const val CHARGING_FRESHNESS_TTL_MS = 120_000L
+        const val LEVEL_FRESHNESS_TTL_MS = 15 * 60_000L
     }
 }
 
@@ -160,7 +177,9 @@ class AirPodsNotifications {
 
     }
 
-    class BatteryNotification {
+    class BatteryNotification(
+        private val elapsedRealtimeMs: () -> Long = { SystemClock.elapsedRealtime() },
+    ) {
         private var first: Battery = Battery(BatteryComponent.LEFT, 0, BatteryStatus.DISCONNECTED, false)
         private var second: Battery = Battery(BatteryComponent.RIGHT, 0, BatteryStatus.DISCONNECTED, false)
         private var case: Battery = Battery(BatteryComponent.CASE, 0, BatteryStatus.DISCONNECTED, false)
@@ -206,9 +225,28 @@ class AirPodsNotifications {
             caseLevel: Int,
             caseCharging: Boolean
         ) {
-            first = Battery(BatteryComponent.LEFT, leftLevel, if (leftCharging) BatteryStatus.CHARGING else BatteryStatus.NOT_CHARGING)
-            second = Battery(BatteryComponent.RIGHT, rightLevel, if (rightCharging) BatteryStatus.CHARGING else BatteryStatus.NOT_CHARGING)
-            case = Battery(BatteryComponent.CASE, caseLevel, if (caseCharging) BatteryStatus.CHARGING else BatteryStatus.NOT_CHARGING)
+            val capturedAt = elapsedRealtimeMs()
+            first = Battery(
+                BatteryComponent.LEFT,
+                leftLevel,
+                if (leftCharging) BatteryStatus.CHARGING else BatteryStatus.NOT_CHARGING,
+                chargingCapturedAtElapsedMs = capturedAt,
+                levelCapturedAtElapsedMs = capturedAt,
+            )
+            second = Battery(
+                BatteryComponent.RIGHT,
+                rightLevel,
+                if (rightCharging) BatteryStatus.CHARGING else BatteryStatus.NOT_CHARGING,
+                chargingCapturedAtElapsedMs = capturedAt,
+                levelCapturedAtElapsedMs = capturedAt,
+            )
+            case = Battery(
+                BatteryComponent.CASE,
+                caseLevel,
+                if (caseCharging) BatteryStatus.CHARGING else BatteryStatus.NOT_CHARGING,
+                chargingCapturedAtElapsedMs = capturedAt,
+                levelCapturedAtElapsedMs = capturedAt,
+            )
             firstSource = BatterySource.BLE
             secondSource = BatterySource.BLE
             caseSource = BatterySource.BLE
@@ -257,7 +295,18 @@ class AirPodsNotifications {
                 null -> previous.status.takeIf { it != BatteryStatus.DISCONNECTED }
                     ?: BatteryStatus.NOT_CHARGING
             }
-            return Battery(previous.component, level, status)
+            val capturedAt = elapsedRealtimeMs()
+            return Battery(
+                component = previous.component,
+                level = level,
+                status = status,
+                chargingCapturedAtElapsedMs = if (charging == null) {
+                    previous.chargingCapturedAtElapsedMs
+                } else {
+                    capturedAt
+                },
+                levelCapturedAtElapsedMs = capturedAt,
+            )
         }
 
         fun setBattery(data: ByteArray) {
@@ -300,7 +349,14 @@ class AirPodsNotifications {
             }
 
             if (status == BatteryStatus.DISCONNECTED) {
-                return Battery(previous.component, previous.level, status, previous.isLevelKnown)
+                return Battery(
+                    component = previous.component,
+                    level = previous.level,
+                    status = status,
+                    isLevelKnown = previous.isLevelKnown,
+                    chargingCapturedAtElapsedMs = elapsedRealtimeMs(),
+                    levelCapturedAtElapsedMs = previous.levelCapturedAtElapsedMs,
+                )
             }
 
             val component = data[componentIndex].toInt()
@@ -309,7 +365,13 @@ class AirPodsNotifications {
                 return previous
             }
 
-            return Battery(component, level, status)
+            return Battery(
+                component = component,
+                level = level,
+                status = status,
+                chargingCapturedAtElapsedMs = elapsedRealtimeMs(),
+                levelCapturedAtElapsedMs = elapsedRealtimeMs(),
+            )
         }
 
         fun getBattery(): List<Battery> {

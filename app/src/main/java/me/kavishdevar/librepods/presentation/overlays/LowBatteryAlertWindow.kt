@@ -32,7 +32,7 @@ class LowBatteryAlertWindow(
         height = WindowManager.LayoutParams.WRAP_CONTENT
         val metrics = context.resources.displayMetrics
         val widthDp = metrics.widthPixels / metrics.density
-        width = (minOf(widthDp - 24f, 480f).coerceAtLeast(260f) * metrics.density).toInt()
+        width = (minOf(widthDp * 0.88f, 440f).coerceAtLeast(minOf(widthDp, 260f)) * metrics.density).toInt()
         type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         format = PixelFormat.TRANSLUCENT
         gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
@@ -47,49 +47,66 @@ class LowBatteryAlertWindow(
         view.setOnClickListener { close() }
     }
 
-    fun show(deviceName: String, artworkRes: Int, level: Int) {
+    fun show(deviceName: String, artworkRes: Int, level: Int, componentName: String): Boolean {
         if (Looper.myLooper() != Looper.getMainLooper()) {
-            handler.post { show(deviceName, artworkRes, level) }
-            return
+            handler.post { show(deviceName, artworkRes, level, componentName) }
+            return true
         }
-        bind(deviceName, artworkRes, level)
+        bind(deviceName, artworkRes, level, componentName)
         if (isVisible) {
+            // A new threshold can arrive while the previous alert is fading out.
+            // Remove the close listener before cancelling, or its onAnimationEnd
+            // can remove the window after this refresh has already started.
+            view.animate().setListener(null)
             view.animate().cancel()
+            isClosing = false
             view.alpha = 0.86f
             view.translationY = -dp(5).toFloat()
+            view.scaleX = 0.985f
+            view.scaleY = 0.985f
             view.animate()
                 .alpha(1f)
                 .translationY(0f)
+                .scaleX(1f)
+                .scaleY(1f)
                 .setDuration(180L)
                 .setInterpolator(DecelerateInterpolator(1.2f))
                 .start()
             scheduleDismiss()
-            return
+            return true
         }
-        if (isClosing) return
+        if (isClosing) return false
         try {
             view.visibility = View.VISIBLE
             view.alpha = 0f
             view.translationY = -dp(28).toFloat()
+            view.scaleX = 0.97f
+            view.scaleY = 0.97f
             dismissalReported = false
+            view.setLayerType(View.LAYER_TYPE_HARDWARE, null)
             windowManager.addView(view, params)
             view.animate()
                 .alpha(1f)
                 .translationY(0f)
-                .setDuration(240L)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(390L)
                 .setInterpolator(DecelerateInterpolator(1.4f))
                 .start()
             scheduleDismiss()
             Log.i(TAG, "Low-battery alert overlay shown at ${level}%")
+            return true
         } catch (exception: Exception) {
             Log.e(TAG, "Unable to display low-battery overlay", exception)
             cleanup()
+            return false
         }
     }
 
-    private fun bind(deviceName: String, artworkRes: Int, level: Int) {
+    private fun bind(deviceName: String, artworkRes: Int, level: Int, componentName: String) {
         val safeLevel = level.coerceIn(0, 100)
         view.findViewById<TextView>(R.id.low_battery_device_name).text = deviceName
+        view.findViewById<TextView>(R.id.low_battery_component_name).text = componentName
         view.findViewById<ImageView>(R.id.low_battery_product_artwork).setImageResource(artworkRes)
         view.findViewById<TextView>(R.id.low_battery_percentage).text =
             context.getString(R.string.popup_battery_value, safeLevel)
@@ -112,7 +129,9 @@ class LowBatteryAlertWindow(
         view.animate()
             .alpha(0f)
             .translationY(-dp(20).toFloat())
-            .setDuration(180L)
+            .scaleX(0.98f)
+            .scaleY(0.98f)
+            .setDuration(280L)
             .setInterpolator(DecelerateInterpolator())
             .setListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) = cleanup()
@@ -135,6 +154,7 @@ class LowBatteryAlertWindow(
         runCatching { if (view.parent != null) windowManager.removeViewImmediate(view) }
         view.visibility = View.GONE
         isClosing = false
+        view.setLayerType(View.LAYER_TYPE_NONE, null)
         if (shouldReportDismissal) onDismissed()
     }
 

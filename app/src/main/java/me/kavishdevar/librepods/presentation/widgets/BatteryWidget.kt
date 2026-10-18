@@ -5,7 +5,7 @@
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
-    any later version.
+    (at your option) any later version.
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -16,26 +16,24 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-@file:OptIn(ExperimentalEncodingApi::class)
-
 package me.kavishdevar.librepods.presentation.widgets
 
+import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
-import android.app.PendingIntent
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.BatteryManager
 import android.util.SizeF
-import android.view.View
-import android.widget.RemoteViews
-import androidx.compose.material3.ExperimentalMaterial3Api
+import me.kavishdevar.librepods.MainActivity
+import me.kavishdevar.librepods.R
 import me.kavishdevar.librepods.data.AirPodsBase
 import me.kavishdevar.librepods.data.AirPodsFormFactor
 import me.kavishdevar.librepods.data.AirPodsModels
-import me.kavishdevar.librepods.MainActivity
-import me.kavishdevar.librepods.R
 import me.kavishdevar.librepods.services.ServiceManager
-import kotlin.io.encoding.ExperimentalEncodingApi
+import android.widget.RemoteViews
+import androidx.compose.material3.ExperimentalMaterial3Api
 
 internal data class BatteryWidgetIcons(val left: Int, val right: Int)
 
@@ -43,10 +41,12 @@ internal object BatteryWidgetIconPolicy {
     fun iconsForModel(model: AirPodsBase?): BatteryWidgetIcons = when {
         model?.formFactor == AirPodsFormFactor.OVER_EAR_HEADPHONES ->
             BatteryWidgetIcons(R.drawable.ic_headphones_widget, R.drawable.ic_headphones_widget)
+
         model?.name?.contains("Pro", ignoreCase = true) == true -> BatteryWidgetIcons(
             R.drawable.ic_airpod_pro_left_widget,
             R.drawable.ic_airpod_pro_right_widget,
         )
+
         else -> BatteryWidgetIcons(
             R.drawable.ic_airpod_regular_widget,
             R.drawable.ic_airpod_regular_right_widget,
@@ -54,50 +54,70 @@ internal object BatteryWidgetIconPolicy {
     }
 }
 
+internal data class WidgetBatteryComponent(
+    val level: Int? = null,
+    val charging: Boolean = false,
+    val visible: Boolean = true,
+)
+
+internal data class BatteryWidgetState(
+    val phone: WidgetBatteryComponent = WidgetBatteryComponent(visible = false),
+    val left: WidgetBatteryComponent = WidgetBatteryComponent(),
+    val right: WidgetBatteryComponent = WidgetBatteryComponent(),
+    val case: WidgetBatteryComponent = WidgetBatteryComponent(),
+)
+
 class BatteryWidget : AppWidgetProvider() {
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray
+        appWidgetIds: IntArray,
     ) {
-        val preferences = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val modelNumber = preferences
-            .getString("airpods_model_number", "") ?: ""
-        val model = AirPodsModels.getModelByModelNumber(modelNumber)
+        val model = readCurrentModel(context)
         val cached = readCachedLevels(context)
+        val phoneEnabled = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+            .getBoolean("show_phone_battery_in_widget", true)
+        val phoneManager = context.getSystemService(BatteryManager::class.java)
+        val state = BatteryWidgetState(
+            phone = WidgetBatteryComponent(
+                level = if (phoneEnabled) {
+                    phoneManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+                        .takeIf { it in 0..100 }
+                } else null,
+                charging = phoneEnabled && phoneManager.getIntProperty(
+                    BatteryManager.BATTERY_PROPERTY_STATUS,
+                ) == BatteryManager.BATTERY_STATUS_CHARGING,
+                visible = phoneEnabled,
+            ),
+            left = WidgetBatteryComponent(cached.left),
+            right = WidgetBatteryComponent(cached.right, visible = model?.formFactor != AirPodsFormFactor.OVER_EAR_HEADPHONES),
+            case = WidgetBatteryComponent(cached.case, visible = model?.formFactor != AirPodsFormFactor.OVER_EAR_HEADPHONES),
+        )
         appWidgetManager.updateAppWidget(
             appWidgetIds,
-            responsiveViews(context, model) { views, layoutId ->
-                val overEar = model?.formFactor == AirPodsFormFactor.OVER_EAR_HEADPHONES
-
-                fun applyLevel(
-                    progressId: Int,
-                    iconId: Int,
-                    level: Int?,
-                    showIconWhenUnknown: Boolean = true,
-                ) {
-                    val known = level != null && level in 0..100
-                    views.setProgressBar(progressId, 100, level?.takeIf { known } ?: 0, false)
-                    views.setViewVisibility(progressId, if (known) View.VISIBLE else View.GONE)
-                    views.setViewVisibility(iconId, if (known || showIconWhenUnknown) View.VISIBLE else View.GONE)
-                }
-
-                applyLevel(R.id.left_battery_progress, R.id.left_battery_icon, cached.left)
-                applyLevel(
-                    R.id.right_battery_progress,
-                    R.id.right_battery_icon,
-                    cached.right.takeUnless { overEar },
-                    showIconWhenUnknown = !overEar,
-                )
-                applyLevel(
-                    R.id.case_battery_progress,
-                    R.id.case_battery_icon,
-                    cached.case.takeUnless { overEar },
-                    showIconWhenUnknown = !overEar,
-                )
-            },
+            responsiveViews(context, model, state),
         )
         ServiceManager.getService()?.updateBattery()
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == Intent.ACTION_WALLPAPER_CHANGED) {
+            val ids = AppWidgetManager.getInstance(context).getAppWidgetIds(
+                ComponentName(context, BatteryWidget::class.java),
+            )
+            if (ids.isNotEmpty()) {
+                // Prefer live service data so a wallpaper refresh does not revive cached charging state.
+                val service = ServiceManager.getService()
+                if (service != null) {
+                    service.updateBattery()
+                } else {
+                    onUpdate(context, AppWidgetManager.getInstance(context), ids)
+                }
+            }
+            return
+        }
+        super.onReceive(context, intent)
     }
 
     companion object {
@@ -128,10 +148,10 @@ class BatteryWidget : AppWidgetProvider() {
         }
 
         @OptIn(ExperimentalMaterial3Api::class)
-        fun responsiveViews(
+        internal fun responsiveViews(
             context: Context,
             model: AirPodsBase? = null,
-            configure: (RemoteViews, Int) -> Unit = { _, _ -> },
+            state: BatteryWidgetState = BatteryWidgetState(),
         ): RemoteViews {
             val openApp = PendingIntent.getActivity(
                 context,
@@ -139,36 +159,32 @@ class BatteryWidget : AppWidgetProvider() {
                 Intent(context, MainActivity::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
-            val variants = widgetLayouts.mapValues { (size, layoutId) ->
-                RemoteViews(context.packageName, layoutId).apply {
+            val variants = widgetLayouts.map { (size, layoutId) ->
+                val view = RemoteViews(context.packageName, layoutId).apply {
                     setOnClickPendingIntent(R.id.battery_widget, openApp)
                     setImageViewBitmap(
-                        R.id.widget_glass_background,
-                        WidgetGlassBackground.create(context, size.width / size.height),
+                        R.id.battery_widget_canvas,
+                        BatteryWidgetRenderer.render(
+                            context = context,
+                            model = model,
+                            state = state,
+                            aspectRatio = size.width / size.height,
+                        ),
                     )
-                    val overEar = model?.formFactor == AirPodsFormFactor.OVER_EAR_HEADPHONES
-                    val earbudIcons = BatteryWidgetIconPolicy.iconsForModel(model)
-                    setViewVisibility(
-                        R.id.right_battery_widget_container,
-                        if (overEar) View.GONE else View.VISIBLE,
+                    setContentDescription(
+                        R.id.battery_widget_canvas,
+                        context.getString(R.string.battery_widget_accessibility_description),
                     )
-                    setViewVisibility(
-                        R.id.case_battery_widget_container,
-                        if (overEar) View.GONE else View.VISIBLE,
-                    )
-                    setImageViewResource(
-                        R.id.left_battery_icon,
-                        earbudIcons.left,
-                    )
-                    setImageViewResource(
-                        R.id.right_battery_icon,
-                        earbudIcons.right,
-                    )
-                    setImageViewResource(R.id.case_battery_icon, R.drawable.ic_airpods_case_widget)
-                    configure(this, layoutId)
                 }
-            }
+                size to view
+            }.toMap()
             return RemoteViews(variants)
+        }
+
+        private fun readCurrentModel(context: Context): AirPodsBase? {
+            val modelNumber = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+                .getString("airpods_model_number", "") ?: ""
+            return AirPodsModels.getModelByModelNumber(modelNumber)
         }
     }
 }
