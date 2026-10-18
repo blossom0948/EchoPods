@@ -205,11 +205,6 @@ fun Main() {
                     appContext = applicationContext
                 )
 
-                if (!sharedPreferences.contains("first_connection_successful_time")) {
-                    sharedPreferences.edit {
-                        putLong("first_connection_successful_time", System.currentTimeMillis())
-                    }
-                }
             }
 
             override fun onServiceDisconnected(name: ComponentName?) {

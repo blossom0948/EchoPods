@@ -1,4 +1,4 @@
-# LibrePods 기능 감사 및 AirPods Galaxy 이식 범위
+# LibrePods 기능 감사 및 EchoPods 이식 범위
 
 감사 기준일: 2026-10-16
 
@@ -20,7 +20,7 @@ LibrePods는 GPL-3.0 라이선스이므로 소스 코드와 Apple/LibrePods asse
 
 ## 기능 전체 목록과 현재 처리
 
-| LibrePods 기능 | AirPods Galaxy 상태 | 구현/제한 |
+| LibrePods 기능 | EchoPods 상태 | 구현/제한 |
 |---|---|---|
 | AirPods 5 모델 식별/제품 모양 fallback | 이번 변경 | LibrePods 최신 Play listing의 AirPods 5 지원을 반영; 공개 모델 코드가 확인되기 전에는 수동/이름 기반 식별과 4세대 계열 모양 fallback |
 | 정확한 L/R/Case 배터리 | 기존 구현 + AAP 0x0004 | AAP exact, BLE coarse fallback; freshness와 last-known 유지 |

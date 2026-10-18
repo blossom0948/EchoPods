@@ -2,7 +2,11 @@
 <resources>
     <color name="popup_background">#1C1B1E</color>
     <color name="popup_text">@color/white</color>
+    <color name="popup_secondary_text">#AEAEB2</color>
     <color name="widget_background">#1C1B1E</color>
     <color name="widget_text">@color/white</color>
+    <color name="widget_icon_tint">#F6F4FA</color>
+    <color name="widget_mode_idle">#00000000</color>
+    <color name="widget_mode_active">#53515B</color>
     <color name="colorBackground">#0B0B0B</color>
 </resources>

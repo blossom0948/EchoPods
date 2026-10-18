@@ -25,7 +25,7 @@ class UpdateInstallReceiver : BroadcastReceiver() {
             PackageInstaller.STATUS_SUCCESS -> {
                 UpdateManager.shared(context).markInstallSuccess()
                 UpdateNotifications.cancel(context)
-                Toast.makeText(context, "AirPods Galaxy 업데이트가 완료되었습니다", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "EchoPods 업데이트가 완료되었습니다", Toast.LENGTH_LONG).show()
                 return
             }
 

@@ -452,9 +452,9 @@ class UpdateManager(context: Context) {
         private const val MAX_DOWNLOAD_ATTEMPTS = 5
         private const val DOWNLOAD_RETRY_DELAY_MS = 500L
         private const val MANIFEST_URL =
-            "https://raw.githubusercontent.com/blossom0948/Galaxy-AirPods/main/update.json"
+            "https://raw.githubusercontent.com/blossom0948/EchoPods/main/update.json"
         private const val GITHUB_CONTENTS_URL =
-            "https://api.github.com/repos/blossom0948/Galaxy-AirPods/contents/update.json?ref=main"
+            "https://api.github.com/repos/blossom0948/EchoPods/contents/update.json?ref=main"
 
         @Volatile
         private var shared: UpdateManager? = null

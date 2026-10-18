@@ -39,6 +39,13 @@ This is the persistent implementation memory for UI work in this repository. Rea
 - Use existing, licensed product artwork and the project's layered artwork/animation assets. Do not substitute a random AirPods drawing, stretch a flat case image into a 3D motion, or use Apple system screenshots as app assets. If a model-specific asset is unavailable, show the supported neutral artwork rather than inventing a model-specific silhouette.
 - Keep battery values, source/freshness, case state, and charging indicators tied to actual data; the visual design must not imply unavailable telemetry.
 
+## Battery widget iconography
+
+- Keep each battery component in its own ring; never merge left and right earbuds into one summary value.
+- Use a compact single-earbud glyph inside each earbud ring and a distinct closed-case glyph inside the case ring. Keep the glyphs vector-based so they remain crisp at launcher widget sizes.
+- Show a small green charging bolt centered at the 12-o'clock edge of a component ring only when that component has a fresh charging sample. Do not show a bolt based only on a remembered percentage.
+- Preserve the widget's translucent adaptive background and keep its layout free of percentage labels; unknown values must not be represented as 0%.
+
 ## Onboarding and release notes
 
 - First-run guide and version-specific What's New are separate data sets but share the same page visual language. They use `UpdateItem` records with a localized title, concise explanation, and a real feature screenshot (`screenshotRes`).

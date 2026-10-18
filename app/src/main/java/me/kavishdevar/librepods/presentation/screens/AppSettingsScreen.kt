@@ -481,7 +481,7 @@ fun AppSettingsScreen(
                 onClick = {
                     val intent = Intent(
                         Intent.ACTION_VIEW,
-                        "https://github.com/blossom0948/Galaxy-AirPods".toUri(),
+                        "https://github.com/blossom0948/EchoPods".toUri(),
                     )
                     context.startActivity(intent)
                 },
@@ -495,7 +495,7 @@ fun AppSettingsScreen(
                             "Device: ${Build.MANUFACTURER} ${Build.MODEL}\n" +
                             "Android: ${Build.ID} (${Build.DISPLAY})\n\nDescribe the issue here."
                     )
-                    val url = "https://github.com/blossom0948/Galaxy-AirPods/issues/new" +
+                    val url = "https://github.com/blossom0948/EchoPods/issues/new" +
                         "?title=AirPods%20Galaxy%20feedback&body=$issueBody"
 
                     val intent = Intent(Intent.ACTION_VIEW, url.toUri())
@@ -638,7 +638,7 @@ fun AppSettingsScreen(
                    enabled = subjectState.text.isNotEmpty() && descriptionState.text.isNotEmpty(),
                    onClick = {
                        contactBottomSheet.value = false
-                       val issueTitle = Uri.encode("AirPods Galaxy: ${subjectState.text}")
+                       val issueTitle = Uri.encode("EchoPods: ${subjectState.text}")
                        val issueBody = Uri.encode(
                            "${descriptionState.text}\n\n" +
                                "Device: ${Build.MANUFACTURER} ${Build.MODEL}\n" +
@@ -646,7 +646,7 @@ fun AppSettingsScreen(
                                "App: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
                        )
                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                           data = "https://github.com/blossom0948/Galaxy-AirPods/issues/new?title=$issueTitle&body=$issueBody".toUri()
+                           data = "https://github.com/blossom0948/EchoPods/issues/new?title=$issueTitle&body=$issueBody".toUri()
                        }
                        context.startActivity(intent)
                        subjectState.clearText()

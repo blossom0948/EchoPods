@@ -1,4 +1,4 @@
-# AirPods Galaxy 구현 계획
+# EchoPods 구현 계획
 
 ## 문서 해석
 

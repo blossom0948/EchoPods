@@ -33,6 +33,19 @@ class BatterySummaryPolicyTest {
     }
 
     @Test
+    fun chargingCaseDoesNotOverrideEarbudSummary() {
+        val summary = BatterySummaryPolicy.primaryEarbudBattery(
+            listOf(
+                Battery(BatteryComponent.LEFT, 57, BatteryStatus.NOT_CHARGING),
+                Battery(BatteryComponent.RIGHT, 73, BatteryStatus.NOT_CHARGING),
+                Battery(BatteryComponent.CASE, 4, BatteryStatus.CHARGING),
+            ),
+        )
+
+        assertEquals(BatterySummary(level = 57, isStale = false), summary)
+    }
+
+    @Test
     fun unknownOrCaseOnlySamplesDoNotBecomeEarbudSummary() {
         val summary = BatterySummaryPolicy.primaryEarbudBattery(
             listOf(

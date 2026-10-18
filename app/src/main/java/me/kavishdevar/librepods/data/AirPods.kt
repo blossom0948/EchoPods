@@ -80,9 +80,7 @@ class AirPods3: AirPodsBase(
     leftBudsRes = R.drawable.airpods_3_left,
     rightBudsRes = R.drawable.airpods_3_right,
     caseRes = R.drawable.airpods_3_case,
-    capabilities = setOf(
-        Capability.HEAD_GESTURES
-    )
+    capabilities = emptySet()
 )
 
 class AirPods4: AirPodsBase(
@@ -138,10 +136,10 @@ class AirPods5: AirPodsBase(
 class AirPods5WCC: AirPodsBase(
     modelNumber = listOf("A3439", "A3440", "A3441"),
     name = "AirPods 5 with Wireless Charging Case",
-    budsRes = R.drawable.airpods_4_buds,
-    leftBudsRes = R.drawable.airpods_4_left,
-    rightBudsRes = R.drawable.airpods_4_right,
-    caseRes = R.drawable.airpods_4_case,
+    budsRes = R.drawable.airpods_5_wireless_buds,
+    leftBudsRes = R.drawable.airpods_5_wireless_left,
+    rightBudsRes = R.drawable.airpods_5_wireless_right,
+    caseRes = R.drawable.airpods_5_wireless_case,
     capabilities = setOf(
         Capability.LISTENING_MODE,
         Capability.CONVERSATION_AWARENESS,
@@ -272,6 +270,9 @@ class AirPodsMax2: AirPodsBase(
         Capability.CONVERSATION_AWARENESS,
         Capability.ADAPTIVE_AUDIO,
         Capability.ADAPTIVE_VOLUME,
+        Capability.HEAD_GESTURES,
+        Capability.LOUD_SOUND_REDUCTION,
+        Capability.SLEEP_DETECTION,
     ),
     formFactor = AirPodsFormFactor.OVER_EAR_HEADPHONES,
 )

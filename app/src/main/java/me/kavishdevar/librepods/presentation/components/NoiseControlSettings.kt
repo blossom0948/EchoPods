@@ -57,6 +57,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -79,6 +80,9 @@ import me.kavishdevar.librepods.presentation.theme.DesignSystem
 import me.kavishdevar.librepods.presentation.theme.LibrePodsTheme
 import me.kavishdevar.librepods.presentation.theme.LocalDesignSystem
 import me.kavishdevar.librepods.presentation.theme.sectionHeader
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.math.roundToInt
 
@@ -88,7 +92,10 @@ import kotlin.math.roundToInt
 fun NoiseControlSettings(
     showOffListeningMode: Boolean,
     noiseControlModeValue: Int,
-    onNoiseControlModeChanged: (Int) -> Unit
+    onNoiseControlModeChanged: (Int) -> Unit,
+    adaptiveAudioAvailable: Boolean = true,
+    adaptiveAudioStrengthPercent: Int = 50,
+    onAdaptiveAudioStrengthChanged: (Int) -> Unit = {},
 ) {
     when (LocalDesignSystem.current) {
         DesignSystem.Material -> {
@@ -182,6 +189,12 @@ fun NoiseControlSettings(
                             )
                         }
                     }
+                }
+                if (selectedMode == NoiseControlMode.ADAPTIVE && adaptiveAudioAvailable) {
+                    AdaptiveAudioStrengthControl(
+                        value = adaptiveAudioStrengthPercent,
+                        onValueChanged = onAdaptiveAudioStrengthChanged,
+                    )
                 }
             }
         }
@@ -469,10 +482,50 @@ fun NoiseControlSettings(
                             modifier = Modifier.weight(1f)
                         )
                     }
+
+                    if (noiseControlMode.value == NoiseControlMode.ADAPTIVE && adaptiveAudioAvailable) {
+                        AdaptiveAudioStrengthControl(
+                            value = adaptiveAudioStrengthPercent,
+                            onValueChanged = onAdaptiveAudioStrengthChanged,
+                        )
+                    }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun AdaptiveAudioStrengthControl(
+    value: Int,
+    onValueChanged: (Int) -> Unit,
+) {
+    var sliderValue by remember { mutableFloatStateOf(value.coerceIn(0, 100).toFloat()) }
+    var sendJob by remember { mutableStateOf<Job?>(null) }
+    val scope = rememberCoroutineScope()
+    androidx.compose.runtime.LaunchedEffect(value) {
+        sliderValue = value.coerceIn(0, 100).toFloat()
+    }
+
+    androidx.compose.foundation.layout.Spacer(Modifier.height(12.dp))
+    StyledSlider(
+        label = stringResource(R.string.customize_adaptive_audio),
+        value = sliderValue,
+        onValueChange = { newValue ->
+            sliderValue = newValue
+            sendJob?.cancel()
+            sendJob = scope.launch {
+                delay(120L)
+                onValueChanged(newValue.roundToInt().coerceIn(0, 100))
+            }
+        },
+        valueRange = 0f..100f,
+        snapPoints = listOf(0f, 50f, 100f),
+        startIcon = "−",
+        endIcon = "+",
+        independent = true,
+        description = stringResource(R.string.adaptive_audio_description),
+    )
 }
 
 

@@ -31,6 +31,7 @@ progress = frame / totalFrames
 
 | Surface | Current behavior in source | Source |
 |---|---|---|
+| Top island entrance | Container fades from 0→1, scales 0.96→1.0, and moves from -20dp to rest over 360 ms with `DecelerateInterpolator(1.5)`. Decorative video playback starts only after both the entrance and video preparation complete, avoiding concurrent entrance animation and video decoding. This is an Android performance choice, not an Apple-measured timing. | `presentation/overlays/IslandWindow.kt` (`showIsland`) |
 | iOS-style `StyledButton` / `StyledIconButton` | Press/drag highlight progress uses `spring(dampingRatio=0.5, stiffness=300, visibilityThreshold=0.001)`. Drag offset returns with `spring(dampingRatio=1, stiffness=300)`. Interactive highlight follows the press point; API 33+ uses a radial RuntimeShader, with a white-overlay fallback. | `presentation/components/StyledButton.kt`, `StyledIconButton.kt` |
 | Button touch feedback | Click uses `ContextClick`; drag start/movement uses segment tick feedback; release/cancel uses reject feedback. | Same files |
 | Top island expand | Velocity-scaled duration: nominal 600 ms, clamped to 300–700 ms. Container decelerates while custom stretch uses `OvershootInterpolator(0.5)`, then normalizes over 300 ms. | `presentation/overlays/IslandWindow.kt` (`animateExpandWithStretch`) |

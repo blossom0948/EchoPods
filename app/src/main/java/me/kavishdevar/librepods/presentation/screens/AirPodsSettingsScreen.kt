@@ -342,9 +342,20 @@ fun AirPodsSettingsScreen(
                         noiseControlModeValue = state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE]?.getOrNull(
                             0
                         )?.toInt() ?: 3,
+                        adaptiveAudioAvailable = capabilities.contains(Capability.ADAPTIVE_AUDIO),
+                        adaptiveAudioStrengthPercent = 100 - (
+                            state.controlStates[AACPManager.Companion.ControlCommandIdentifiers.AUTO_ANC_STRENGTH]
+                                ?.getOrNull(0)?.toInt()?.and(0xFF) ?: 50
+                            ),
                         onNoiseControlModeChanged = {
                             setControlCommandInt(
                                 AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE, it
+                            )
+                        },
+                        onAdaptiveAudioStrengthChanged = { strength ->
+                            setControlCommandInt(
+                                AACPManager.Companion.ControlCommandIdentifiers.AUTO_ANC_STRENGTH,
+                                100 - strength.coerceIn(0, 100),
                             )
                         },
                     )
@@ -543,7 +554,7 @@ fun AirPodsSettingsScreen(
                         StyledToggleInGroup(
                             label = stringResource(R.string.off_listening_mode),
                             description = stringResource(R.string.off_listening_mode_description),
-                            checked = state.controlStates[id]?.getOrNull(0) == 0x01.toByte(),
+                            checked = state.offListeningMode,
                             onCheckedChange = setOffListeningMode
                         )
                     }

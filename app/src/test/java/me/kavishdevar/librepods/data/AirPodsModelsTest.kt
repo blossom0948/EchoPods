@@ -1,6 +1,8 @@
 package me.kavishdevar.librepods.data
 
+import me.kavishdevar.librepods.R
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -30,5 +32,40 @@ class AirPodsModelsTest {
         assertTrue(Capability.ADAPTIVE_AUDIO !in max1.capabilities)
         assertTrue(Capability.ADAPTIVE_AUDIO in max2.capabilities)
         assertTrue(Capability.CONVERSATION_AWARENESS in max2.capabilities)
+        assertTrue(Capability.HEAD_GESTURES in max2.capabilities)
+        assertTrue(Capability.SLEEP_DETECTION in max2.capabilities)
+        assertTrue(Capability.LOUD_SOUND_REDUCTION in max2.capabilities)
+        assertFalse(Capability.HRM in max2.capabilities)
+    }
+
+    @Test
+    fun headGesturesAreLimitedToModelsAppleListsAsSupportingThem() {
+        val airPods3 = AirPodsModels.getModelByModelNumber("A2565")!!
+        val airPods4 = AirPodsModels.getModelByModelNumber("A3053")!!
+        val airPods4Anc = AirPodsModels.getModelByModelNumber("A3056")!!
+
+        assertFalse(Capability.HEAD_GESTURES in airPods3.capabilities)
+        assertTrue(Capability.HEAD_GESTURES in airPods4.capabilities)
+        assertTrue(Capability.HEAD_GESTURES in airPods4Anc.capabilities)
+    }
+
+    @Test
+    fun everyRegisteredModelHasArtworkAndPro3HeartRateIsCapabilityGated() {
+        AirPodsModels.models.forEach { model ->
+            assertTrue("${model.name} buds artwork", model.budsRes != 0)
+            assertTrue("${model.name} left artwork", model.leftBudsRes != 0)
+            assertTrue("${model.name} right artwork", model.rightBudsRes != 0)
+            assertTrue("${model.name} case artwork", model.caseRes != 0)
+            model.modelNumber.forEach { number ->
+                assertTrue("Model number $number resolves", AirPodsModels.getModelByModelNumber(number) === model)
+            }
+        }
+
+        val airPods5WirelessCase = AirPodsModels.getModelByModelNumber("A3439")!!
+        assertEquals(R.drawable.airpods_5_wireless_case, airPods5WirelessCase.caseRes)
+
+        val pro3 = AirPodsModels.getModelByModelNumber("A3063")!!
+        assertTrue(Capability.HRM in pro3.capabilities)
+        assertTrue(Capability.HRM !in AirPodsModels.getModelByModelNumber("A3047")!!.capabilities)
     }
 }

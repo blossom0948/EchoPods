@@ -126,7 +126,7 @@ fun ReleaseNotesScreen(
         )
 
         val versionLabel = "${stringResource(R.string.version)} $versionName"
-        val versionUrl = "https://github.com/blossom0948/Galaxy-AirPods/releases/tag/v$versionName"
+        val versionUrl = "https://github.com/blossom0948/EchoPods/releases/tag/v$versionName"
         val versionColor = MaterialTheme.colorScheme.primary
         val versionLink = buildAnnotatedString {
             append(versionLabel)

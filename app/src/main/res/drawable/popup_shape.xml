@@ -7,13 +7,6 @@
         android:color="@color/popup_background">
     </solid>
 
-    <padding
-        android:bottom="56dp"
-        android:top="16dp">
-    </padding>
-
-    <corners
-        android:radius="56dp">
-    </corners>
+    <corners android:radius="32dp" />
 
 </shape>

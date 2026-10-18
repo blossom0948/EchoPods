@@ -81,16 +81,21 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import me.kavishdevar.librepods.presentation.components.AdaptiveRainbowBrush
 import me.kavishdevar.librepods.presentation.components.ControlCenterNoiseControlSegmentedButton
 import me.kavishdevar.librepods.presentation.components.IconAreaSize
+import me.kavishdevar.librepods.presentation.components.StyledSlider
 import me.kavishdevar.librepods.presentation.components.VerticalVolumeSlider
 import me.kavishdevar.librepods.data.AirPodsNotifications
 import me.kavishdevar.librepods.data.NoiseControlMode
+import me.kavishdevar.librepods.data.Capability
 import me.kavishdevar.librepods.services.AirPodsService
 import me.kavishdevar.librepods.presentation.theme.LibrePodsTheme
 import me.kavishdevar.librepods.bluetooth.AACPManager
@@ -309,6 +314,18 @@ fun NewControlCenterDialogContent(
 
     var currentAncMode by remember { mutableStateOf(NoiseControlMode.TRANSPARENCY) }
     var isConvAwarenessEnabled by remember { mutableStateOf(false) }
+    val initialAdaptiveStrengthRaw = remember(service) {
+        runCatching {
+            service?.aacpManager?.getControlCommandStatus(
+                AACPManager.Companion.ControlCommandIdentifiers.AUTO_ANC_STRENGTH
+            )?.value?.getOrNull(0)?.toInt()?.and(0xFF)
+        }.getOrNull() ?: sharedPreferences.getInt("adaptive_strength", 51)
+    }
+    var adaptiveStrength by remember(service) {
+        mutableFloatStateOf((100 - initialAdaptiveStrengthRaw).coerceIn(0, 100).toFloat())
+    }
+    var adaptiveStrengthJob by remember { mutableStateOf<Job?>(null) }
+    val scope = rememberCoroutineScope()
 
     val isOffModeEnabled = remember { sharedPreferences.getBoolean("off_listening_mode", true) }
     val availableModes = remember(isOffModeEnabled) {
@@ -490,18 +507,53 @@ fun NewControlCenterDialogContent(
                     label = "NoiseControlCrossfade"
                 ) { expanded ->
                     if (expanded) {
-                        ControlCenterNoiseControlSegmentedButton(
-                            availableModes = availableModes,
-                            selectedMode = currentAncMode,
-                            onModeSelected = { newMode ->
-                                service.aacpManager.sendControlCommand(
-                                    identifier = AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE.value,
-                                    value = newMode.ordinal + 1
+                        Column(
+                            modifier = Modifier.fillMaxWidth(0.88f),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            ControlCenterNoiseControlSegmentedButton(
+                                availableModes = availableModes,
+                                selectedMode = currentAncMode,
+                                onModeSelected = { newMode ->
+                                    service.aacpManager.sendControlCommand(
+                                        identifier = AACPManager.Companion.ControlCommandIdentifiers.LISTENING_MODE.value,
+                                        value = newMode.ordinal + 1
+                                    )
+                                    currentAncMode = newMode
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            if (currentAncMode == NoiseControlMode.ADAPTIVE &&
+                                service.airpodsInstance?.model?.capabilities?.contains(Capability.ADAPTIVE_AUDIO) == true
+                            ) {
+                                StyledSlider(
+                                    label = stringResource(R.string.customize_adaptive_audio),
+                                    value = adaptiveStrength,
+                                    onValueChange = { newValue ->
+                                        adaptiveStrength = newValue
+                                        adaptiveStrengthJob?.cancel()
+                                        adaptiveStrengthJob = scope.launch {
+                                            delay(120L)
+                                            val rawValue = (100 - newValue.toInt()).coerceIn(0, 100)
+                                            service.aacpManager.sendControlCommand(
+                                                AACPManager.Companion.ControlCommandIdentifiers.AUTO_ANC_STRENGTH.value,
+                                                byteArrayOf(rawValue.toByte()),
+                                            )
+                                            sharedPreferences.edit()
+                                                .putInt("adaptive_strength", rawValue)
+                                                .apply()
+                                        }
+                                    },
+                                    valueRange = 0f..100f,
+                                    snapPoints = listOf(0f, 50f, 100f),
+                                    startIcon = "−",
+                                    endIcon = "+",
+                                    independent = true,
+                                    description = stringResource(R.string.adaptive_audio_description),
                                 )
-                                currentAncMode = newMode
-                            },
-                            modifier = Modifier.fillMaxWidth(0.8f)
-                        )
+                            }
+                        }
                     } else {
                         Row(
                             modifier = Modifier.fillMaxWidth(0.85f),

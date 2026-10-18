@@ -4,8 +4,12 @@
     <color name="white">#FFFFFFFF</color>
     <color name="popup_background">#FFFFFF</color>
     <color name="popup_text">@color/black</color>
+    <color name="popup_secondary_text">#8E8E93</color>
     <color name="widget_background">#87FFFFFF</color>
     <color name="widget_text">@color/black</color>
+    <color name="widget_icon_tint">#F6F4FA</color>
+    <color name="widget_mode_idle">#00000000</color>
+    <color name="widget_mode_active">#53515B</color>
     <color name="light_blue_50">#FFE1F5FE</color>
     <color name="light_blue_200">#FF81D4FA</color>
     <color name="light_blue_600">#FF039BE5</color>

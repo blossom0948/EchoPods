@@ -22,8 +22,6 @@ package me.kavishdevar.librepods.presentation.overlays
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
-import android.animation.ObjectAnimator
-import android.animation.PropertyValuesHolder
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
@@ -45,7 +43,6 @@ import android.view.VelocityTracker
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.AccelerateInterpolator
-import android.view.animation.AnticipateOvershootInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
@@ -109,6 +106,9 @@ class IslandWindow(private val context: Context) {
 
     private lateinit var springAnimation: SpringAnimation
     private val flingAnimator = ValueAnimator()
+    private var islandVideoPrepared = false
+    private var islandVideoSetupStarted = false
+    private var islandEntranceComplete = false
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -355,6 +355,20 @@ class IslandWindow(private val context: Context) {
 
         val videoView = islandView.findViewById<VideoView>(R.id.island_video_view)
         val videoUri = "android.resource://${context.packageName}/${R.raw.island}".toUri()
+        islandVideoPrepared = false
+        islandVideoSetupStarted = false
+        islandEntranceComplete = false
+        fun startVideoWhenReady() {
+            if (islandVideoPrepared && islandEntranceComplete && !isClosing && !videoView.isPlaying) {
+                videoView.start()
+            }
+        }
+        fun prepareVideoAfterEntrance() {
+            if (islandEntranceComplete && !islandVideoSetupStarted && !isClosing) {
+                islandVideoSetupStarted = true
+                videoView.setVideoURI(videoUri)
+            }
+        }
         videoView.setAudioFocusRequest(AudioManager.AUDIOFOCUS_NONE)
         videoView.setOnErrorListener { _, what, extra ->
             e("IslandWindow", "Decorative video unavailable (what=$what, extra=$extra)")
@@ -363,10 +377,11 @@ class IslandWindow(private val context: Context) {
             true // Never let VideoView show its default AlertDialog from an overlay.
         }
         videoView.setOnPreparedListener { mediaPlayer ->
-            // This is an entrance animation, not an ambient loop. Keeping the
-            // decoder active while the island is idle wastes power and GPU time.
+            // Video preparation/decoding starts only after the container entrance;
+            // starting setVideoURI early still caused frame drops on foldables.
             mediaPlayer.isLooping = false
-            if (!isClosing && containerView.parent != null) videoView.start()
+            islandVideoPrepared = true
+            startVideoWhenReady()
         }
         try {
             windowManager.addView(containerView, params)
@@ -390,8 +405,6 @@ class IslandWindow(private val context: Context) {
             e("IslandWindow", "Unable to register battery updates", e)
         }
 
-        videoView.setVideoURI(videoUri)
-
         islandView.post {
             initialHeight = islandView.height
             captureInitialPositions()
@@ -403,14 +416,26 @@ class IslandWindow(private val context: Context) {
                 .setStiffness(SpringForce.STIFFNESS_MEDIUM)
         }
 
-        val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 0.5f, 1f)
-        val scaleY = PropertyValuesHolder.ofFloat(View.SCALE_Y, 0.5f, 1f)
-        val translationY = PropertyValuesHolder.ofFloat(View.TRANSLATION_Y, -200f, 0f)
-        ObjectAnimator.ofPropertyValuesHolder(containerView, scaleX, scaleY, translationY).apply {
-            duration = 700
-            interpolator = AnticipateOvershootInterpolator()
-            start()
-        }
+        containerView.alpha = 0f
+        containerView.scaleX = 0.96f
+        containerView.scaleY = 0.96f
+        containerView.translationY = -20f
+        containerView.animate()
+            .alpha(1f)
+            .scaleX(1f)
+            .scaleY(1f)
+            .translationY(0f)
+            .setDuration(360L)
+            .setInterpolator(DecelerateInterpolator(1.5f))
+            .setListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    islandEntranceComplete = true
+                    containerView.animate().setListener(null)
+                    prepareVideoAfterEntrance()
+                    startVideoWhenReady()
+                }
+            })
+            .start()
 
         resetAutoCloseTimer()
     }
@@ -679,19 +704,20 @@ class IslandWindow(private val context: Context) {
                 e.printStackTrace()
             }
 
-            val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, containerView.scaleX, 0.5f)
-            val scaleY = PropertyValuesHolder.ofFloat(View.SCALE_Y, containerView.scaleY, 0.5f)
-            val translationY = PropertyValuesHolder.ofFloat(View.TRANSLATION_Y, containerView.translationY, -200f)
-            ObjectAnimator.ofPropertyValuesHolder(containerView, scaleX, scaleY, translationY).apply {
-                duration = 700
-                interpolator = AnticipateOvershootInterpolator()
-                addListener(object : AnimatorListenerAdapter() {
+            containerView.animate().setListener(null).cancel()
+            containerView.animate()
+                .alpha(0f)
+                .scaleX(0.97f)
+                .scaleY(0.97f)
+                .translationY(-16f)
+                .setDuration(190L)
+                .setInterpolator(AccelerateInterpolator())
+                .setListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
                         cleanupAndRemoveView()
                     }
                 })
-                start()
-            }
+                .start()
         } catch (e: Exception) {
             e.printStackTrace()
             // Even if animation fails, ensure we cleanup
@@ -749,8 +775,12 @@ class IslandWindow(private val context: Context) {
             autoCloseHandler?.removeCallbacks(autoCloseRunnable ?: return)
 
             // Cancel all ongoing animations
+            containerView.animate().setListener(null).cancel()
             springAnimation.cancel()
             flingAnimator.cancel()
+            runCatching {
+                islandView.findViewById<VideoView>(R.id.island_video_view).stopPlayback()
+            }
 
             // Immediately remove the view without animations
             cleanupAndRemoveView()

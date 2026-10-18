@@ -1,8 +1,15 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
-    <string name="app_name" translatable="false">AirPods Galaxy</string>
+    <string name="app_name" translatable="false">EchoPods</string>
     <string name="airpods_artwork_desc">AirPods artwork</string>
-    <string name="app_description">Manage AirPods on your Android device.</string>
-    <string name="app_widget_description">See your AirPods battery status right from your home screen!</string>
+    <string name="close">Close</string>
+    <string name="charging">Charging</string>
+    <string name="popup_battery_value">%1$d%%</string>
+    <string name="app_description">Manage AirPods on Android with EchoPods.</string>
+    <string name="app_widget_description">See AirPods battery levels at a glance from your home screen.</string>
+    <string name="widget_phone_battery_description">Phone battery</string>
+    <string name="widget_left_battery_description">Left AirPod battery</string>
+    <string name="widget_right_battery_description">Right AirPod battery</string>
+    <string name="widget_case_battery_description">Charging case battery</string>
     <string name="accessibility">Accessibility</string>
     <string name="tone_volume">Tone Volume</string>
     <string name="tone_volume_description">Adjust the tone volume of sound effects played by AirPods.</string>
@@ -39,7 +46,7 @@
     <string name="retry_airpods_control_connection">Retry AirPods controls</string>
     <string name="airpods_control_unavailable">AirPods control session is unavailable. Close other AirPods apps and reconnect.</string>
     <string name="back">Back</string>
-    <string name="customizations">Customizations</string>
+    <string name="customizations">AirPods settings</string>
     <string name="relative_conversational_awareness_volume">Relative volume</string>
     <string name="relative_conversational_awareness_volume_description">Reduces to a percentage of the current volume instead of the maximum volume.</string>
     <string name="conversational_awareness_pause_music">Pause Music</string>
@@ -57,7 +64,7 @@
     <string name="island_moved_to_other_device_text">Moved to %1$s</string>
     <string name="island_moved_to_other_device_reversed_text">Reconnect from notification</string>
     <string name="head_tracking">Head Tracking</string>
-    <string name="head_gestures_details">Nod to answer calls, and shake your head to decline.</string>
+    <string name="head_gestures_details">For an incoming call, nod to answer or shake your head to decline. Gestures do not control outgoing or active calls.</string>
     <string name="general_settings_header">General</string>
     <string name="qs_click_behavior_title">Quick Settings Tile Action</string>
     <string name="qs_click_behavior_dialog_desc">Show noise control dialog on tap.</string>
@@ -107,8 +114,8 @@
     <string name="automatically_connect">Connect to this device automatically</string>
     <string name="automatically_connect_description">When enabled, AirPods will try to connect to this device automatically. Else, they will try to autoconnect only when last connected.</string>
     <string name="sleep_detection">Pause media when falling asleep</string>
-    <string name="off_listening_mode">Off Listening Mode</string>
-    <string name="off_listening_mode_description">When this is on, AirPods listening modes will include an Off option. Loud sound levels are not reduced when the listening mode is set to Off.</string>
+    <string name="off_listening_mode">Show Off mode</string>
+    <string name="off_listening_mode_description">Adds Off to the listening mode choices. Loud Sound Reduction is unavailable while Off is selected.</string>
     <string name="microphone">Microphone</string>
     <string name="microphone_mode">Microphone Mode</string>
     <string name="microphone_automatic">Automatic</string>
@@ -164,8 +171,8 @@
     <string name="show_bottom_sheet_popup_description">Show the iOS-style modal popup at the bottom when AirPods connect.</string>
     <string name="show_island_popup">Dynamic Island popup</string>
     <string name="show_island_popup_description">Show the Dynamic Island-style popup at the top for connection and takeover events.</string>
-    <string name="show_popup_on_wear_change">Show popup when wearing changes</string>
-    <string name="show_popup_on_wear_change_description">Show a popup when an AirPod is removed or put back in an ear. Requires background detection and overlay permission.</string>
+    <string name="show_popup_on_wear_change">Show popup when AirPods are worn</string>
+    <string name="show_popup_on_wear_change_description">Show a popup only when an AirPod is put back in an ear. Requires background detection and overlay permission.</string>
     <string name="device_bluetooth_support_limited">This phone can install and run the app, and standard Bluetooth audio remains available. Its current Bluetooth stack is not supported for a rootless AirPods control session; advanced controls require a supported stack or Bluetooth Scope/Xposed.</string>
     <string name="minimum_android_support">App installation: Android 12 or later. AirPods controls depend on the device Bluetooth chipset, Android build, and AirPods model/firmware; Android version alone does not guarantee support.</string>
     <string name="appearance_style_ios">iOS style</string>
@@ -173,7 +180,7 @@
     <string name="heart_rate_sensor">Heart rate sensor</string>
     <string name="airpods_max_battery">AirPods Max battery</string>
     <string name="model_art_not_available">Model artwork is not available yet</string>
-    <string name="heart_rate_android_unavailable">This AirPods model has a heart-rate sensor, but Android heart-rate data is not implemented in this app. The feature is currently available through supported Apple health and fitness integrations only.</string>
+    <string name="heart_rate_android_unavailable">AirPods Pro 3 heart rate is officially available during workouts on iPhone. An experimental Android AACP method has been tested on another phone, but EchoPods has no heart-rate receiver yet and Galaxy support is unverified.</string>
     <string name="popup_style_bottom_sheet">Bottom popup</string>
     <string name="popup_style_bottom_sheet_description">Show the animated AirPods card from the bottom of the screen.</string>
     <string name="popup_style_dynamic_island">Top island popup</string>
@@ -219,7 +226,7 @@
     <string name="custom_camera_package">Custom Camera appid</string>
     <string name="custom_camera_package_set_success">Custom camera appid set successfully</string>
     <string name="app_listener_service_label">Camera listener</string>
-    <string name="app_listener_service_description">Listener service for AirPods Galaxy to detect when the camera is active to activate camera control on AirPods.</string>
+    <string name="app_listener_service_description">EchoPods listener service detects when the camera is active to enable AirPods camera controls.</string>
     <string name="open_source_licenses">Open Source Licenses</string>
     <string name="hearing_test">Update Hearing Test</string>
     <string name="update_hearing_test">Update Hearing Test Result</string>
@@ -259,7 +266,7 @@
     <string name="advanced_device_settings_description">Customize settings like Personalized Volume, Adaptive Audio, Pause media when falling asleep, and other Accessibility settings.</string>
     <string name="automatic_connection">Automatic Connection</string>
     <string name="automatic_connection_description">Enable and customize automatic connection to AirPods.</string>
-    <string name="customizations_description">Get access to app customizations, including phone battery in widget, conversational awareness volume, and many more upcoming customization features.</string>
+    <string name="customizations_description">Manage listening, call, and widget features available for your AirPods model.</string>
     <string name="support_the_development">Support the development</string>
     <string name="support_development_description">All app features are available for free in this build.</string>
     <string name="feature_availability_disclaimer">Feature availability depends on your AirPods model and firmware version.</string>
@@ -301,14 +308,14 @@
     <string name="advanced_features">Advanced features</string>
     <string name="digital_assistant_on_long_press">Digital Assistant on Long Press</string>
     <string name="digital_assistant_on_long_press_description">Invoke Digital Assistant when long pressing the AirPods Pro stem.</string>
-    <string name="customizations_unavailable">Customizations unavailable. Connect your AirPods at least once to access.</string>
+    <string name="customizations_unavailable">AirPods control session unavailable. Bluetooth audio can be connected without the separate control session; reconnect AirPods or retry the control connection to load device settings.</string>
     <string name="xposed_available">Xposed available</string>
     <string name="app_enabled_in_xposed">App enabled in Xposed</string>
     <string name="subject">Subject</string>
     <string name="describe_your_issue">Describe your issue</string>
-    <string name="optimized_charging">Optimized Charge Limit</string>
+    <string name="optimized_charging">Optimized Battery Charging</string>
     <string name="optimized_charging_description">AirPods can learn from your daily usage and determine when to charge to an optmized limit and when to allow or full charge. This limit adapts to your daily usage and preserves your battery lifespan over time.\nThis setting may not affect unsupported AirPods, or AirPods on an older firmware version.</string>
-    <string name="enable_app_in_xposed_or_update_device">Update your device or enable AirPods Galaxy in Xposed and reopen the app to proceed.</string>
+    <string name="enable_app_in_xposed_or_update_device">Update your device or enable EchoPods in Xposed, then reopen the app.</string>
     <string name="play_foss_premium_banner">Due to an error in billing, premium access will expire in %1$d days. If you already upgraded the app, please click on this message to email billing@kavish.xyz to restore or verify access. Apologies for the inconvenience.</string>
     <string name="custom">Custom</string>
     <string name="recommended">Recommended</string>
@@ -424,6 +431,10 @@
     <string name="notification_channel_connection">AirPods Connection Status</string>
     <string name="notification_channel_connection_issues">AirPods Connection Issues</string>
     <string name="notification_channel_connection_issues_description">Notifications about problems connecting to AirPods.</string>
+    <string name="notification_channel_low_battery">AirPods battery alerts</string>
+    <string name="notification_channel_low_battery_description">Warnings when an AirPods component reaches 20%% battery or less.</string>
+    <string name="low_battery_notification_title">%1$s · %2$d%%</string>
+    <string name="low_battery_notification_text">Low battery: %1$s</string>
     <string name="disconnected_status">Disconnected</string>
     <string name="share_log_file">Share log file</string>
     <string name="log_file_deleted_short">Log file deleted</string>
@@ -454,18 +465,18 @@
     <string name="notification_connection_issue">AirPods connection issue</string>
     <string name="notification_l2cap_connection_failed">Unable to connect to AirPods over L2CAP.</string>
     <string name="privacy_last_updated">Last updated: 16 October 2026</string>
-    <string name="privacy_overview_text">AirPods Galaxy does not collect, store, sell, or share personal information for advertising, analytics, tracking, or profiling. The app does not include analytics, advertising SDKs, or tracking services.</string>
+    <string name="privacy_overview_text">EchoPods does not collect, store, sell, or share personal information for advertising, analytics, tracking, or profiling. The app does not include analytics, advertising SDKs, or tracking services.</string>
     <string name="privacy_local_processing">Bluetooth observations and app settings are processed on your device. The app contacts GitHub to check for releases and download an update when one is available. GitHub may receive normal request metadata such as your network address and app version.</string>
-    <string name="privacy_third_party_text">The app links to the AirPods Galaxy GitHub repository for source code and issue reports. It does not send diagnostics or device information automatically.</string>
+    <string name="privacy_third_party_text">The app links to the EchoPods GitHub repository for source code and issue reports. It does not send diagnostics or device information automatically.</string>
     <string name="privacy_github_report_text">If you choose to create an issue from the app, your browser opens GitHub with the title and details you entered, plus the app version and device model for troubleshooting. Nothing is submitted until you review and submit it on GitHub.</string>
     <string name="privacy_prefill_edit">You can edit or remove any pre-filled information before submitting the issue.</string>
-    <string name="privacy_repository_text">The app provides a link to the public AirPods Galaxy GitHub repository. Opening it is optional and subject to the GitHub privacy policy.</string>
-    <string name="privacy_issue_prefill_intro">When opening a GitHub issue from AirPods Galaxy, the app may pre-fill:</string>
-    <string name="privacy_prefill_version">• AirPods Galaxy version name and version code</string>
+    <string name="privacy_repository_text">The app provides a link to the public EchoPods GitHub repository. Opening it is optional and subject to the GitHub privacy policy.</string>
+    <string name="privacy_issue_prefill_intro">When opening a GitHub issue from EchoPods, the app may pre-fill:</string>
+    <string name="privacy_prefill_version">• EchoPods version name and version code</string>
     <string name="privacy_prefill_device">• Device manufacturer and model</string>
     <string name="privacy_prefill_android">• Android build information</string>
     <string name="privacy_issue_submission">This information is only sent to GitHub if you review and submit the issue.</string>
-    <string name="privacy_payment_text">All app-level AirPods Galaxy features are available without payment or a subscription. The app does not process payments or collect billing information.</string>
-    <string name="privacy_contact_text">For questions or privacy requests, open an issue at github.com/blossom0948/Galaxy-AirPods.</string>
+    <string name="privacy_payment_text">All EchoPods app features are available without payment or a subscription. The app does not process payments or collect billing information.</string>
+    <string name="privacy_contact_text">For questions or privacy requests, open an issue at github.com/blossom0948/EchoPods.</string>
     <string name="total_logs">Total Logs: %1$d</string>
 </resources>

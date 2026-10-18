@@ -23,5 +23,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "AirPodsGalaxy"
+rootProject.name = "EchoPods"
 include(":app")

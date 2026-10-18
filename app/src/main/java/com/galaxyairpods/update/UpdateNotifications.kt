@@ -25,7 +25,7 @@ internal object UpdateNotifications {
         post(
             context = context,
             id = AVAILABLE_NOTIFICATION_ID,
-            title = "AirPods Galaxy ${info.versionName} 업데이트",
+            title = "EchoPods ${info.versionName} 업데이트",
             text = "새 버전이 있습니다. 앱의 설정에서 업데이트를 시작하세요.",
             contentIntent = PendingIntent.getActivity(
                 context,
@@ -44,7 +44,7 @@ internal object UpdateNotifications {
         post(
             context = context,
             id = INSTALL_PERMISSION_NOTIFICATION_ID,
-            title = "AirPods Galaxy 업데이트 준비",
+            title = "EchoPods 업데이트 준비",
             text = "업데이트를 계속하려면 알 수 없는 앱 설치를 허용하세요.",
             contentIntent = PendingIntent.getActivity(
                 context,
@@ -59,7 +59,7 @@ internal object UpdateNotifications {
         post(
             context = context,
             id = CONFIRMATION_NOTIFICATION_ID,
-            title = "AirPods Galaxy 업데이트 준비 완료",
+            title = "EchoPods 업데이트 준비 완료",
             text = "시스템 설치 확인을 눌러 업데이트를 마무리하세요.",
             contentIntent = PendingIntent.getActivity(
                 context,

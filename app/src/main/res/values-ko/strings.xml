@@ -1,8 +1,15 @@
 <resources>
+    <string name="close">닫기</string>
+    <string name="charging">충전 중</string>
+    <string name="popup_battery_value">%1$d%%</string>
     <string name="airpods_artwork_desc">에어팟 이미지</string>
-    <string name="app_name" translatable="false">AirPods Galaxy</string>
+    <string name="app_name" translatable="false">EchoPods</string>
     <string name="app_description">Android 기기에서 AirPods를 관리합니다.</string>
-    <string name="app_widget_description">홈 화면에서 바로 AirPods 배터리 상태를 확인하세요.</string>
+    <string name="app_widget_description">홈 화면에서 AirPods 배터리 상태를 한눈에 확인하세요.</string>
+    <string name="widget_phone_battery_description">휴대전화 배터리</string>
+    <string name="widget_left_battery_description">왼쪽 AirPods 배터리</string>
+    <string name="widget_right_battery_description">오른쪽 AirPods 배터리</string>
+    <string name="widget_case_battery_description">충전 케이스 배터리</string>
     <string name="accessibility">손쉬운 사용</string>
     <string name="tone_volume">효과음 음량</string>
     <string name="tone_volume_description">AirPods에서 재생되는 효과음의 음량을 조절합니다.</string>
@@ -21,7 +28,7 @@
     <string name="noise_cancellation">노이즈 캔슬링</string>
     <string name="press_and_hold_airpods">AirPods 길게 누르기</string>
     <string name="press_and_hold_noise_control_description">선택한 청취 모드를 전환하려면 AirPods 스템을 길게 누르세요.</string>
-    <string name="head_gestures">머리 동작</string>
+    <string name="head_gestures">머리 제스처</string>
     <string name="left">왼쪽</string>
     <string name="right">오른쪽</string>
     <string name="conversational_awareness">대화 인지</string>
@@ -39,7 +46,7 @@
     <string name="retry_airpods_control_connection">제어 연결 다시 시도</string>
     <string name="airpods_control_unavailable">AirPods 제어 연결을 사용할 수 없습니다. 다른 AirPods 앱을 닫고 다시 연결하세요.</string>
     <string name="back">뒤로</string>
-    <string name="customizations">사용자 설정</string>
+    <string name="customizations">AirPods 세부 설정</string>
     <string name="relative_conversational_awareness_volume">상대 음량</string>
     <string name="relative_conversational_awareness_volume_description">최대 음량 대신 현재 음량의 지정한 비율로 낮춥니다.</string>
     <string name="conversational_awareness_pause_music">음악 일시정지</string>
@@ -57,7 +64,7 @@
     <string name="island_moved_to_other_device_text">%1$s(으)로 전환됨</string>
     <string name="island_moved_to_other_device_reversed_text">알림에서 다시 연결</string>
     <string name="head_tracking">머리 추적</string>
-    <string name="head_gestures_details">고개를 끄덕여 전화를 받고, 좌우로 흔들어 거절합니다.</string>
+    <string name="head_gestures_details">수신 전화가 울릴 때 고개를 끄덕여 받고, 좌우로 흔들어 거절합니다. 발신 중이거나 통화가 연결된 뒤에는 동작하지 않습니다.</string>
     <string name="general_settings_header">일반</string>
     <string name="qs_click_behavior_title">빠른 설정 타일 동작</string>
     <string name="qs_click_behavior_dialog_desc">탭하면 청취 모드 대화상자를 표시합니다.</string>
@@ -66,9 +73,9 @@
     <string name="more_settings_title">AirPods 설정 열기</string>
     <string name="more_settings_subtitle">AirPods 기능과 환경설정을 관리합니다.</string>
     <string name="ear_detection">자동 착용 감지</string>
-    <string name="media_session_access">미디어 세션 제어 권한</string>
-    <string name="media_session_access_enabled">허용됨 · 같은 앱의 재생 상태를 확인해 일시정지·재개합니다</string>
-    <string name="media_session_access_needs_permission">더 정확한 미디어 제어를 위해 알림 접근을 허용하세요. 미허용 시 미디어 키로 제어를 시도합니다.</string>
+    <string name="media_session_access">미디어 재생 제어 권한</string>
+    <string name="media_session_access_enabled">허용됨 · 재생 중인 앱을 찾아 일시정지·재개합니다</string>
+    <string name="media_session_access_needs_permission">알림 접근을 허용하면 재생 중인 앱을 더 정확히 제어합니다. 허용하지 않아도 미디어 키 방식으로 시도합니다.</string>
     <string name="wear_detection_settings">착용 감지 및 미디어 제어</string>
     <string name="wear_detection_toggle_description">AirPods가 제공하는 새 착용 상태를 앱에서 처리합니다. 제어 세션에서 착용 이벤트를 받을 수 있어야 작동합니다.</string>
     <string name="wear_media_control">착용 상태에 따라 미디어 자동 제어</string>
@@ -107,10 +114,10 @@
     <string name="automatically_connect">이 기기에 자동 연결</string>
     <string name="automatically_connect_description">켜면 AirPods가 이 기기에 자동으로 연결을 시도합니다. 끄면 마지막으로 연결했던 경우에만 자동 연결을 시도합니다.</string>
     <string name="sleep_detection">잠들면 미디어 일시정지</string>
-    <string name="off_listening_mode">끔 청취 모드</string>
-    <string name="off_listening_mode_description">켜면 AirPods 청취 모드에 끔 옵션이 추가됩니다. 끔 모드에서는 큰 소리 감소가 작동하지 않습니다.</string>
+    <string name="off_listening_mode">끔 모드 표시</string>
+    <string name="off_listening_mode_description">청취 모드 목록에 ‘끔’을 추가합니다. 끔 모드에서는 큰 소리 줄이기가 작동하지 않습니다.</string>
     <string name="microphone">마이크</string>
-    <string name="microphone_mode">마이크 모드</string>
+    <string name="microphone_mode">마이크 선택</string>
     <string name="microphone_automatic">자동</string>
     <string name="microphone_always_right">항상 오른쪽</string>
     <string name="microphone_always_left">항상 왼쪽</string>
@@ -164,8 +171,8 @@
     <string name="show_bottom_sheet_popup_description">AirPods 연결 시 iOS 스타일의 팝업 카드를 화면 아래에 표시합니다.</string>
     <string name="show_island_popup">상단 아일랜드 팝업</string>
     <string name="show_island_popup_description">연결 및 기기 전환 시 Dynamic Island 스타일 팝업을 화면 위쪽에 표시합니다.</string>
-    <string name="show_popup_on_wear_change">착용 상태가 바뀔 때 팝업 표시</string>
-    <string name="show_popup_on_wear_change_description">이어버드를 귀에서 빼거나 다시 착용할 때 팝업을 표시합니다. 백그라운드 감지와 다른 앱 위에 표시 권한이 필요합니다.</string>
+    <string name="show_popup_on_wear_change">이어버드를 착용할 때 팝업 표시</string>
+    <string name="show_popup_on_wear_change_description">이어버드를 귀에 다시 착용했을 때만 팝업을 표시합니다. 백그라운드 감지와 다른 앱 위에 표시 권한이 필요합니다.</string>
     <string name="device_bluetooth_support_limited">앱 설치와 일반 Bluetooth 오디오는 가능합니다. 다만 현재 Bluetooth 스택은 루트 없는 AirPods 제어 세션을 지원하지 않습니다. 고급 제어에는 지원되는 스택 또는 Bluetooth Scope/Xposed가 필요합니다.</string>
     <string name="minimum_android_support">앱 설치: Android 12 이상. AirPods 제어 기능은 휴대전화의 Bluetooth 칩셋·Android 빌드·AirPods 모델과 펌웨어에 따라 달라지므로 Android 버전만으로 지원을 보장하지 않습니다.</string>
     <string name="appearance_style_ios">iOS 스타일</string>
@@ -173,7 +180,7 @@
     <string name="heart_rate_sensor">심박수 센서</string>
     <string name="airpods_max_battery">AirPods Max 배터리</string>
     <string name="model_art_not_available">아직 이 모델의 그림을 지원하지 않습니다</string>
-    <string name="heart_rate_android_unavailable">이 AirPods 모델에는 심박 센서가 있지만 현재 이 앱은 Android에서 심박 데이터를 받을 수 없습니다. 해당 기능은 현재 지원되는 Apple 건강·피트니스 연동에서만 사용할 수 있습니다.</string>
+    <string name="heart_rate_android_unavailable">AirPods Pro 3 심박수는 iPhone에서 운동 중 공식 지원됩니다. 다른 Android 기기에서 실험적 AACP 방식이 시험됐지만, EchoPods에는 아직 수신 기능이 없고 Galaxy 지원도 검증되지 않았습니다.</string>
     <string name="popup_style_bottom_sheet">하단 팝업</string>
     <string name="popup_style_bottom_sheet_description">화면 아래에서 움직이는 AirPods 카드를 표시합니다.</string>
     <string name="popup_style_dynamic_island">상단 아일랜드 팝업</string>
@@ -191,8 +198,8 @@
     <string name="set_encryption_key_description">BLE 광고를 복호화하는 데 사용할 ENC_KEY 값을 직접 설정합니다.</string>
     <string name="use_alternate_head_tracking_packets">대체 머리 추적 패킷 사용</string>
     <string name="use_alternate_head_tracking_packets_description">머리 추적이 작동하지 않으면 켜세요. 머리 추적 데이터 요청 및 중지를 위해 AirPods에 다른 데이터를 전송합니다.</string>
-    <string name="act_as_an_apple_device">Apple 기기로 동작</string>
-    <string name="act_as_an_apple_device_description">다중 기기 연결 및 주변음 허용 사용자 설정(증폭, 톤, 주변 소음 감소, 대화 부스트, 이퀄라이저)을 활성화합니다.</string>
+    <string name="act_as_an_apple_device">AirPods 고급 설정 사용</string>
+    <string name="act_as_an_apple_device_description">다중 기기 연결과 대화 인지·주변음 설정을 불러오기 위해 Apple 기기 호환 응답을 사용합니다.</string>
     <string name="act_as_an_apple_device_warning">불안정할 수 있습니다. AirPods에는 최대 두 대의 기기만 연결할 수 있습니다. iPad 또는 Mac과 함께 사용한다면 해당 기기를 먼저 연결한 다음 Android를 연결하세요.</string>
     <string name="reset_hook_offset">후킹 오프셋 초기화</string>
     <string name="reset_hook_offset_description">현재 오프셋을 지우고 설정 과정을 다시 진행합니다. 계속할까요?</string>
@@ -214,10 +221,10 @@
     <string name="camera_control">카메라 제어</string>
     <string name="camera_control_description">한 번 누르기 또는 길게 누르기로 사진 촬영과 녹화를 제어합니다. 카메라 제어에 한 번 누르기를 지정하면 미디어 제스처를 사용할 수 없고, 길게 누르기를 지정하면 청취 모드와 디지털 어시스턴트 제스처를 사용할 수 없습니다.</string>
     <string name="camera_control_app_description">카메라 감지에 사용할 앱 패키지를 직접 지정합니다.</string>
-    <string name="set_custom_camera_package">사용자 지정 카메라 앱 ID 설정</string>
+    <string name="set_custom_camera_package">카메라 앱 지정</string>
     <string name="enter_custom_camera_package">카메라 앱의 애플리케이션 ID를 입력하세요:</string>
-    <string name="custom_camera_package">사용자 지정 카메라 앱 ID</string>
-    <string name="custom_camera_package_set_success">사용자 지정 카메라 앱 ID를 설정했습니다.</string>
+    <string name="custom_camera_package">카메라 앱 지정</string>
+    <string name="custom_camera_package_set_success">카메라 앱을 지정했습니다.</string>
     <string name="app_listener_service_label">카메라 감지 서비스</string>
     <string name="app_listener_service_description">카메라가 활성화되었는지 감지해 AirPods 카메라 제어를 켭니다.</string>
     <string name="open_source_licenses">오픈소스 라이선스</string>
@@ -259,7 +266,7 @@
     <string name="advanced_device_settings_description">개인 맞춤형 음량, 적응형 오디오, 잠들 때 미디어 일시정지 및 기타 손쉬운 사용 설정을 조정합니다.</string>
     <string name="automatic_connection">자동 연결</string>
     <string name="automatic_connection_description">AirPods 자동 연결을 켜고 설정합니다.</string>
-    <string name="customizations_description">위젯의 휴대전화 배터리 표시, 대화 인지 음량 등 다양한 앱 설정을 사용할 수 있습니다.</string>
+    <string name="customizations_description">AirPods 모델에서 지원하는 청취·통화 기능과 위젯 설정을 관리합니다.</string>
     <string name="support_the_development">개발 후원</string>
     <string name="support_development_description">이 빌드에서는 모든 앱 기능을 무료로 사용할 수 있습니다.</string>
     <string name="feature_availability_disclaimer">기능 지원 여부는 AirPods 모델과 펌웨어 버전에 따라 달라집니다.</string>
@@ -296,14 +303,14 @@
     <string name="advanced_features">고급 기능</string>
     <string name="digital_assistant_on_long_press">길게 눌러 디지털 어시스턴트 실행</string>
     <string name="digital_assistant_on_long_press_description">AirPods Pro 스템을 길게 눌러 디지털 어시스턴트를 실행합니다.</string>
-    <string name="customizations_unavailable">사용자 설정을 사용할 수 없습니다. 먼저 AirPods를 한 번 이상 연결하세요.</string>
+    <string name="customizations_unavailable">현재 AirPods 제어 세션을 사용할 수 없습니다. Bluetooth 오디오만 연결된 상태에서는 기기 설정을 불러오지 못할 수 있습니다. AirPods를 다시 연결하거나 ‘제어 연결 다시 시도’를 선택하세요.</string>
     <string name="xposed_available">Xposed 사용 가능</string>
     <string name="app_enabled_in_xposed">Xposed에서 앱 활성화됨</string>
     <string name="subject">제목</string>
     <string name="describe_your_issue">문제를 설명하세요.</string>
-    <string name="optimized_charging">최적화된 충전 한도</string>
+    <string name="optimized_charging">최적화된 배터리 충전</string>
     <string name="optimized_charging_description">AirPods는 사용 패턴을 학습해 충전량을 최적화하거나 완전히 충전할 시점을 결정할 수 있습니다. 이 한도는 일상적인 사용에 맞춰 조정되어 장기적으로 배터리 수명을 보호합니다.\n이 설정은 지원되지 않는 AirPods 또는 오래된 펌웨어에서 작동하지 않을 수 있습니다.</string>
-    <string name="enable_app_in_xposed_or_update_device">기기를 업데이트하거나 Xposed에서 AirPods Galaxy를 활성화한 뒤 앱을 다시 열어 계속하세요.</string>
+    <string name="enable_app_in_xposed_or_update_device">기기를 업데이트하거나 Xposed에서 EchoPods를 활성화한 뒤 앱을 다시 여세요.</string>
     <string name="play_foss_premium_banner">결제 오류로 인해 프리미엄 이용 기간이 %1$d일 후 만료됩니다. 이미 업그레이드했다면 이 메시지를 눌러 billing@kavish.xyz로 이메일을 보내 이용 권한을 복구하거나 확인하세요. 불편을 드려 죄송합니다.</string>
     <string name="custom">사용자 지정</string>
     <string name="recommended">권장</string>
@@ -419,6 +426,10 @@
     <string name="notification_channel_connection">AirPods 연결 상태</string>
     <string name="notification_channel_connection_issues">AirPods 연결 문제</string>
     <string name="notification_channel_connection_issues_description">AirPods 프로토콜 연결 문제 알림입니다.</string>
+    <string name="notification_channel_low_battery">AirPods 배터리 경고</string>
+    <string name="notification_channel_low_battery_description">AirPods 구성품의 배터리가 20%% 이하일 때 알려줍니다.</string>
+    <string name="low_battery_notification_title">%1$s · %2$d%%</string>
+    <string name="low_battery_notification_text">배터리 부족: %1$s</string>
     <string name="disconnected_status">연결 끊김</string>
     <string name="share_log_file">로그 파일 공유</string>
     <string name="log_file_deleted_short">로그 파일을 삭제했습니다.</string>
@@ -449,18 +460,18 @@
     <string name="notification_connection_issue">AirPods 연결 문제</string>
     <string name="notification_l2cap_connection_failed">L2CAP을 통해 AirPods에 연결할 수 없습니다.</string>
     <string name="privacy_last_updated">최종 업데이트: 2026년 10월 16일</string>
-    <string name="privacy_overview_text">AirPods Galaxy는 광고, 분석, 추적 또는 프로파일링을 위해 개인정보를 수집·저장·판매·공유하지 않습니다. 앱에는 분석 도구, 광고 SDK 또는 추적 서비스가 포함되어 있지 않습니다.</string>
+    <string name="privacy_overview_text">EchoPods는 광고, 분석, 추적 또는 프로파일링을 위해 개인정보를 수집·저장·판매·공유하지 않습니다. 앱에는 분석 도구, 광고 SDK 또는 추적 서비스가 포함되어 있지 않습니다.</string>
     <string name="privacy_local_processing">Bluetooth 관찰 정보와 앱 설정은 사용자의 기기에서 처리됩니다. 앱은 새 버전을 확인하고 업데이트를 다운로드하기 위해 GitHub에 접속합니다. GitHub는 네트워크 주소와 앱 버전 등 일반적인 요청 정보를 받을 수 있습니다.</string>
-    <string name="privacy_third_party_text">앱은 소스 코드와 문제 제보를 위해 AirPods Galaxy GitHub 저장소로 연결합니다. 진단 정보나 기기 정보를 자동으로 전송하지 않습니다.</string>
+    <string name="privacy_third_party_text">앱은 소스 코드와 문제 제보를 위해 EchoPods GitHub 저장소로 연결합니다. 진단 정보나 기기 정보를 자동으로 전송하지 않습니다.</string>
     <string name="privacy_github_report_text">앱에서 문제 제보를 선택하면 브라우저에서 GitHub가 열립니다. 입력한 제목과 내용에 문제 해결을 위한 앱 버전 및 기기 모델이 포함될 수 있습니다. GitHub에서 내용을 검토하고 직접 제출하기 전까지 아무 정보도 전송되지 않습니다.</string>
     <string name="privacy_prefill_edit">문제를 제출하기 전에 미리 입력된 정보를 수정하거나 삭제할 수 있습니다.</string>
-    <string name="privacy_repository_text">앱은 공개 AirPods Galaxy GitHub 저장소 링크를 제공합니다. 링크 열기는 선택 사항이며 GitHub 개인정보 처리방침이 적용됩니다.</string>
-    <string name="privacy_issue_prefill_intro">AirPods Galaxy에서 GitHub 문제 제보를 열면 다음 정보가 미리 입력될 수 있습니다:</string>
-    <string name="privacy_prefill_version">• AirPods Galaxy 버전명 및 버전 코드</string>
+    <string name="privacy_repository_text">앱은 공개 EchoPods GitHub 저장소 링크를 제공합니다. 링크 열기는 선택 사항이며 GitHub 개인정보 처리방침이 적용됩니다.</string>
+    <string name="privacy_issue_prefill_intro">EchoPods에서 GitHub 문제 제보를 열면 다음 정보가 미리 입력될 수 있습니다:</string>
+    <string name="privacy_prefill_version">• EchoPods 버전명 및 버전 코드</string>
     <string name="privacy_prefill_device">• 기기 제조사 및 모델</string>
     <string name="privacy_prefill_android">• Android 빌드 정보</string>
     <string name="privacy_issue_submission">이 정보는 내용을 검토한 뒤 사용자가 직접 제보를 제출할 때만 GitHub로 전송됩니다.</string>
-    <string name="privacy_payment_text">AirPods Galaxy 앱의 모든 기능은 결제나 구독 없이 사용할 수 있습니다. 앱은 결제를 처리하거나 결제 정보를 수집하지 않습니다.</string>
-    <string name="privacy_contact_text">문의 또는 개인정보 관련 요청은 github.com/blossom0948/Galaxy-AirPods에서 문제 제보를 등록해 주세요.</string>
+    <string name="privacy_payment_text">EchoPods의 모든 앱 기능은 결제나 구독 없이 사용할 수 있습니다. 앱은 결제를 처리하거나 결제 정보를 수집하지 않습니다.</string>
+    <string name="privacy_contact_text">문의 또는 개인정보 관련 요청은 github.com/blossom0948/EchoPods에서 문제 제보를 등록해 주세요.</string>
     <string name="total_logs">전체 로그: %1$d개</string>
 </resources>

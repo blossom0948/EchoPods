@@ -1,0 +1,89 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    style="@style/Widget.LibrePods.AppWidget.Container"
+    android:id="@+id/noise_control_widget"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/transparent"
+    android:theme="@style/Theme.LibrePods.AppWidgetContainer">
+
+    <ImageView
+        android:id="@+id/widget_glass_background"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no"
+        android:scaleType="fitXY" />
+
+    <LinearLayout
+        android:id="@android:id/background"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/noise_widget_track"
+        android:orientation="vertical"
+        android:padding="6dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+            <FrameLayout
+                android:id="@+id/widget_off_button"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_margin="4dp"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:clickable="true"
+                android:contentDescription="@string/off"
+                android:focusable="true">
+                <ViewFlipper android:id="@+id/widget_off_selector" android:layout_width="match_parent" android:layout_height="match_parent" android:animateFirstView="false" android:inAnimation="@anim/widget_mode_in" android:outAnimation="@anim/widget_mode_out"><ImageView android:layout_width="match_parent" android:layout_height="match_parent" android:importantForAccessibility="no" android:scaleType="fitXY" android:src="@drawable/widget_mode_idle" /><ImageView android:layout_width="match_parent" android:layout_height="match_parent" android:importantForAccessibility="no" android:scaleType="fitXY" android:src="@drawable/widget_mode_active" /></ViewFlipper>
+                <ImageView android:id="@+id/widget_off_icon" android:layout_width="32dp" android:layout_height="32dp" android:layout_gravity="center" android:importantForAccessibility="no" android:src="@drawable/noise_cancellation" android:tint="@color/widget_icon_tint" tools:ignore="UseAppTint" />
+            </FrameLayout>
+            <FrameLayout
+                android:id="@+id/widget_transparency_button"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_margin="4dp"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:clickable="true"
+                android:contentDescription="@string/transparency"
+                android:focusable="true">
+                <ViewFlipper android:id="@+id/widget_transparency_selector" android:layout_width="match_parent" android:layout_height="match_parent" android:animateFirstView="false" android:inAnimation="@anim/widget_mode_in" android:outAnimation="@anim/widget_mode_out"><ImageView android:layout_width="match_parent" android:layout_height="match_parent" android:importantForAccessibility="no" android:scaleType="fitXY" android:src="@drawable/widget_mode_idle" /><ImageView android:layout_width="match_parent" android:layout_height="match_parent" android:importantForAccessibility="no" android:scaleType="fitXY" android:src="@drawable/widget_mode_active" /></ViewFlipper>
+                <ImageView android:id="@+id/widget_transparency_icon" android:layout_width="32dp" android:layout_height="32dp" android:layout_gravity="center" android:importantForAccessibility="no" android:src="@drawable/transparency" android:tint="@color/widget_icon_tint" tools:ignore="UseAppTint" />
+            </FrameLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+            <FrameLayout
+                android:id="@+id/widget_adaptive_button"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_margin="4dp"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:clickable="true"
+                android:contentDescription="@string/adaptive"
+                android:focusable="true">
+                <ViewFlipper android:id="@+id/widget_adaptive_selector" android:layout_width="match_parent" android:layout_height="match_parent" android:animateFirstView="false" android:inAnimation="@anim/widget_mode_in" android:outAnimation="@anim/widget_mode_out"><ImageView android:layout_width="match_parent" android:layout_height="match_parent" android:importantForAccessibility="no" android:scaleType="fitXY" android:src="@drawable/widget_mode_idle" /><ImageView android:layout_width="match_parent" android:layout_height="match_parent" android:importantForAccessibility="no" android:scaleType="fitXY" android:src="@drawable/widget_mode_active" /></ViewFlipper>
+                <ImageView android:id="@+id/widget_adaptive_icon" android:layout_width="32dp" android:layout_height="32dp" android:layout_gravity="center" android:importantForAccessibility="no" android:src="@drawable/adaptive" android:tint="@color/widget_icon_tint" tools:ignore="UseAppTint" />
+            </FrameLayout>
+            <FrameLayout
+                android:id="@+id/widget_anc_button"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_margin="4dp"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:clickable="true"
+                android:contentDescription="@string/noise_cancellation"
+                android:focusable="true">
+                <ViewFlipper android:id="@+id/widget_anc_selector" android:layout_width="match_parent" android:layout_height="match_parent" android:animateFirstView="false" android:inAnimation="@anim/widget_mode_in" android:outAnimation="@anim/widget_mode_out"><ImageView android:layout_width="match_parent" android:layout_height="match_parent" android:importantForAccessibility="no" android:scaleType="fitXY" android:src="@drawable/widget_mode_idle" /><ImageView android:layout_width="match_parent" android:layout_height="match_parent" android:importantForAccessibility="no" android:scaleType="fitXY" android:src="@drawable/widget_mode_active" /></ViewFlipper>
+                <ImageView android:id="@+id/widget_anc_icon" android:layout_width="32dp" android:layout_height="32dp" android:layout_gravity="center" android:importantForAccessibility="no" android:src="@drawable/noise_cancellation" android:tint="@color/widget_icon_tint" tools:ignore="UseAppTint" />
+            </FrameLayout>
+        </LinearLayout>
+    </LinearLayout>
+</RelativeLayout>

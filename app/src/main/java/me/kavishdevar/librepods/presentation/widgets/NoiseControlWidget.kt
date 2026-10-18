@@ -25,7 +25,9 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
+import android.util.SizeF
 import android.util.Log
+import android.view.View
 import android.widget.RemoteViews
 import me.kavishdevar.librepods.R
 import me.kavishdevar.librepods.bluetooth.AACPManager
@@ -38,43 +40,8 @@ class NoiseControlWidget : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        val views = RemoteViews(context.packageName, R.layout.noise_control_widget)
-
-        val offIntent = Intent(context, NoiseControlWidget::class.java).apply {
-            action = "ACTION_SET_ANC_MODE"
-            putExtra("ANC_MODE", 1)
-        }
-        val transparencyIntent = Intent(context, NoiseControlWidget::class.java).apply {
-            action = "ACTION_SET_ANC_MODE"
-            putExtra("ANC_MODE", 3)
-        }
-        val adaptiveIntent = Intent(context, NoiseControlWidget::class.java).apply {
-            action = "ACTION_SET_ANC_MODE"
-            putExtra("ANC_MODE", 4)
-        }
-        val ancIntent = Intent(context, NoiseControlWidget::class.java).apply {
-            action = "ACTION_SET_ANC_MODE"
-            putExtra("ANC_MODE", 2)
-        }
-
-        views.setOnClickPendingIntent(
-            R.id.widget_off_button,
-            PendingIntent.getBroadcast(context, 0, offIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        )
-        views.setOnClickPendingIntent(
-            R.id.widget_transparency_button,
-            PendingIntent.getBroadcast(context, 1, transparencyIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        )
-        views.setOnClickPendingIntent(
-            R.id.widget_adaptive_button,
-            PendingIntent.getBroadcast(context, 2, adaptiveIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        )
-        views.setOnClickPendingIntent(
-            R.id.widget_anc_button,
-            PendingIntent.getBroadcast(context, 3, ancIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        )
+        appWidgetManager.updateAppWidget(appWidgetIds, responsiveViews(context))
         ServiceManager.getService()?.updateNoiseControlWidget()
-        appWidgetManager.updateAppWidget(appWidgetIds, views)
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -95,5 +62,70 @@ class NoiseControlWidget : AppWidgetProvider() {
                     mode.toByte()
                 )
         }
+    }
+
+    companion object {
+        private data class ModeButton(
+            val viewId: Int,
+            val selectorViewId: Int,
+            val mode: Int,
+            val requestCode: Int,
+        )
+
+        private val modeButtons = listOf(
+            ModeButton(R.id.widget_off_button, R.id.widget_off_selector, 1, 0),
+            ModeButton(R.id.widget_transparency_button, R.id.widget_transparency_selector, 3, 1),
+            ModeButton(R.id.widget_adaptive_button, R.id.widget_adaptive_selector, 4, 2),
+            ModeButton(R.id.widget_anc_button, R.id.widget_anc_selector, 2, 3),
+        )
+
+        private val widgetLayouts = linkedMapOf(
+            SizeF(280f, 88f) to R.layout.noise_control_widget,
+            SizeF(180f, 180f) to R.layout.noise_control_widget_grid,
+            SizeF(140f, 72f) to R.layout.noise_control_widget,
+            SizeF(88f, 280f) to R.layout.noise_control_widget_tall,
+        )
+
+        fun responsiveViews(
+            context: Context,
+            selectedMode: Int = 2,
+            allowOffMode: Boolean = true,
+        ): RemoteViews {
+            val variants = widgetLayouts.mapValues { (size, layoutId) ->
+                RemoteViews(context.packageName, layoutId).apply {
+                    setImageViewBitmap(
+                        R.id.widget_glass_background,
+                        WidgetGlassBackground.create(context, size.width / size.height),
+                    )
+                    modeButtons.forEach { button ->
+                        val buttonIntent = Intent(context, NoiseControlWidget::class.java).apply {
+                            action = ACTION_SET_ANC_MODE
+                            putExtra(EXTRA_ANC_MODE, button.mode)
+                        }
+                        setOnClickPendingIntent(
+                            button.viewId,
+                            PendingIntent.getBroadcast(
+                                context,
+                                button.requestCode,
+                                buttonIntent,
+                                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                            ),
+                        )
+                        setDisplayedChild(
+                            button.selectorViewId,
+                            if (button.mode == selectedMode) 1 else 0,
+                        )
+                    }
+                    setViewVisibility(
+                        R.id.widget_off_button,
+                        if (allowOffMode) View.VISIBLE else View.GONE,
+                    )
+                }
+            }
+            return RemoteViews(variants)
+        }
+
+        private const val ACTION_SET_ANC_MODE = "ACTION_SET_ANC_MODE"
+        private const val EXTRA_ANC_MODE = "ANC_MODE"
     }
 }
