@@ -138,6 +138,9 @@ import me.kavishdevar.librepods.utils.SystemApisUtils.METADATA_UNTETHERED_RIGHT_
 import me.kavishdevar.librepods.utils.SystemApisUtils.METADATA_UNTETHERED_RIGHT_CHARGING
 import me.kavishdevar.librepods.utils.SystemApisUtils.METADATA_UNTETHERED_RIGHT_ICON
 import me.kavishdevar.librepods.utils.SystemApisUtils.METADATA_UNTETHERED_RIGHT_LOW_BATTERY_THRESHOLD
+import me.kavishdevar.librepods.utils.XposedState
+import me.kavishdevar.librepods.utils.canAttemptAacpControlSession
+import me.kavishdevar.librepods.utils.hasRootlessBluetoothSupport
 import com.galaxyairpods.update.UpdateManager
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -183,6 +186,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     data class ServiceConfig(
         var deviceName: String = "AirPods",
         var earDetectionEnabled: Boolean = true,
+        var mediaControlOnWearChangeEnabled: Boolean = true,
         var popupOnWearChange: Boolean = true,
         var conversationalAwarenessPauseMusic: Boolean = false,
         var showPhoneBatteryInWidget: Boolean = true,
@@ -394,6 +398,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         _packetLogsFlow.value = inMemoryLogs.toSet()
 
         sharedPreferences = getSharedPreferences("settings", MODE_PRIVATE)
+        // AACP socket state never survives process/service recreation. Do not
+        // resurrect the old persisted "connected" bit as a live capability.
+        sharedPreferences.edit { putBoolean("connection_successful", false) }
         batteryNotification.restoreLastKnownBattery(
             leftLevel = sharedPreferences.getInt("last_known_battery_left", -1).takeIf { it in 0..100 },
             rightLevel = sharedPreferences.getInt("last_known_battery_right", -1).takeIf { it in 0..100 },
@@ -748,6 +755,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     }
 
                 } else if (intent?.action == AirPodsNotifications.AIRPODS_DISCONNECTED) {
+                    sharedPreferences.edit { putBoolean("connection_successful", false) }
+                    lastWearPosition = null
+                    cancelPendingWearResume()
+                    MediaController.cancelAutoResumeAfterExternalMediaChange()
                     runCatching { BluetoothConnectionManager.aacpSocket?.close() }
                     runCatching { BluetoothConnectionManager.attSocket?.close() }
                     device = null
@@ -1338,6 +1349,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             )
         }
 
+        if (!config.mediaControlOnWearChangeEnabled) {
+            Log.d(TAG, "Wear media control is disabled by the user")
+            return
+        }
+
         if (action == EarWearAction.PAUSE) {
             cancelPendingWearResume()
             val routeActive = airPodsRouteActive || MediaController.wasAirPodsAudioRouteActiveRecently()
@@ -1381,6 +1397,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         config = ServiceConfig(
             deviceName = sharedPreferences.getString("name", "AirPods") ?: "AirPods",
             earDetectionEnabled = sharedPreferences.getBoolean("automatic_ear_detection", true),
+            mediaControlOnWearChangeEnabled = sharedPreferences.getBoolean("media_control_on_wear_change", true),
             popupOnWearChange = sharedPreferences.getBoolean("popup_on_wear_change", true),
             conversationalAwarenessPauseMusic = sharedPreferences.getBoolean(
                 "conversational_awareness_pause_music", false
@@ -1498,6 +1515,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 if (!config.earDetectionEnabled) cancelPendingWearResume()
             }
             "popup_on_wear_change" -> config.popupOnWearChange = preferences.getBoolean(key, true)
+            "media_control_on_wear_change" -> {
+                config.mediaControlOnWearChangeEnabled = preferences.getBoolean(key, true)
+                if (!config.mediaControlOnWearChangeEnabled) {
+                    cancelPendingWearResume()
+                    MediaController.cancelAutoResumeAfterExternalMediaChange()
+                }
+            }
 
             "conversational_awareness_pause_music" -> config.conversationalAwarenessPauseMusic =
                 preferences.getBoolean(key, false)
@@ -2870,6 +2894,18 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     fun connectToSocket(
         adapter: BluetoothAdapter, device: BluetoothDevice, manual: Boolean = false
     ) {
+        if (!canAttemptAacpControlSession(
+                rootlessBluetoothSupported = hasRootlessBluetoothSupport(),
+                bluetoothScopeEnabled = XposedState.bluetoothScopeEnabled,
+            )
+        ) {
+            Log.w(
+                TAG,
+                "Skipping AACP control socket on an unsupported rootless Bluetooth stack; keeping standard audio profile intact",
+            )
+            if (manual) sendToast(getString(R.string.device_bluetooth_support_limited))
+            return
+        }
         if (!socketConnectInProgress.compareAndSet(false, true)) {
             Log.d(TAG, "AACP connection attempt already in progress; ignoring duplicate trigger")
             return

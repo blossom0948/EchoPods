@@ -23,18 +23,8 @@ val gettingStartedGuide = listOf(
 
 val updates = listOf(
     UpdateItem(
-        titleRes = R.string.guide_page_battery_update_title,
-        descriptionRes = R.string.guide_page_battery_update_description,
-        screenshotRes = R.drawable.guide_battery,
-    ),
-    UpdateItem(
-        titleRes = R.string.guide_page_design_update_title,
-        descriptionRes = R.string.guide_page_design_update_description,
-        screenshotRes = R.drawable.guide_design,
-    ),
-    UpdateItem(
-        titleRes = R.string.guide_page_updates_update_title,
-        descriptionRes = R.string.guide_page_updates_update_description,
-        screenshotRes = R.drawable.guide_update,
+        titleRes = R.string.guide_page_wear_control_update_title,
+        descriptionRes = R.string.guide_page_wear_control_update_description,
+        screenshotRes = R.drawable.guide_wear_control,
     ),
 )

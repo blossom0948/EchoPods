@@ -6,6 +6,7 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -37,6 +38,8 @@ data class AppSettingsUiState(
     val connectionSuccessful: Boolean = false,
     val connectionPopupStyle: ConnectionPopupStyle = ConnectionPopupStyle.BOTTOM_SHEET,
     val popupOnWearChange: Boolean = true,
+    val automaticEarDetectionEnabled: Boolean = true,
+    val mediaControlOnWearChangeEnabled: Boolean = true,
     val timeUntilFOSSPremiumExpiry: Long = 0L,
     val m3eEnabled: Boolean = false
 )
@@ -56,6 +59,12 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
             }
             "popup_on_wear_change" -> _uiState.update {
                 it.copy(popupOnWearChange = sharedPref.getBoolean(key, true))
+            }
+            "automatic_ear_detection" -> _uiState.update {
+                it.copy(automaticEarDetectionEnabled = sharedPref.getBoolean(key, true))
+            }
+            "media_control_on_wear_change" -> _uiState.update {
+                it.copy(mediaControlOnWearChangeEnabled = sharedPref.getBoolean(key, true))
             }
         }
     }
@@ -166,9 +175,12 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
                 conversationalAwarenessVolume = sharedPreferences.getInt("conversational_awareness_volume", 43).toFloat(),
                 cameraPackageValue = sharedPreferences.getString("custom_camera_package", "") ?: "",
                 vendorIdHook = xposedRemotePref.getBoolean("vendor_id_hook", false),
-                connectionSuccessful = sharedPreferences.getBoolean("connection_successful", false),
+                // This indicates a live AACP capability, not durable user data.
+                connectionSuccessful = false,
                 connectionPopupStyle = popupStyle,
                 popupOnWearChange = sharedPreferences.getBoolean("popup_on_wear_change", true),
+                automaticEarDetectionEnabled = sharedPreferences.getBoolean("automatic_ear_detection", true),
+                mediaControlOnWearChangeEnabled = sharedPreferences.getBoolean("media_control_on_wear_change", true),
                 m3eEnabled = sharedPreferences.getBoolean("m3e_enabled", false)
             )
         }
@@ -268,6 +280,28 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
     fun setPopupOnWearChange(enabled: Boolean) {
         sharedPreferences.edit { putBoolean("popup_on_wear_change", enabled) }
         _uiState.update { it.copy(popupOnWearChange = enabled) }
+    }
+
+    fun setAutomaticEarDetectionEnabled(enabled: Boolean) {
+        sharedPreferences.edit { putBoolean("automatic_ear_detection", enabled) }
+        _uiState.update { it.copy(automaticEarDetectionEnabled = enabled) }
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                me.kavishdevar.librepods.services.ServiceManager.getService()
+                    ?.aacpManager
+                    ?.sendControlCommand(
+                        me.kavishdevar.librepods.bluetooth.AACPManager.Companion.ControlCommandIdentifiers.EAR_DETECTION_CONFIG.value,
+                        enabled,
+                    )
+            }.onFailure {
+                android.util.Log.w("AppSettingsViewModel", "Could not send ear-detection setting to AirPods")
+            }
+        }
+    }
+
+    fun setMediaControlOnWearChangeEnabled(enabled: Boolean) {
+        sharedPreferences.edit { putBoolean("media_control_on_wear_change", enabled) }
+        _uiState.update { it.copy(mediaControlOnWearChangeEnabled = enabled) }
     }
 
     fun setm3eEnabled(enabled: Boolean) {

@@ -26,8 +26,8 @@
             android:id="@+id/phone_battery_widget_container"
             android:orientation="vertical">
             <FrameLayout
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
                 android:layout_margin="0dp"
                 android:padding="2dp"
                 android:layout_gravity="center">
@@ -70,15 +70,16 @@
             </FrameLayout>
             <TextView
                 android:id="@+id/phone_battery_widget"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="14sp"
+                android:textSize="12sp"
                 android:textColor="@color/white"
                 android:fontFamily="sans-serif"
                 android:gravity="center"
                 android:textFontWeight="300"
                 android:text="Phone"
                 android:maxLines="1"
+                android:ellipsize="end"
                 android:includeFontPadding="false"
                 tools:ignore="HardcodedText" />
         </LinearLayout>
@@ -91,8 +92,8 @@
             android:gravity="center"
             android:orientation="vertical">
             <FrameLayout
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
                 android:layout_margin="0dp"
                 android:padding="2dp"
                 android:layout_gravity="center">
@@ -136,15 +137,16 @@
             </FrameLayout>
             <TextView
                 android:id="@+id/left_battery_widget"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="14sp"
+                android:textSize="12sp"
                 android:textColor="@color/white"
                 android:fontFamily="sans-serif"
                 android:gravity="center"
                 android:textFontWeight="300"
                 android:text="Left"
                 android:maxLines="1"
+                android:ellipsize="end"
                 android:includeFontPadding="false"
                 tools:ignore="HardcodedText" />
         </LinearLayout>
@@ -157,8 +159,8 @@
             android:gravity="center"
             android:orientation="vertical">
             <FrameLayout
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
                 android:layout_margin="0dp"
                 android:padding="2dp"
                 android:layout_gravity="center">
@@ -201,15 +203,16 @@
             </FrameLayout>
             <TextView
                 android:id="@+id/right_battery_widget"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="14sp"
+                android:textSize="12sp"
                 android:textFontWeight="300"
                 android:textColor="@color/white"
                 android:fontFamily="sans-serif"
                 android:gravity="center"
                 android:text="Right"
                 android:maxLines="1"
+                android:ellipsize="end"
                 android:includeFontPadding="false"
                 tools:ignore="HardcodedText" />
         </LinearLayout>
@@ -222,8 +225,8 @@
             android:gravity="center"
             android:orientation="vertical">
             <FrameLayout
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
                 android:layout_margin="0dp"
                 android:padding="2dp"
                 android:layout_gravity="center">
@@ -266,15 +269,16 @@
             </FrameLayout>
             <TextView
                 android:id="@+id/case_battery_widget"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="14sp"
+                android:textSize="12sp"
                 android:textColor="@color/white"
                 android:gravity="center"
                 android:fontFamily="sans-serif"
                 android:textFontWeight="300"
                 android:text="Case"
                 android:maxLines="1"
+                android:ellipsize="end"
                 android:includeFontPadding="false"
                 tools:ignore="HardcodedText" />
         </LinearLayout>

@@ -69,6 +69,10 @@
     <string name="media_session_access">Media session access</string>
     <string name="media_session_access_enabled">Enabled — precise pause and resume for the same media app</string>
     <string name="media_session_access_needs_permission">Allow notification access for more reliable media pause and resume. Media-key fallback remains available.</string>
+    <string name="wear_detection_settings">Wear detection and media control</string>
+    <string name="wear_detection_toggle_description">Process fresh ear-state events reported by AirPods. A supported control session must provide wear events.</string>
+    <string name="wear_media_control">Automatically control media when wearing changes</string>
+    <string name="wear_media_control_description">Pause when earbuds are removed and resume only playback paused by this app. Fresh AirPods wear events and an active Android AirPods audio route are required.</string>
     <string name="popup_battery_left">Left · %1$d%%</string>
     <string name="popup_battery_right">Right · %1$d%%</string>
     <string name="popup_battery_case">Case · %1$d%%</string>
@@ -162,7 +166,7 @@
     <string name="show_island_popup_description">Show the Dynamic Island-style popup at the top for connection and takeover events.</string>
     <string name="show_popup_on_wear_change">Show popup when wearing changes</string>
     <string name="show_popup_on_wear_change_description">Show a popup when an AirPod is removed or put back in an ear. Requires background detection and overlay permission.</string>
-    <string name="device_bluetooth_support_limited">This phone can install and run the app, but its current Bluetooth firmware is not in the verified rootless AirPods-control set. Basic Bluetooth audio remains available; advanced controls may require a supported firmware or Bluetooth Scope/Xposed.</string>
+    <string name="device_bluetooth_support_limited">This phone can install and run the app, and standard Bluetooth audio remains available. Its current Bluetooth stack is not supported for a rootless AirPods control session; advanced controls require a supported stack or Bluetooth Scope/Xposed.</string>
     <string name="minimum_android_support">App installation: Android 12 or later. AirPods controls depend on the device Bluetooth chipset, Android build, and AirPods model/firmware; Android version alone does not guarantee support.</string>
     <string name="appearance_style_ios">iOS style</string>
     <string name="appearance_style_android">Android style</string>
@@ -343,6 +347,8 @@
     <string name="guide_page_design_update_description">New installs now start with the iOS design, with Android available in Settings. iOS list rows share the group outline instead of looking like separate rounded cards.</string>
     <string name="guide_page_updates_update_title">Version-by-version guide</string>
     <string name="guide_page_updates_update_description">New installs get a focused getting-started guide. Updates use the same visual guide to show version-specific changes with real app screenshots.</string>
+    <string name="guide_page_wear_control_update_title">Wear detection and media control</string>
+    <string name="guide_page_wear_control_update_description">You can enable wear detection and wear-triggered media control separately in Settings. Media control requires fresh AirPods wear events, an active Galaxy AirPods audio route, and a supported control path.</string>
     <string name="guide_next">Next</string>
     <string name="guide_previous">Back</string>
     <string name="guide_start">Get started</string>

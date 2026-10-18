@@ -22,6 +22,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -99,6 +100,7 @@ import me.kavishdevar.librepods.presentation.components.StyledListItem
 import me.kavishdevar.librepods.presentation.components.ListItemOrientation
 import me.kavishdevar.librepods.presentation.components.StyledSlider
 import me.kavishdevar.librepods.presentation.components.StyledToggle
+import me.kavishdevar.librepods.services.MediaSessionResolver
 import me.kavishdevar.librepods.presentation.theme.DesignSystem
 import me.kavishdevar.librepods.presentation.theme.LocalDesignSystem
 import me.kavishdevar.librepods.presentation.theme.MaterialTypography
@@ -125,6 +127,9 @@ fun AppSettingsScreen(
     val updateState by updateManager.state.collectAsState()
     val updateScope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
+    val notificationAccessEnabled = remember {
+        mutableStateOf(MediaSessionResolver.hasNotificationAccess(context))
+    }
 
     val backdrop = rememberLayerBackdrop()
 
@@ -142,6 +147,7 @@ fun AppSettingsScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 updateManager.resumeReadyInstallIfPermitted()
+                notificationAccessEnabled.value = MediaSessionResolver.hasNotificationAccess(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -242,6 +248,38 @@ fun AppSettingsScreen(
                 description = stringResource(R.string.show_popup_on_wear_change_description),
                 checked = state.popupOnWearChange,
                 onCheckedChange = viewModel::setPopupOnWearChange,
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        StyledList(title = stringResource(R.string.wear_detection_settings)) {
+            StyledToggle(
+                label = stringResource(R.string.ear_detection),
+                description = stringResource(R.string.wear_detection_toggle_description),
+                checked = state.automaticEarDetectionEnabled,
+                onCheckedChange = viewModel::setAutomaticEarDetectionEnabled,
+            )
+            StyledToggle(
+                label = stringResource(R.string.wear_media_control),
+                description = stringResource(R.string.wear_media_control_description),
+                checked = state.mediaControlOnWearChangeEnabled,
+                onCheckedChange = viewModel::setMediaControlOnWearChangeEnabled,
+            )
+            StyledListItem(
+                name = stringResource(R.string.media_session_access),
+                description = stringResource(
+                    if (notificationAccessEnabled.value) {
+                        R.string.media_session_access_enabled
+                    } else {
+                        R.string.media_session_access_needs_permission
+                    }
+                ),
+                orientation = ListItemOrientation.Vertical,
+                onClick = {
+                    runCatching {
+                        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                    }
+                },
             )
         }
         Spacer(modifier = Modifier.height(16.dp))

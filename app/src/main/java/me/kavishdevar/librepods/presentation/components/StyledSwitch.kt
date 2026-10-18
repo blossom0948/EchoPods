@@ -82,6 +82,7 @@ fun StyledSwitch(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     enabled: Boolean = true,
+    interactive: Boolean = true,
 ) {
     val isDarkTheme = isSystemInDarkTheme()
     val haptics = LocalHapticFeedback.current
@@ -158,7 +159,7 @@ fun StyledSwitch(
                 .graphicsLayer {
                     translationX = animatedFraction.value * (trackWidthPx.floatValue - with(density) { thumbWidth.toPx() + 4.dp.toPx() })
                 }
-                .then(if (enabled) Modifier.draggable(
+                .then(if (enabled && interactive) Modifier.draggable(
                     rememberDraggableState { delta ->
                         if (trackWidthPx.floatValue > 0f) {
                             val oldFraction = animatedFraction.value

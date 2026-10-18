@@ -35,6 +35,6 @@ progress = frame / totalFrames
 | Button touch feedback | Click uses `ContextClick`; drag start/movement uses segment tick feedback; release/cancel uses reject feedback. | Same files |
 | Top island expand | Velocity-scaled duration: nominal 600 ms, clamped to 300–700 ms. Container decelerates while custom stretch uses `OvershootInterpolator(0.5)`, then normalizes over 300 ms. | `presentation/overlays/IslandWindow.kt` (`animateExpandWithStretch`) |
 | Top island dismiss fling | Nominal 400 ms, velocity-scaled and clamped to 200–500 ms; translate/fade/scale out with `DecelerateInterpolator(1.2)`. | `presentation/overlays/IslandWindow.kt` (`animateDismissWithInertia`) |
-| Release-guide finish CTA | `Cookie7Sided` → `SoftBurst` morph uses a medium-bouncy/medium-stiffness spring. Idle rotation is 60°/second; pressing eases rotation speed to zero over 1200 ms. | `presentation/screens/ReleaseNotesScreen.kt` (`FinishPage`) |
+| Release-guide finish CTA | `Cookie7Sided` → `SoftBurst` morph and an 8° press tilt use a medium-bouncy/medium-stiffness spring. There is no idle animation; tapping advances to the app. | `presentation/screens/ReleaseNotesScreen.kt` (`FinishPage`) |
 
 No frame-by-frame Apple popup motion measurements are currently recorded. Before describing any timing as Apple-like, capture the Apple reference and fill the capture fields above; otherwise call the values Android implementation parameters. New motion should follow `docs/APP_DESIGN_SYSTEM.md`, and reduced-motion behavior must be checked on device before sign-off.

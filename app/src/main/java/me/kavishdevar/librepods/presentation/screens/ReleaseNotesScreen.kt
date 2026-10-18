@@ -1,6 +1,5 @@
 package me.kavishdevar.librepods.presentation.screens
 
-import android.animation.ValueAnimator
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -38,14 +37,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.toPath
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -166,7 +162,6 @@ fun ReleaseNotesScreen(
                     FeaturePage(item = updates[index])
                 } else {
                     FinishPage(
-                        isActive = state.currentPage == updates.size,
                         onFinish = releaseNotesShown,
                     )
                 }
@@ -252,7 +247,7 @@ private fun FeaturePage(item: UpdateItem) {
 }
 
 @Composable
-private fun FinishPage(isActive: Boolean, onFinish: () -> Unit) {
+private fun FinishPage(onFinish: () -> Unit) {
     var pressed by remember { mutableStateOf(false) }
     val morph = remember {
         Morph(MaterialShapes.Cookie7Sided.normalized(), MaterialShapes.SoftBurst.normalized())
@@ -265,22 +260,14 @@ private fun FinishPage(isActive: Boolean, onFinish: () -> Unit) {
         ),
         label = "guideFinishMorph",
     )
-    val motionEnabled = remember { ValueAnimator.areAnimatorsEnabled() }
-    val rotationSpeed by animateFloatAsState(
-        targetValue = if (isActive && motionEnabled && !pressed) 1f else 0f,
-        animationSpec = tween(1200),
-        label = "guideFinishRotationSpeed",
+    val rotation by animateFloatAsState(
+        targetValue = if (pressed) -8f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
+        label = "guideFinishPressRotation",
     )
-    var rotation by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(isActive, motionEnabled) {
-        if (!isActive || !motionEnabled) return@LaunchedEffect
-        var previousFrame = withFrameNanos { it }
-        while (isActive) {
-            val frame = withFrameNanos { it }
-            rotation += 60f * rotationSpeed * ((frame - previousFrame) / 1_000_000_000f)
-            previousFrame = frame
-        }
-    }
 
     val path = remember { Path() }
     val matrix = remember { Matrix() }

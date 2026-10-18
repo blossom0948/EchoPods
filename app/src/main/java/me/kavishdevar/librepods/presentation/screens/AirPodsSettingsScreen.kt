@@ -125,6 +125,7 @@ import me.kavishdevar.librepods.presentation.theme.LibrePodsTheme
 import me.kavishdevar.librepods.presentation.theme.LocalDesignSystem
 import me.kavishdevar.librepods.presentation.viewmodel.AirPodsUiState
 import me.kavishdevar.librepods.utils.XposedState
+import me.kavishdevar.librepods.utils.canAttemptAacpControlSession
 import me.kavishdevar.librepods.utils.hasRootlessBluetoothSupport
 import me.kavishdevar.librepods.presentation.viewmodel.AirPodsViewModel
 import me.kavishdevar.librepods.presentation.viewmodel.demoState
@@ -239,6 +240,10 @@ fun AirPodsSettingsScreen(
         reconnectFromSavedMac: () -> Unit,
 ) {
     val sharedPreferences = LocalContext.current.getSharedPreferences("settings", MODE_PRIVATE)
+    val aacpControlSupported = canAttemptAacpControlSession(
+        rootlessBluetoothSupported = hasRootlessBluetoothSupport(),
+        bluetoothScopeEnabled = XposedState.bluetoothScopeEnabled,
+    )
     var deviceName by remember {
         mutableStateOf(
             TextFieldValue(
@@ -677,7 +682,7 @@ fun AirPodsSettingsScreen(
 
                             val animatedShapeColor by animateColorAsState(if (reconnecting) primaryContainerColor else secondaryContainerColor)
 
-                            if (state.connectionSuccessful || state.isAndroidAudioProfileConnected) {
+                            if ((state.connectionSuccessful || state.isAndroidAudioProfileConnected) && aacpControlSupported) {
                                 Box(
                                     modifier = Modifier
                                         .size(240.dp)
@@ -864,7 +869,7 @@ fun AirPodsSettingsScreen(
                             }
                         }
 
-                        if (state.connectionSuccessful || state.isAndroidAudioProfileConnected) {
+                        if ((state.connectionSuccessful || state.isAndroidAudioProfileConnected) && aacpControlSupported) {
                             StyledButton(
                                 onClick = { reconnectFromSavedMac(); reconnecting = true },
                                 backdrop = backdrop,

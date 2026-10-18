@@ -32,6 +32,11 @@ fun hasRootlessBluetoothSupport(): Boolean {
     return isKnownRootlessSupport(Build.MANUFACTURER, Build.VERSION.SDK_INT, Build.ID)
 }
 
+internal fun canAttemptAacpControlSession(
+    rootlessBluetoothSupported: Boolean,
+    bluetoothScopeEnabled: Boolean,
+): Boolean = rootlessBluetoothSupported || bluetoothScopeEnabled
+
 internal fun isKnownRootlessSupport(manufacturer: String, sdk: Int, buildId: String): Boolean {
     if (sdk >= 37) return true
 

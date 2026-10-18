@@ -6,6 +6,13 @@ import org.junit.Test
 
 class RootlessSupportTest {
     @Test
+    fun controlSocketRequiresSupportedStackOrBluetoothScope() {
+        assertFalse(canAttemptAacpControlSession(rootlessBluetoothSupported = false, bluetoothScopeEnabled = false))
+        assertTrue(canAttemptAacpControlSession(rootlessBluetoothSupported = true, bluetoothScopeEnabled = false))
+        assertTrue(canAttemptAacpControlSession(rootlessBluetoothSupported = false, bluetoothScopeEnabled = true))
+    }
+
+    @Test
     fun samsungAndroid16BuildUsedByFold4IsNotMarkedRootlessSupported() {
         assertFalse(
             isKnownRootlessSupport(

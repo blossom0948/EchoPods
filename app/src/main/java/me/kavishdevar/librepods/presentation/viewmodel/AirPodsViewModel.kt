@@ -578,8 +578,6 @@ class AirPodsViewModel(
         val vendorIdHook = xposedRemotePref.getBoolean("vendor_id_hook", false)
         val dynamicEndOfCharge = sharedPreferences.getBoolean("dynamic_end_of_charge", false)
 
-        val connectionSuccessful = sharedPreferences.getBoolean("connection_successful", false)
-
         _uiState.update {
             it.copy(
                 offListeningMode = offListeningModeEnabled,
@@ -590,7 +588,8 @@ class AirPodsViewModel(
                 rightAction = rightAction,
                 vendorIdHook = vendorIdHook,
                 dynamicEndOfCharge = dynamicEndOfCharge,
-                connectionSuccessful = connectionSuccessful,
+                // Never restore a prior process's AACP socket state from disk.
+                connectionSuccessful = false,
             )
         }
 
