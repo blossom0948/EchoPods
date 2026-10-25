@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.io.File
 
 val appVersionName = "0.5.9"
 
@@ -23,6 +24,29 @@ val releaseSigningAvailable = listOf(
     "RELEASE_KEY_ALIAS",
     "RELEASE_KEY_PASSWORD"
 ).all { props[it]?.toString()?.isNotBlank() == true }
+val requestedTaskNames = gradle.startParameter.taskNames.map { it.substringAfterLast(':') }
+val requestsPublicReleaseArtifact = requestedTaskNames.any { taskName ->
+    taskName in setOf("build", "assemble", "bundle") ||
+        (taskName.contains("Release") &&
+            (taskName.startsWith("bundle") || taskName.startsWith("assemble") ||
+                taskName.startsWith("package") || taskName.startsWith("sign")))
+}
+if (requestsPublicReleaseArtifact) {
+    if (!releaseSigningAvailable) {
+        throw GradleException(
+            "Public release artifacts must be signed with a stable production key. Configure " +
+                "RELEASE_STORE_FILE, RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, and " +
+                "RELEASE_KEY_PASSWORD in local.properties. The Android debug key is not valid for distribution."
+        )
+    }
+
+    val storePath = props["RELEASE_STORE_FILE"]?.toString().orEmpty()
+    val configuredStore = File(storePath)
+    val storeFile = if (configuredStore.isAbsolute) configuredStore else file(storePath)
+    if (!storeFile.isFile) {
+        throw GradleException("The configured Play upload keystore does not exist: $storePath")
+    }
+}
 
 kotlin {
     compilerOptions {
@@ -85,6 +109,10 @@ android {
         create("foss") {
             dimension = "env"
             buildConfigField("Boolean", "PLAY_BUILD", "false")
+        }
+        create("play") {
+            dimension = "env"
+            buildConfigField("Boolean", "PLAY_BUILD", "true")
         }
     }
     compileOptions {

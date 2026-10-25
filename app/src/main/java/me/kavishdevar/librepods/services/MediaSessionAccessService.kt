@@ -123,13 +123,14 @@ object MediaSessionResolver {
             override fun onPlaybackStateChanged(state: android.media.session.PlaybackState?) {
                 if (pausedToken != token) return
                 when (state?.state) {
-                    MediaSessionSelectionPolicy.STATE_PAUSED -> pausedSessionConfirmed = true
-                    MediaSessionSelectionPolicy.STATE_PLAYING -> {
+                    android.media.session.PlaybackState.STATE_PAUSED -> pausedSessionConfirmed = true
+                    android.media.session.PlaybackState.STATE_PLAYING -> {
                         if (pausedSessionConfirmed) clearPausedSession(cancelAutoResume = true)
                     }
                     android.media.session.PlaybackState.STATE_STOPPED,
                     android.media.session.PlaybackState.STATE_NONE,
                     android.media.session.PlaybackState.STATE_ERROR -> clearPausedSession(cancelAutoResume = true)
+                    else -> Unit
                 }
             }
 

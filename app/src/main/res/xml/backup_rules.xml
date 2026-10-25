@@ -6,8 +6,8 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <!-- settings.xml contains AirPods proximity keys; keep them on this device. -->
+    <exclude domain="sharedpref" path="settings.xml" />
+    <exclude domain="sharedpref" path="packet_logs.xml" />
+    <exclude domain="file" path="logs/" />
 </full-backup-content>

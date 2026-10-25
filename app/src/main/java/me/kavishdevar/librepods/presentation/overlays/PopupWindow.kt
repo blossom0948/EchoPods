@@ -69,6 +69,12 @@ class PopupWindow(
 
     init {
         view.findViewById<ImageButton>(R.id.close_button).setOnClickListener { close() }
+        installOutsideTouchHandler()
+    }
+
+    /** This listener handles only system outside-touch events, not in-view clicks. */
+    @SuppressLint("ClickableViewAccessibility")
+    private fun installOutsideTouchHandler() {
         view.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_OUTSIDE) {
                 close()

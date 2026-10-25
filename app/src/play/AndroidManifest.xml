@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission
+        android:name="android.permission.REQUEST_INSTALL_PACKAGES"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_PRIVILEGED"
+        tools:node="remove"
+        tools:ignore="ProtectedPermissions,PermissionImpliesUnsupportedChromeOsHardware" />
+    <uses-permission
+        android:name="android.permission.MODIFY_PHONE_STATE"
+        tools:node="remove"
+        tools:ignore="ProtectedPermissions,PermissionImpliesUnsupportedChromeOsHardware" />
+    <uses-permission
+        android:name="android.permission.LOCAL_MAC_ADDRESS"
+        tools:node="remove"
+        tools:ignore="ProtectedPermissions,PermissionImpliesUnsupportedChromeOsHardware" />
+    <uses-permission
+        android:name="android.permission.INTERACT_ACROSS_USERS"
+        tools:node="remove"
+        tools:ignore="ProtectedPermissions,PermissionImpliesUnsupportedChromeOsHardware" />
+
+    <application>
+        <receiver
+            android:name="com.galaxyairpods.update.UpdateInstallReceiver"
+            tools:node="remove" />
+    </application>
+</manifest>

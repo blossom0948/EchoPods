@@ -19,6 +19,7 @@
 package me.kavishdevar.librepods.presentation.screens
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +38,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.core.net.toUri
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -44,6 +48,9 @@ import com.mikepenz.aboutlibraries.ui.compose.produceLibraries
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import kotlinx.coroutines.Job
 import me.kavishdevar.librepods.R
+import me.kavishdevar.librepods.presentation.components.ListItemOrientation
+import me.kavishdevar.librepods.presentation.components.StyledList
+import me.kavishdevar.librepods.presentation.components.StyledListItem
 import me.kavishdevar.librepods.presentation.theme.DesignSystem
 import me.kavishdevar.librepods.presentation.theme.LocalDesignSystem
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -76,11 +83,27 @@ fun OpenSourceLicensesScreen() {
                 .bufferedReader()
                 .use { it.readText() }
         }
+        StyledList(title = stringResource(R.string.echopods_project)) {
+            StyledListItem(
+                name = stringResource(R.string.librepods_attribution_title),
+                description = stringResource(R.string.librepods_attribution_description),
+                orientation = ListItemOrientation.Vertical,
+                onClick = {
+                    context.startActivity(
+                        Intent(
+                            Intent.ACTION_VIEW,
+                            "https://github.com/librepods-org/librepods".toUri(),
+                        ),
+                    )
+                },
+            )
+        }
         LibrariesContainer(
             libraries = libraries,
             modifier = Modifier
                 .padding(0.dp)
-                .fillMaxSize()
+                .weight(1f)
+                .fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(bottomPadding))
     }

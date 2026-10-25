@@ -18,9 +18,10 @@
 
 package me.kavishdevar.librepods.presentation.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
@@ -140,13 +141,17 @@ fun AppSettingsScreen(
     val descriptionFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
-        updateManager.check(automatic = true)
+        if (!BuildConfig.PLAY_BUILD) {
+            updateManager.check(automatic = true)
+        }
     }
 
     DisposableEffect(lifecycleOwner, updateManager) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                updateManager.resumeReadyInstallIfPermitted()
+                if (!BuildConfig.PLAY_BUILD) {
+                    updateManager.resumeReadyInstallIfPermitted()
+                }
                 notificationAccessEnabled.value = MediaSessionResolver.hasNotificationAccess(context)
             }
         }
@@ -490,28 +495,37 @@ fun AppSettingsScreen(
             StyledListItem(
                 name = stringResource(R.string.github_issues),
                 onClick = {
-                    val issueBody = Uri.encode(
-                        "Version: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\n" +
-                            "Device: ${Build.MANUFACTURER} ${Build.MODEL}\n" +
-                            "Android: ${Build.ID} (${Build.DISPLAY})\n\nDescribe the issue here."
+                    val intent = Intent(
+                        Intent.ACTION_VIEW,
+                        "https://github.com/blossom0948/EchoPods/issues/new".toUri(),
                     )
-                    val url = "https://github.com/blossom0948/EchoPods/issues/new" +
-                        "?title=AirPods%20Galaxy%20feedback&body=$issueBody"
-
-                    val intent = Intent(Intent.ACTION_VIEW, url.toUri())
                     context.startActivity(intent)
                 },
             )
         }
 
         Spacer(modifier = Modifier.height(20.dp))
-        UpdateCard(
-            state = updateState,
-            onCheck = { updateScope.launch { updateManager.check() } },
-            onStart = { info -> updateScope.launch { updateManager.downloadAndInstall(info) } },
-            onInstallReady = updateManager::installReady,
-            versionName = BuildConfig.VERSION_NAME.removeSuffix("-debug").removeSuffix("-play"),
-        )
+        if (BuildConfig.PLAY_BUILD) {
+            StyledList(title = stringResource(R.string.app_updates)) {
+                StyledListItem(
+                    name = stringResource(
+                        R.string.current_app_version,
+                        BuildConfig.VERSION_NAME.removeSuffix("-debug").removeSuffix("-play"),
+                    ),
+                    description = stringResource(R.string.play_store_managed_updates),
+                    orientation = ListItemOrientation.Vertical,
+                    enabled = false,
+                )
+            }
+        } else {
+            UpdateCard(
+                state = updateState,
+                onCheck = { updateScope.launch { updateManager.check() } },
+                onStart = { info -> updateScope.launch { updateManager.downloadAndInstall(info) } },
+                onInstallReady = updateManager::installReady,
+                versionName = BuildConfig.VERSION_NAME.removeSuffix("-debug").removeSuffix("-play"),
+            )
+        }
         Spacer(modifier = Modifier.height(16.dp))
         DeviceInfoCard()
         Spacer(modifier = Modifier.height(16.dp))
@@ -637,18 +651,40 @@ fun AppSettingsScreen(
                    iconTint = if (subjectState.text.isNotEmpty() && descriptionState.text.isNotEmpty()) Color.White else Color.Gray,
                    enabled = subjectState.text.isNotEmpty() && descriptionState.text.isNotEmpty(),
                    onClick = {
-                       contactBottomSheet.value = false
-                       val issueTitle = Uri.encode("EchoPods: ${subjectState.text}")
-                       val issueBody = Uri.encode(
-                           "${descriptionState.text}\n\n" +
-                               "Device: ${Build.MANUFACTURER} ${Build.MODEL}\n" +
-                               "Android: ${Build.DISPLAY} (SDK ${Build.VERSION.SDK_INT})\n" +
-                               "App: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
-                       )
-                       val intent = Intent(Intent.ACTION_VIEW).apply {
-                           data = "https://github.com/blossom0948/EchoPods/issues/new?title=$issueTitle&body=$issueBody".toUri()
+                       val clipboard = context.getSystemService(ClipboardManager::class.java)
+                       if (clipboard == null) {
+                           Toast.makeText(
+                               context,
+                               R.string.issue_report_copy_failed,
+                               Toast.LENGTH_SHORT,
+                           ).show()
+                           return@StyledIconButton
                        }
-                       context.startActivity(intent)
+
+                       val issueReport = buildString {
+                           appendLine("Title: EchoPods: ${subjectState.text}")
+                           appendLine()
+                           appendLine(descriptionState.text)
+                           appendLine()
+                           appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}")
+                           appendLine("Android: ${Build.DISPLAY} (SDK ${Build.VERSION.SDK_INT})")
+                           append("App: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+                       }
+                       clipboard.setPrimaryClip(
+                           ClipData.newPlainText("EchoPods issue report", issueReport)
+                       )
+                       context.startActivity(
+                           Intent(
+                               Intent.ACTION_VIEW,
+                               "https://github.com/blossom0948/EchoPods/issues/new".toUri(),
+                           )
+                       )
+                       Toast.makeText(
+                           context,
+                           R.string.issue_report_copied_to_clipboard,
+                           Toast.LENGTH_LONG,
+                       ).show()
+                       contactBottomSheet.value = false
                        subjectState.clearText()
                        descriptionState.clearText()
                    }

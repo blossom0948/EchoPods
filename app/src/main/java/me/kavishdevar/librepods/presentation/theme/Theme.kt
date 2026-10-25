@@ -34,27 +34,27 @@ import androidx.compose.ui.platform.LocalContext
 val ColorScheme.sectionHeader: Color
     get() = onBackground.copy(alpha = 0.6f)
 
-private val AppleDarkColorScheme = darkColorScheme(
+private val IosDarkColorScheme = darkColorScheme(
     surfaceContainer = Color(0xFF000000), // for some reason background is not used as the background in gmail and settings app, but surfacecontainer, so using that
     onBackground = Color(0xFFFFFFFF),
     surface = Color(0xFF1C1C1E),
     onSurface = Color(0xFFFFFFFF),
     surfaceDim = Color(0x40888888),
-    primary = Color(0xFF0091FF),
-    secondaryContainer = Color(0xFF366AA8),
-    onSecondaryContainer = Color(0xFF0091FF),
-    onPrimary = Color(0xFFFFFFFF)
+    primary = Color(0xFF8FE2D2),
+    secondaryContainer = Color(0xFF244A47),
+    onSecondaryContainer = Color(0xFFB8F4E9),
+    onPrimary = Color(0xFF06332D)
 )
 
-private val AppleLightColorScheme = lightColorScheme(
+private val IosLightColorScheme = lightColorScheme(
     surfaceContainer = Color(0xFFF2F2F7),
     onBackground = Color(0xFF000000),
     surface = Color(0xFFFFFFFF),
     onSurface = Color(0xFF000000),
     surfaceDim = Color(0x40D9D9D9),
-    secondaryContainer = Color(0xFF6BC0FF),
-    onSecondaryContainer = Color(0xFF0088FF),
-    primary = Color(0xFF0088FF),
+    secondaryContainer = Color(0xFFCDEFE9),
+    onSecondaryContainer = Color(0xFF075F57),
+    primary = Color(0xFF007D70),
     onPrimary = Color(0xFFFFFFFF)
 )
 
@@ -69,8 +69,8 @@ fun LibrePodsTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        darkTheme -> AppleDarkColorScheme
-        else -> AppleLightColorScheme
+        darkTheme -> IosDarkColorScheme
+        else -> IosLightColorScheme
     }
 
     CompositionLocalProvider(

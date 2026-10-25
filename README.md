@@ -1,36 +1,52 @@
 # EchoPods
 
-EchoPods is an independent Android companion app for AirPods. Its design and feature direction have been informed by several apps in this category, alongside ongoing Android-specific development. The current free and open-source client also incorporates Android code adapted from [LibrePods](https://github.com/librepods-org/librepods), under **GPL-3.0-or-later**; this source relationship is credited transparently in [UPSTREAM.md](UPSTREAM.md), [NOTICE](NOTICE), and the retained source headers.
+![EchoPods — Android companion for AirPods](assets-source/play-store/feature-graphic-ko.jpg)
 
-EchoPods is not a one-to-one product clone. It has its own app identity, update flow, device-compatibility handling, background popup behavior, widgets, and project-specific improvements built around that open-source foundation. This project is not affiliated with or endorsed by Apple or LibrePods.
+EchoPods brings AirPods battery status and supported device controls to Android. It is an independent companion app with its own name, artwork, widgets, update channel, and Android-focused compatibility behavior.
+
+**Android 12 or newer · GPL-3.0-or-later · No Apple or LibrePods affiliation**
 
 ## Features
 
-The FOSS build exposes all app-level settings without a paid-feature gate, including:
+- Separate left, right, and case battery status when the connected Bluetooth stack reports it.
+- Connection and case popups, low-battery alerts, and home-screen widgets.
+- Listening-mode controls, press-and-hold actions, and Quick Settings controls on supported combinations.
+- Optional wear detection and media pause/resume, with support varying by AirPods firmware and Android media-session behavior.
+- Model-aware settings and product artwork where the model can be identified.
 
-- AirPods battery and charging information, device naming, and model-specific product artwork.
-- Listening-mode controls (Off, Transparency, Adaptive, and Noise Cancellation), per-earbud press-and-hold actions, call controls, and Quick Settings controls.
-- Ear detection, head gestures, conversational awareness, personalized volume, accessibility settings, and supported audio customizations.
-- Battery and noise-control widgets, notifications, connection handoff, and background monitoring.
-- GitHub update checks and an in-app download/install flow for EchoPods releases.
+Not every Android phone exposes the same AirPods data or controls. Installation requires Android 12 or newer; the features that work depend on the AirPods model and firmware, phone Bluetooth chipset, Android build, and manufacturer software. Some combinations provide only ordinary Bluetooth audio. EchoPods does not claim universal support for Find My, heart-rate sensing, head-tracked spatial audio, or two-way audio features.
 
-Available controls depend on the AirPods model and firmware, Android version, and the phone manufacturer's Bluetooth implementation. Some older Android releases or device-specific Bluetooth stacks may expose only basic Bluetooth audio and not the control or battery channels this app needs; advanced features can also require privileged system access. The app does not claim universal support for Find My, head-tracked spatial audio, heart-rate monitoring, or high-quality two-way audio. Read [LibrePods' Android notes](https://github.com/librepods-org/librepods/blob/main/android/README.md) before enabling root/Xposed features.
+## Get EchoPods
 
-## Build
+- **GitHub/FOSS build:** APKs and version notes are published on the [Releases page](https://github.com/blossom0948/EchoPods/releases). Android requires the user to confirm sideloaded app installation. The app's GitHub updater is available only in this build.
+- **Google Play build:** the `play` flavor is prepared separately and omits the GitHub APK updater; Play updates are managed by Google Play. It is not represented as published until a Play Console release is actually made.
+
+Android checks the signing certificate when updating an installed app. The existing GitHub install channel must keep its current signing identity unless a planned migration tells users how to move to a different one. See [Play readiness notes](docs/PLAY_STORE_READINESS.md) for the verified certificate and store-transition constraints.
+
+## Build from source
 
 Use Android Studio's JDK 21+ runtime and install Android SDK Platform 37, NDK `30.0.14904198`, and CMake `3.22.1`.
 
 ```sh
 ./gradlew :app:assembleFossDebug
-./gradlew :app:assembleFossRelease
+./gradlew :app:assemblePlayDebug
 ```
 
-The distributable APK is produced at `app/build/outputs/apk/foss/release/app-foss-release.apk`. The release variant uses the configured local release key when `local.properties` contains the `RELEASE_*` values; otherwise it uses the local Android debug key, matching the current sideload update channel on the development machine. Do not publish a differently signed APK as an in-place update.
+Public release artifacts require a stable signing configuration in the untracked local `local.properties` file:
 
-## Updating
+```properties
+RELEASE_STORE_FILE=/absolute/path/to/upload-key.jks
+RELEASE_STORE_PASSWORD=...
+RELEASE_KEY_ALIAS=...
+RELEASE_KEY_PASSWORD=...
+```
 
-The app checks `update.json` from this repository. The manifest's `versionCode`, `versionName`, `apkUrl`, and optional `sha256` must match the APK attached to the corresponding GitHub release. Android still requires its system confirmation for sideload installs; if automatic installation is blocked, use the in-app update card and grant “Install unknown apps” to EchoPods.
+Then build `:app:assembleFossRelease` for a GitHub APK or `:app:bundlePlayRelease` for a Play App Bundle. Release builds intentionally fail when signing information is absent. Never commit a keystore or its passwords. The Play App Bundle signing key is an **upload key**; Google Play signs delivered APKs with the separately configured app-signing key.
 
-## Preserved prior implementation
+## Open source and acknowledgements
 
-The earlier EchoPods implementation and its tests are retained under [`legacy-app/`](legacy-app/); it is not part of the active Android build. The current `:app` module combines the licensed LibrePods-derived Android implementation with EchoPods-specific changes. See [UPSTREAM.md](UPSTREAM.md) for the source revision and attribution details.
+The active Android client contains code adapted from the GPL-3.0-or-later [LibrePods Android project](https://github.com/librepods-org/librepods). EchoPods has developed its own product identity and Android-specific behavior on top of that licensed source. Upstream copyright and license notices remain in imported files; the source revision and changes are recorded in [UPSTREAM.md](UPSTREAM.md), [NOTICE](NOTICE), and [LICENSE](LICENSE). GPL licensing covers the applicable source code, not separately licensed third-party names, logos, or artwork.
+
+EchoPods is not affiliated with or endorsed by Apple or LibrePods. AirPods is a trademark of Apple Inc. Product names are used only to identify compatibility.
+
+The earlier EchoPods implementation and its tests remain under [`legacy-app/`](legacy-app/) for development history; they are not part of the active Android build.

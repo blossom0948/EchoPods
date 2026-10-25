@@ -10,6 +10,7 @@ import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.widget.ImageView
@@ -45,6 +46,10 @@ class LowBatteryAlertWindow(
 
     init {
         view.setOnClickListener { close() }
+        view.setOnApplyWindowInsetsListener { _, insets ->
+            updateTopInset(insets.getInsets(WindowInsets.Type.statusBars()).top)
+            insets
+        }
     }
 
     fun show(deviceName: String, artworkRes: Int, level: Int, componentName: String): Boolean {
@@ -85,6 +90,7 @@ class LowBatteryAlertWindow(
             dismissalReported = false
             view.setLayerType(View.LAYER_TYPE_HARDWARE, null)
             windowManager.addView(view, params)
+            view.requestApplyInsets()
             view.animate()
                 .alpha(1f)
                 .translationY(0f)
@@ -158,9 +164,20 @@ class LowBatteryAlertWindow(
         if (shouldReportDismissal) onDismissed()
     }
 
-    private fun statusBarInset(): Int {
-        val id = context.resources.getIdentifier("status_bar_height", "dimen", "android")
-        return if (id != 0) runCatching { context.resources.getDimensionPixelSize(id) }.getOrDefault(0) else 0
+    private fun statusBarInset(): Int = runCatching {
+        windowManager.currentWindowMetrics.windowInsets
+            .getInsets(WindowInsets.Type.statusBars())
+            .top
+    }.getOrDefault(0)
+
+    private fun updateTopInset(topInset: Int) {
+        val newY = topInset + dp(10)
+        if (newY == params.y) return
+        params.y = newY
+        if (view.parent != null) {
+            runCatching { windowManager.updateViewLayout(view, params) }
+                .onFailure { Log.w(TAG, "Unable to update low-battery alert insets", it) }
+        }
     }
 
     private fun dp(value: Int): Int =

@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_description" translatable="false">让你的 AirPods 摆脱苹果的生态系统。</string>
+    <string name="app_description">使用 EchoPods 在 Android 上管理 AirPods 支持的功能。</string>
     <string name="app_widget_description">在主屏幕上即可查看 AirPods 的电池状态！</string>
     <string name="accessibility">辅助功能</string>
     <string name="tone_volume">提示音音量</string>
@@ -160,7 +160,7 @@
     <string name="reset_hook_offset">重置钩子偏移</string>
     <string name="reset_hook_offset_description">这将清除当前的钩子偏移，并要求你重新进行设置过程。你确定要继续吗？</string>
     <string name="reset">重置</string>
-    <string name="hook_offset_reset_success">钩子偏移已重置。正在重定向到设置...</string>
+    <string name="hook_offset_reset_success">钩子偏移已重置。正在重定向到设置…</string>
     <string name="hook_offset_reset_failure">重置钩子偏移失败</string>
     <string name="irk_set_success">IRK 已成功设置</string>
     <string name="encryption_key_set_success">加密密钥已成功设置</string>

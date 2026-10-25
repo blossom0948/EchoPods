@@ -1,6 +1,5 @@
    <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
-        <string name="app_name" translatable="false">EchoPods</string>
-        <string name="app_description">Libera i tuoi AirPods dall\'ecosistema Apple.</string>
+        <string name="app_description">Gestisci le funzioni AirPods supportate su Android con EchoPods.</string>
         <string name="app_widget_description">Visualizza lo stato della batteria dei tuoi AirPods direttamente dalla schermata principale!</string>
         <string name="accessibility">Accessibilità</string>
         <string name="tone_volume">Volume Tono</string>
@@ -159,7 +158,7 @@
         <string name="reset_hook_offset">Reimposta Offset Hook</string>
         <string name="reset_hook_offset_description">Questo cancellerà l\'offset hook corrente e richiederà di rifare la procedura di configurazione. Sei sicuro di voler continuare?</string>
         <string name="reset">Reimposta</string>
-        <string name="hook_offset_reset_success">Offset hook è stato resettato. Reindirizzamento alla configurazione...</string>
+        <string name="hook_offset_reset_success">Offset hook è stato resettato. Reindirizzamento alla configurazione…</string>
         <string name="hook_offset_reset_failure">Impossibile reimpostare l\'offset hook</string>
         <string name="irk_set_success">IRK impostata correttamente</string>
         <string name="encryption_key_set_success">Chiave di crittografia impostata correttamente</string>
