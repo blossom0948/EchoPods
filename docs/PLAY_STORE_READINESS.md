@@ -74,6 +74,7 @@ RELEASE_KEY_PASSWORD=...
 - 스토어 그래픽 파일 형식/크기를 재확인했습니다: 앱 아이콘은 RGBA PNG 512×512, 기능 그래픽은 불투명 JPEG 1024×500입니다. GitHub Pages API는 404를 반환해 별도 Pages 사이트는 활성화되어 있지 않습니다. 정리된 공개 진입점은 저장소 페이지와 README입니다.
 - 최종 재검증 명령 `:app:testPlayDebugUnitTest :app:testFossDebugUnitTest :app:lintPlayDebug :app:bundlePlayDebug :app:assemblePlayDebug`가 성공했습니다(기존 산출물·분석 결과는 캐시 적중). Play/FOSS 테스트 결과는 각각 75개 통과, lint 오류 0/경고 282이며, Play debug AAB/APK만 생성됩니다. 이들은 Android Debug 키 서명이라 업로드할 수 없습니다.
 - 설정의 앱 정보에서 개발자 내부 용어 `Flavor`가 노출되지 않도록 `배포 방식`과 빌드 유형의 현지화 표시로 바꿨습니다. API 36 `medium_phone` 에뮬레이터에서 Play debug APK를 설치·실행하고 iOS 밝은/어두운 모드, Android 밝은/어두운 모드, 설정 최하단 스크롤을 확인했습니다. 앱 정보에는 `Google Play`와 `디버그`가 표시되고 오픈소스 라이선스 행까지 스크롤 가능했습니다. 2,000줄의 AndroidRuntime 오류 로그에서 해당 앱의 crash/ANR 흔적은 없었습니다. 이는 Fold 실기기 또는 AirPods 연결 기능 검증은 아닙니다.
+- Play Console에 로그인된 브라우저 세션으로 접속했으나 개발자 대시보드가 아닌 계정 유형 선택/개발자 계정 등록 화면으로 이동했습니다. 계정 종류·약관·등록은 계정 소유자 단계이며 대행하지 않았습니다. 이번 확인에서 Android 디버거나 USB 기기는 연결되어 있지 않았고, release signing 속성 및 keystore도 로컬에 없었습니다.
 
 ## 공식 참고자료
 
