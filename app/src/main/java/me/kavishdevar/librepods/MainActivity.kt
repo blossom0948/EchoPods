@@ -82,8 +82,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        lifecycleScope.launch {
-            UpdateManager.shared(applicationContext).check(automatic = true)
+        if (!BuildConfig.PLAY_BUILD) {
+            lifecycleScope.launch {
+                UpdateManager.shared(applicationContext).check(automatic = true)
+            }
         }
 
         setContent {

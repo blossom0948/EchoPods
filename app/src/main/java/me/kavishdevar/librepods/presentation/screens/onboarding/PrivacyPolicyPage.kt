@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import me.kavishdevar.librepods.BuildConfig
 import me.kavishdevar.librepods.R
 
 @Composable
@@ -56,7 +57,13 @@ fun PrivacyPolicyPage(
             )
 
             Text(
-                text = stringResource(R.string.privacy_local_processing),
+                text = stringResource(
+                    if (BuildConfig.PLAY_BUILD) {
+                        R.string.privacy_local_processing_play
+                    } else {
+                        R.string.privacy_local_processing
+                    }
+                ),
                 style = MaterialTheme.typography.bodyMedium
             )
 
@@ -66,7 +73,13 @@ fun PrivacyPolicyPage(
             )
 
             Text(
-                text = stringResource(R.string.privacy_third_party_text),
+                text = stringResource(
+                    if (BuildConfig.PLAY_BUILD) {
+                        R.string.privacy_third_party_text_play
+                    } else {
+                        R.string.privacy_third_party_text
+                    }
+                ),
                 style = MaterialTheme.typography.bodyMedium
             )
 

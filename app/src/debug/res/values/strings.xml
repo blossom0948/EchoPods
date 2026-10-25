@@ -1,0 +1,14 @@
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="preview_low_battery_title">저전력 팝업 테스트</string>
+    <string name="preview_low_battery_description">테스트 값은 실시간 배터리·위젯에 저장되지 않습니다. 오버레이 권한이 없으면 버튼을 눌러 설정을 엽니다.</string>
+    <string name="preview_low_battery_warning_button">%1$d%% 경고</string>
+    <string name="preview_all_components_warning_button">좌·우·케이스 동시 경고</string>
+    <string name="preview_duplicate_warning_button">중복 방지 확인 · 10%% 두 번 입력</string>
+    <string name="preview_duplicate_warning_failed">중복 경고 정책 검사 실패</string>
+    <string name="preview_background_display_button">백그라운드 표시 테스트 · 10%%</string>
+    <string name="preview_connection_popup_button">연결 팝업 열기·닫기 합성 테스트</string>
+    <string name="preview_airpods_name">AirPods Pro · 테스트</string>
+    <string name="preview_missing_battery_button">배터리 정보 없음 · 경고 없어야 함</string>
+    <string name="preview_missing_battery_message">정보 없음: 저전력 경고를 표시하지 않습니다.</string>
+    <string name="preview_overlay_permission_required">다른 앱 위에 표시 권한을 허용해 주세요.</string>
+</resources>

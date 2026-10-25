@@ -40,13 +40,25 @@ fun AppInfoCard(
         )
 
         StyledListItem(
-            name = stringResource(R.string.flavor),
-            description = BuildConfig.FLAVOR,
+            name = stringResource(R.string.distribution_channel),
+            description = stringResource(
+                if (BuildConfig.FLAVOR == "play") {
+                    R.string.distribution_google_play
+                } else {
+                    R.string.distribution_github
+                }
+            ),
         )
 
         StyledListItem(
             name = stringResource(R.string.build_type),
-            description = BuildConfig.BUILD_TYPE,
+            description = stringResource(
+                if (BuildConfig.BUILD_TYPE == "release") {
+                    R.string.build_release
+                } else {
+                    R.string.build_debug
+                }
+            ),
         )
     }
 }

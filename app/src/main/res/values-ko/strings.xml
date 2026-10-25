@@ -2,9 +2,9 @@
     <string name="close">닫기</string>
     <string name="charging">충전 중</string>
     <string name="popup_battery_value">%1$d%%</string>
+    <string name="unknown_value">—</string>
     <string name="airpods_artwork_desc">에어팟 이미지</string>
-    <string name="app_name" translatable="false">EchoPods</string>
-    <string name="app_description">Android 기기에서 AirPods를 관리합니다.</string>
+    <string name="app_description">EchoPods는 Android에서 지원되는 AirPods 기능을 관리합니다.</string>
     <string name="app_widget_description">홈 화면에서 AirPods 배터리 상태를 한눈에 확인하세요.</string>
     <string name="widget_phone_battery_description">휴대전화 배터리</string>
     <string name="battery_widget_accessibility_description">휴대전화와 AirPods 배터리 상태 위젯</string>
@@ -229,6 +229,9 @@
     <string name="app_listener_service_label">카메라 감지 서비스</string>
     <string name="app_listener_service_description">카메라가 활성화되었는지 감지해 AirPods 카메라 제어를 켭니다.</string>
     <string name="open_source_licenses">오픈소스 라이선스</string>
+    <string name="echopods_project">EchoPods 프로젝트</string>
+    <string name="librepods_attribution_title">LibrePods 원본 코드 및 라이선스</string>
+    <string name="librepods_attribution_description">EchoPods는 LibrePods의 Android 코드를 GPL-3.0-or-later 조건으로 수정한 독립 파생 프로젝트입니다. LibrePods 또는 Apple과 제휴·공식 관계가 없습니다. 눌러 원본 프로젝트를 확인하세요.</string>
     <string name="hearing_test">청력 검사 업데이트</string>
     <string name="update_hearing_test">청력 검사 결과 업데이트</string>
     <string name="att_manager_is_null_try_reconnecting">ATT 관리자를 찾을 수 없습니다. 다시 연결해 보세요.</string>
@@ -276,8 +279,12 @@
     <string name="discord">프로젝트 저장소</string>
     <string name="github_issues">GitHub 문제 제보</string>
     <string name="version_code">버전 코드</string>
-    <string name="flavor" translatable="false">Flavor</string>
+    <string name="distribution_channel">배포 방식</string>
+    <string name="distribution_google_play">Google Play</string>
+    <string name="distribution_github">GitHub 배포판</string>
     <string name="build_type">빌드 유형</string>
+    <string name="build_debug">디버그</string>
+    <string name="build_release">정식</string>
     <string name="no">아니요</string>
     <string name="yes">예</string>
     <string name="settings">설정</string>
@@ -336,6 +343,7 @@
     <string name="retry_install">설치 다시 시도</string>
     <string name="restart_update">업데이트 다시 시작</string>
     <string name="manual_update_check">수동으로 업데이트 확인</string>
+    <string name="play_store_managed_updates">이 버전의 앱 업데이트는 Google Play에서 관리합니다.</string>
     <string name="guide_title">시작 가이드</string>
     <string name="whats_new_version">v%1$s 신기능</string>
     <string name="guide_page_battery_title">배터리 상태</string>
@@ -400,8 +408,8 @@
     <string name="log_saved_named">로그 저장됨: %1$s</string>
     <string name="error_collecting_logs">로그 수집 오류: %1$s</string>
     <string name="preparing_logs">로그 수집을 준비하고 있습니다. 잠시만 기다려 주세요.</string>
-    <string name="collecting_logs">로그 수집 중...</string>
-    <string name="preparing">준비 중...</string>
+    <string name="collecting_logs">로그 수집 중…</string>
+    <string name="preparing">준비 중…</string>
     <string name="log_collection_stopped">로그 수집을 중지했습니다.</string>
     <string name="log_file_deleted">로그 파일을 삭제했습니다.</string>
     <string name="failed_to_delete_log_file">로그 파일을 삭제하지 못했습니다.</string>
@@ -414,8 +422,8 @@
     <string name="log_collection_complete_instructions">로그 수집이 완료되었습니다. 로그를 저장하거나 공유할 수 있습니다.</string>
     <string name="first_step_title">모두 삭제</string>
     <string name="xposed_settings">Xposed 설정 열기</string>
-    <string name="prepare_collection">준비 중...</string>
-    <string name="collection_in_progress">로그 수집 중...</string>
+    <string name="prepare_collection">준비 중…</string>
+    <string name="collection_in_progress">로그 수집 중…</string>
     <string name="log_file_deleted_title">로그 파일 삭제</string>
     <string name="delete_log_confirmation_text">이 로그 파일을 삭제할까요? 이 작업은 되돌릴 수 없습니다.</string>
     <string name="delete_all_logs_title">모든 로그 삭제</string>
@@ -460,18 +468,22 @@
     <string name="notification_disable_background">이 알림을 끄려면 탭하세요.</string>
     <string name="notification_connection_issue">AirPods 연결 문제</string>
     <string name="notification_l2cap_connection_failed">L2CAP을 통해 AirPods에 연결할 수 없습니다.</string>
-    <string name="privacy_last_updated">최종 업데이트: 2026년 10월 16일</string>
-    <string name="privacy_overview_text">EchoPods는 광고, 분석, 추적 또는 프로파일링을 위해 개인정보를 수집·저장·판매·공유하지 않습니다. 앱에는 분석 도구, 광고 SDK 또는 추적 서비스가 포함되어 있지 않습니다.</string>
-    <string name="privacy_local_processing">Bluetooth 관찰 정보와 앱 설정은 사용자의 기기에서 처리됩니다. 앱은 새 버전을 확인하고 업데이트를 다운로드하기 위해 GitHub에 접속합니다. GitHub는 네트워크 주소와 앱 버전 등 일반적인 요청 정보를 받을 수 있습니다.</string>
-    <string name="privacy_third_party_text">앱은 소스 코드와 문제 제보를 위해 EchoPods GitHub 저장소로 연결합니다. 진단 정보나 기기 정보를 자동으로 전송하지 않습니다.</string>
-    <string name="privacy_github_report_text">앱에서 문제 제보를 선택하면 브라우저에서 GitHub가 열립니다. 입력한 제목과 내용에 문제 해결을 위한 앱 버전 및 기기 모델이 포함될 수 있습니다. GitHub에서 내용을 검토하고 직접 제출하기 전까지 아무 정보도 전송되지 않습니다.</string>
-    <string name="privacy_prefill_edit">문제를 제출하기 전에 미리 입력된 정보를 수정하거나 삭제할 수 있습니다.</string>
+    <string name="privacy_last_updated">최종 업데이트: 2026년 10월 25일</string>
+    <string name="privacy_overview_text">EchoPods에는 계정, 광고, 분석 또는 추적 SDK가 없습니다. Bluetooth 및 AirPods 데이터는 기기에서 처리되며 EchoPods 서버로 전송되지 않습니다. 기기에 저장되는 제한된 진단 메타데이터는 아래에 설명합니다.</string>
+    <string name="privacy_local_processing">Bluetooth 관찰 정보와 앱 설정은 기기에서 처리됩니다. Bluetooth 서비스가 실행되는 동안 출처와 패킷 바이트 수만 담은 짧은 로그를 최대 1,000개까지 기기에 자동 저장합니다. 패킷 내용은 저장하지 않습니다. 별도의 Android logcat 문제 해결 로그는 사용자가 문제 해결 기능을 직접 시작할 때만 수집되며, 시스템·앱 정보가 포함될 수 있으므로 공유 전에 확인해야 합니다. 로그는 자동 업로드되지 않습니다. 앱은 GitHub에서 업데이트를 확인하고 다운로드할 수 있으며, GitHub는 네트워크 주소와 앱 버전 같은 일반 요청 정보를 받을 수 있습니다. AirPods 식별·암호화 키, 패킷 로그, 저장된 진단 로그는 Android 클라우드 백업 및 기기 간 이전에서 제외됩니다.</string>
+    <string name="privacy_local_processing_play">Bluetooth 관찰 정보와 앱 설정은 기기에서 처리됩니다. Bluetooth 서비스가 실행되는 동안 출처와 패킷 바이트 수만 담은 짧은 로그를 최대 1,000개까지 기기에 자동 저장합니다. 패킷 내용은 저장하지 않습니다. 별도의 Android logcat 문제 해결 로그는 사용자가 문제 해결 기능을 직접 시작할 때만 수집되며, 시스템·앱 정보가 포함될 수 있으므로 공유 전에 확인해야 합니다. 로그는 자동 업로드되지 않습니다. 앱 업데이트는 Google Play가 관리합니다. GitHub는 사용자가 저장소나 문제 제보 링크를 선택할 때만 엽니다. AirPods 식별·암호화 키, 패킷 로그, 저장된 진단 로그는 Android 클라우드 백업 및 기기 간 이전에서 제외됩니다.</string>
+    <string name="privacy_third_party_text">앱은 소스 코드와 문제 제보를 위해 EchoPods GitHub 저장소로 연결합니다. 진단 로그나 Bluetooth 패킷 데이터를 자동으로 업로드하지 않습니다.</string>
+    <string name="privacy_third_party_text_play">Play 버전은 Google Play 인앱 리뷰를 사용합니다. 별점이나 리뷰를 제출하면 Google Play가 이를 받고, 공개 리뷰로 게시하거나 비공개 테스트 중에는 개발자에게 비공개로 공유할 수 있습니다. EchoPods는 리뷰 내용을 받지 않습니다. GitHub는 저장소 또는 문제 제보 링크를 사용자가 선택할 때만 엽니다.</string>
+    <string name="privacy_github_report_text">앱에서 문제 제보를 준비하면 앱 버전, 기기 모델, Android 빌드 정보가 포함된 내용이 Android 클립보드에 복사되고 빈 GitHub 제보 양식이 열립니다. EchoPods가 내용을 GitHub로 전송하지는 않습니다. 사용자가 붙여넣고 수정한 뒤 제출 여부를 결정합니다. 클립보드에 복사된 내용은 클립보드 접근 권한이 있는 다른 앱에서 볼 수 있습니다.</string>
+    <string name="privacy_prefill_edit">GitHub에 붙여넣기 전에 복사된 내용을 확인하고 수정하세요. 공유하고 싶지 않은 정보는 삭제할 수 있습니다.</string>
     <string name="privacy_repository_text">앱은 공개 EchoPods GitHub 저장소 링크를 제공합니다. 링크 열기는 선택 사항이며 GitHub 개인정보 처리방침이 적용됩니다.</string>
-    <string name="privacy_issue_prefill_intro">EchoPods에서 GitHub 문제 제보를 열면 다음 정보가 미리 입력될 수 있습니다:</string>
+    <string name="privacy_issue_prefill_intro">EchoPods에서 준비하는 제보에는 다음 정보가 포함될 수 있습니다:</string>
     <string name="privacy_prefill_version">• EchoPods 버전명 및 버전 코드</string>
     <string name="privacy_prefill_device">• 기기 제조사 및 모델</string>
     <string name="privacy_prefill_android">• Android 빌드 정보</string>
-    <string name="privacy_issue_submission">이 정보는 내용을 검토한 뒤 사용자가 직접 제보를 제출할 때만 GitHub로 전송됩니다.</string>
+    <string name="privacy_issue_submission">EchoPods는 사용자가 요청한 경우에만 제보 내용을 클립보드에 복사합니다. 내용을 GitHub에 붙여넣고 제출해야 GitHub로 전송됩니다.</string>
+    <string name="issue_report_copied_to_clipboard">제보 내용을 복사했습니다. 빈 GitHub 양식에 붙여넣고 확인한 뒤 제출하세요.</string>
+    <string name="issue_report_copy_failed">제보 내용을 복사하지 못했습니다. 다시 시도해 주세요.</string>
     <string name="privacy_payment_text">EchoPods의 모든 앱 기능은 결제나 구독 없이 사용할 수 있습니다. 앱은 결제를 처리하거나 결제 정보를 수집하지 않습니다.</string>
     <string name="privacy_contact_text">문의 또는 개인정보 관련 요청은 github.com/blossom0948/EchoPods에서 문제 제보를 등록해 주세요.</string>
     <string name="total_logs">전체 로그: %1$d개</string>

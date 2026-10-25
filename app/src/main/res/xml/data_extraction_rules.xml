@@ -5,15 +5,14 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <!-- settings.xml contains AirPods proximity keys; keep them on this device. -->
+        <exclude domain="sharedpref" path="settings.xml" />
+        <exclude domain="sharedpref" path="packet_logs.xml" />
+        <exclude domain="file" path="logs/" />
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude domain="sharedpref" path="settings.xml" />
+        <exclude domain="sharedpref" path="packet_logs.xml" />
+        <exclude domain="file" path="logs/" />
     </device-transfer>
-    -->
 </data-extraction-rules>

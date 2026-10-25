@@ -38,6 +38,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.lang.ref.WeakReference
 import me.kavishdevar.librepods.BuildConfig
 import me.kavishdevar.librepods.R
 import me.kavishdevar.librepods.billing.BillingManager
@@ -58,6 +59,7 @@ import me.kavishdevar.librepods.data.CustomEq
 import me.kavishdevar.librepods.data.StemAction
 import me.kavishdevar.librepods.data.XposedRemotePrefProvider
 import me.kavishdevar.librepods.services.AirPodsService
+import me.kavishdevar.librepods.services.ServiceManager
 
 @Suppress("ArrayInDataClass")
 data class AirPodsUiState(
@@ -195,7 +197,10 @@ class AirPodsViewModel(
 ) : ViewModel() {
     private lateinit var sharedPreferences: SharedPreferences
     private lateinit var appContext: Context
-    private lateinit var service: AirPodsService
+    private var serviceReference: WeakReference<AirPodsService>? = null
+    private val service: AirPodsService
+        get() = ServiceManager.getService()
+            ?: error("AirPodsService is not currently available")
     private lateinit var controlRepo: ControlCommandRepository
 
     var isReady by mutableStateOf(false)
@@ -212,7 +217,7 @@ class AirPodsViewModel(
             runCatching { this.appContext.unregisterReceiver(broadcastReceiver) }
         }
 
-        this.service = service
+        this.serviceReference = WeakReference(service)
         this.controlRepo = controlRepo
         this.sharedPreferences = sharedPreferences
         this.appContext = appContext
@@ -287,7 +292,13 @@ class AirPodsViewModel(
             listeners.forEach { (id, listener) -> controlRepo.remove(id, listener) }
             listeners.clear()
         }
-        if (this::service.isInitialized) service.aacpManager.customEqCallback = null
+        serviceReference?.get()?.aacpManager?.customEqCallback = null
+        ServiceManager.getService()
+            ?.takeIf { it !== serviceReference?.get() }
+            ?.aacpManager
+            ?.customEqCallback = null
+        serviceReference?.clear()
+        serviceReference = null
         if (this::broadcastReceiver.isInitialized && this::appContext.isInitialized) {
             runCatching { appContext.unregisterReceiver(broadcastReceiver) }
         }

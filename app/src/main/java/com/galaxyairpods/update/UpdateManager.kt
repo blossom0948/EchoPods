@@ -54,6 +54,8 @@ class UpdateManager(context: Context) {
     private var lastAutomaticCheckAt = 0L
 
     suspend fun check(automatic: Boolean = false) {
+        if (BuildConfig.PLAY_BUILD) return
+
         if (automatic) {
             val now = System.currentTimeMillis()
             if (now - lastAutomaticCheckAt < AUTO_CHECK_INTERVAL_MS) return
@@ -103,6 +105,8 @@ class UpdateManager(context: Context) {
     }
 
     suspend fun downloadAndInstall(info: UpdateInfo) {
+        if (BuildConfig.PLAY_BUILD) return
+
         mutex.withLock {
             // Manual retry must always be available, even after an interrupted
             // automatic attempt left a persisted guard behind.
@@ -116,6 +120,8 @@ class UpdateManager(context: Context) {
     }
 
     fun installReady(file: File) {
+        if (BuildConfig.PLAY_BUILD) return
+
         val ready = _state.value as? UpdateState.Ready ?: return
         runCatching { install(ready.info, file) }
             .onFailure { _state.value = UpdateState.Error("업데이트 설치를 시작하지 못했습니다") }
@@ -123,6 +129,8 @@ class UpdateManager(context: Context) {
 
     /** Resumes a downloaded install after the user returns from unknown-source settings. */
     fun resumeReadyInstallIfPermitted() {
+        if (BuildConfig.PLAY_BUILD) return
+
         if (!appContext.packageManager.canRequestPackageInstalls()) return
         val ready = _state.value as? UpdateState.Ready ?: return
         runCatching { install(ready.info, ready.file) }
@@ -130,6 +138,8 @@ class UpdateManager(context: Context) {
     }
 
     fun markInstallFailure(message: String) {
+        if (BuildConfig.PLAY_BUILD) return
+
         preferences.edit()
             .remove(ATTEMPTED_VERSION_KEY)
             .remove(ATTEMPTED_AT_KEY)
@@ -139,6 +149,8 @@ class UpdateManager(context: Context) {
     }
 
     fun markInstallSuccess() {
+        if (BuildConfig.PLAY_BUILD) return
+
         preferences.edit()
             .remove(ATTEMPTED_VERSION_KEY)
             .remove(ATTEMPTED_AT_KEY)

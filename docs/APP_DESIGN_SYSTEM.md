@@ -1,11 +1,11 @@
 # App UI design and motion reference
 
-This is the persistent implementation memory for UI work in this repository. Read it before every UI/design/motion task, then inspect the current source because implementations can change. The goal is a consistent LibrePods-derived experience, not to rely on chat history or invent a fresh style for each screen.
+This is the persistent implementation memory for UI work in this repository. Read it before every UI/design/motion task, then inspect the current source because implementations can change. EchoPods is a GPL-licensed LibrePods derivative, but its public-facing visual identity must be distinct; upstream is a source and behavior reference, not a pixel-perfect branding template.
 
 ## Sources of truth
 
 - Upstream reference: [LibrePods](https://github.com/librepods-org/librepods), currently compared against source revision `89356c0` during the Fold7 review.
-- Primary reference implementations: `presentation/components/StyledButton.kt`, `StyledIconButton.kt`, `StyledList.kt`, `StyledListItem.kt`, `StyledToggle.kt`, `StyledSwitch.kt`, `StyledScaffold.kt`, and `presentation/overlays/IslandWindow.kt`.
+- Shared components to reuse: `presentation/components/StyledButton.kt`, `StyledIconButton.kt`, `StyledList.kt`, `StyledListItem.kt`, `StyledToggle.kt`, `StyledSwitch.kt`, `StyledScaffold.kt`, and `presentation/overlays/IslandWindow.kt`. Compare their upstream counterparts for behavior and accessibility; do not copy upstream branding or make a new surface pixel-identical just for fidelity.
 - Theme and design selection: `presentation/theme/Theme.kt`, `Type.kt`, `LocalDesignSystem.kt`, and `presentation/viewmodel/AppSettingsViewModel.kt`.
 - Onboarding and update-guide structure: `presentation/screens/onboarding/OnboardingScreen.kt`, `presentation/screens/ReleaseNotesScreen.kt`, and `data/updates/Updates.kt`.
 - Fold7 visual checks and comparison captures were made on Samsung SM-F966N. Captures are task artifacts and may not stay in `/tmp`; use the actual code plus this document as the durable reference.
@@ -13,10 +13,18 @@ This is the persistent implementation memory for UI work in this repository. Rea
 ## Design modes and color
 
 - The app offers two clearly named appearances: **iOS** (Apple-inspired) and **Android** (Material 3 Expressive). The stored preference key is `m3e_enabled`; absent preference currently resolves to `false`, so first-time installs use the iOS-inspired appearance. Never overwrite an explicit user selection.
-- In iOS-inspired light mode, the app background is approximately `#F2F2F7`, grouped surfaces are white, and the accent is Apple-like blue (`#0088FF`). Dark mode uses a black background and `#1C1C1E` grouped surfaces. Use theme tokens rather than hardcoding these colors into each screen.
+- In iOS-inspired light mode, the app background is approximately `#F2F2F7` and grouped surfaces are white. Dark mode uses a black background and `#1C1C1E` grouped surfaces. EchoPods uses its own sea-glass accent: light `#007D70` / pale `#CDEFE9`, dark `#8FE2D2` / `#244A47`. Use theme tokens rather than hardcoding these colors into each screen.
 - Android mode uses the device's dynamic Material color scheme and Material 3 Expressive components.
 - Typeface: use Android system sans-serif. The `sfProFamily` alias intentionally resolves to `FontFamily.SansSerif`; do not bundle Apple-owned SF Pro assets.
 - Navigation and device behavior remain Android-native even when the visual mode is iOS-inspired. Do not promise an exact copy of an iOS system window.
+
+## EchoPods identity and third-party separation
+
+- Keep the app name, launcher mark, accent palette, listing images, and in-app attribution clearly EchoPods-branded. The launcher mark should make the earbud-and-case purpose recognizable at a glance while using original geometry and EchoPods colors. Do not use the LibrePods name/logo as product branding or imply an endorsement by LibrePods or Apple.
+- The iOS-inspired mode may reuse familiar platform conventions (grouped rows, restrained materials, clear hierarchy), but screens, popups, widgets, artwork, and store screenshots must not be presented as Apple system UI or as pixel-perfect LibrePods copies.
+- Use independently created or license-verified product artwork. Do not ship Apple system screenshots, extracted Apple UI assets, unlicensed fonts, or screenshots from other companion apps.
+- Be accurate about source lineage: disclose the GPL-3.0-or-later LibrePods-derived Android code in the open-source/licensing area and make the source corresponding to each public build available. Do not remove upstream copyright/license notices from derived files.
+- The EchoPods accent is a deliberate brand distinction layered onto the user's selected iOS-inspired appearance; do not switch users to Android/Material styling or change their saved design preference.
 
 ## Grouped settings rows
 

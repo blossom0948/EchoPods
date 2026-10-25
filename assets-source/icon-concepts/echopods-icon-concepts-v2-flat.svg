@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1264" height="1264" viewBox="0 0 1264 1264" role="img" aria-labelledby="title desc">
+  <title id="title">EchoPods flat icon concepts, 20 directions</title>
+  <desc id="desc">Twenty crisp, flat two-dimensional EchoPods icon concepts using one consistent simple earbud and case pictogram.</desc>
+  <defs>
+    <!-- Exact existing widget left/right silhouette, flattened to one solid fill. -->
+    <symbol id="pod-light" viewBox="0 0 94.19 123.31">
+      <g fill="#F5F3F8">
+        <path d="M46.81,73.29L46.81,111.06C46.81,114.94 44.25,116.94 40.38,116.94L35.5,116.94C31.63,116.94 29.06,114.94 29.06,111.06L29.06,69.82C33.68,71.55 39.25,72.79 46.81,73.29Z"/>
+        <path d="M62,22.63C62.94,23.8 64.28,25.84 65.55,28.29C51.19,30.59 40.75,43.46 40.75,56.13C40.75,60.05 41.47,63.51 42.75,66.49C34.56,65.53 29.44,63.52 24.75,60.88C14.44,54.94 6.31,45.31 6.31,31.5C6.31,15.56 17.56,6.5 31.38,6.38C42.06,6.25 54,11.5 62,22.63Z M19.44,21.25C18.31,22.5 18.38,24.38 19.69,25.44L29,33.19C30.19,34.25 32.13,34.13 33.19,32.81C34.25,31.5 34.13,29.63 32.75,28.56L23.63,20.81C22.31,19.75 20.44,19.94 19.44,21.25Z"/>
+        <path d="M65.13,74.25C76.31,74.25 87.81,65.38 87.81,51.81C87.81,42.75 81.44,33.88 70.19,33.88C57,33.88 46.81,45.31 46.81,56.13C46.81,68.25 55.38,74.25 65.13,74.25Z M68.19,64.75C66.44,63.25 67.44,60.25 71,55.69C74.69,51.19 77.63,49.69 79.5,51.31C81.19,52.81 80.25,55.88 76.69,60.31C72.94,64.75 70,66.31 68.19,64.75Z"/>
+      </g>
+    </symbol>
+    <symbol id="pod-light-right" viewBox="0 0 94.19 123.31">
+      <g transform="translate(94.19 0) scale(-1 1)" fill="#F5F3F8">
+        <path d="M46.81,73.29L46.81,111.06C46.81,114.94 44.25,116.94 40.38,116.94L35.5,116.94C31.63,116.94 29.06,114.94 29.06,111.06L29.06,69.82C33.68,71.55 39.25,72.79 46.81,73.29Z"/>
+        <path d="M62,22.63C62.94,23.8 64.28,25.84 65.55,28.29C51.19,30.59 40.75,43.46 40.75,56.13C40.75,60.05 41.47,63.51 42.75,66.49C34.56,65.53 29.44,63.52 24.75,60.88C14.44,54.94 6.31,45.31 6.31,31.5C6.31,15.56 17.56,6.5 31.38,6.38C42.06,6.25 54,11.5 62,22.63Z M19.44,21.25C18.31,22.5 18.38,24.38 19.69,25.44L29,33.19C30.19,34.25 32.13,34.13 33.19,32.81C34.25,31.5 34.13,29.63 32.75,28.56L23.63,20.81C22.31,19.75 20.44,19.94 19.44,21.25Z"/>
+        <path d="M65.13,74.25C76.31,74.25 87.81,65.38 87.81,51.81C87.81,42.75 81.44,33.88 70.19,33.88C57,33.88 46.81,45.31 46.81,56.13C46.81,68.25 55.38,74.25 65.13,74.25Z M68.19,64.75C66.44,63.25 67.44,60.25 71,55.69C74.69,51.19 77.63,49.69 79.5,51.31C81.19,52.81 80.25,55.88 76.69,60.31C72.94,64.75 70,66.31 68.19,64.75Z"/>
+      </g>
+    </symbol>
+    <symbol id="pod-dark" viewBox="0 0 94.19 123.31">
+      <g fill="#272436">
+        <path d="M46.81,73.29L46.81,111.06C46.81,114.94 44.25,116.94 40.38,116.94L35.5,116.94C31.63,116.94 29.06,114.94 29.06,111.06L29.06,69.82C33.68,71.55 39.25,72.79 46.81,73.29Z"/>
+        <path d="M62,22.63C62.94,23.8 64.28,25.84 65.55,28.29C51.19,30.59 40.75,43.46 40.75,56.13C40.75,60.05 41.47,63.51 42.75,66.49C34.56,65.53 29.44,63.52 24.75,60.88C14.44,54.94 6.31,45.31 6.31,31.5C6.31,15.56 17.56,6.5 31.38,6.38C42.06,6.25 54,11.5 62,22.63Z M19.44,21.25C18.31,22.5 18.38,24.38 19.69,25.44L29,33.19C30.19,34.25 32.13,34.13 33.19,32.81C34.25,31.5 34.13,29.63 32.75,28.56L23.63,20.81C22.31,19.75 20.44,19.94 19.44,21.25Z"/>
+        <path d="M65.13,74.25C76.31,74.25 87.81,65.38 87.81,51.81C87.81,42.75 81.44,33.88 70.19,33.88C57,33.88 46.81,45.31 46.81,56.13C46.81,68.25 55.38,74.25 65.13,74.25Z M68.19,64.75C66.44,63.25 67.44,60.25 71,55.69C74.69,51.19 77.63,49.69 79.5,51.31C81.19,52.81 80.25,55.88 76.69,60.31C72.94,64.75 70,66.31 68.19,64.75Z"/>
+      </g>
+    </symbol>
+    <symbol id="pod-dark-right" viewBox="0 0 94.19 123.31">
+      <g transform="translate(94.19 0) scale(-1 1)" fill="#272436">
+        <path d="M46.81,73.29L46.81,111.06C46.81,114.94 44.25,116.94 40.38,116.94L35.5,116.94C31.63,116.94 29.06,114.94 29.06,111.06L29.06,69.82C33.68,71.55 39.25,72.79 46.81,73.29Z"/>
+        <path d="M62,22.63C62.94,23.8 64.28,25.84 65.55,28.29C51.19,30.59 40.75,43.46 40.75,56.13C40.75,60.05 41.47,63.51 42.75,66.49C34.56,65.53 29.44,63.52 24.75,60.88C14.44,54.94 6.31,45.31 6.31,31.5C6.31,15.56 17.56,6.5 31.38,6.38C42.06,6.25 54,11.5 62,22.63Z M19.44,21.25C18.31,22.5 18.38,24.38 19.69,25.44L29,33.19C30.19,34.25 32.13,34.13 33.19,32.81C34.25,31.5 34.13,29.63 32.75,28.56L23.63,20.81C22.31,19.75 20.44,19.94 19.44,21.25Z"/>
+        <path d="M65.13,74.25C76.31,74.25 87.81,65.38 87.81,51.81C87.81,42.75 81.44,33.88 70.19,33.88C57,33.88 46.81,45.31 46.81,56.13C46.81,68.25 55.38,74.25 65.13,74.25Z M68.19,64.75C66.44,63.25 67.44,60.25 71,55.69C74.69,51.19 77.63,49.69 79.5,51.31C81.19,52.81 80.25,55.88 76.69,60.31C72.94,64.75 70,66.31 68.19,64.75Z"/>
+      </g>
+    </symbol>
+    <symbol id="pod-mint" viewBox="0 0 94.19 123.31">
+      <g fill="#8FE2CC">
+        <path d="M46.81,73.29L46.81,111.06C46.81,114.94 44.25,116.94 40.38,116.94L35.5,116.94C31.63,116.94 29.06,114.94 29.06,111.06L29.06,69.82C33.68,71.55 39.25,72.79 46.81,73.29Z"/>
+        <path d="M62,22.63C62.94,23.8 64.28,25.84 65.55,28.29C51.19,30.59 40.75,43.46 40.75,56.13C40.75,60.05 41.47,63.51 42.75,66.49C34.56,65.53 29.44,63.52 24.75,60.88C14.44,54.94 6.31,45.31 6.31,31.5C6.31,15.56 17.56,6.5 31.38,6.38C42.06,6.25 54,11.5 62,22.63Z"/>
+        <path d="M65.13,74.25C76.31,74.25 87.81,65.38 87.81,51.81C87.81,42.75 81.44,33.88 70.19,33.88C57,33.88 46.81,45.31 46.81,56.13C46.81,68.25 55.38,74.25 65.13,74.25Z"/>
+      </g>
+    </symbol>
+    <symbol id="pod-mint-right" viewBox="0 0 94.19 123.31">
+      <g transform="translate(94.19 0) scale(-1 1)" fill="#8FE2CC">
+        <path d="M46.81,73.29L46.81,111.06C46.81,114.94 44.25,116.94 40.38,116.94L35.5,116.94C31.63,116.94 29.06,114.94 29.06,111.06L29.06,69.82C33.68,71.55 39.25,72.79 46.81,73.29Z"/>
+        <path d="M62,22.63C62.94,23.8 64.28,25.84 65.55,28.29C51.19,30.59 40.75,43.46 40.75,56.13C40.75,60.05 41.47,63.51 42.75,66.49C34.56,65.53 29.44,63.52 24.75,60.88C14.44,54.94 6.31,45.31 6.31,31.5C6.31,15.56 17.56,6.5 31.38,6.38C42.06,6.25 54,11.5 62,22.63Z"/>
+        <path d="M65.13,74.25C76.31,74.25 87.81,65.38 87.81,51.81C87.81,42.75 81.44,33.88 70.19,33.88C57,33.88 46.81,45.31 46.81,56.13C46.81,68.25 55.38,74.25 65.13,74.25Z"/>
+      </g>
+    </symbol>
+    <symbol id="case-light" viewBox="0 0 60 42">
+      <path fill="#F5F3F8" d="M13 2h34c7.2 0 11 4.7 11 11.4v14.8C58 36 53.7 40 46 40H14C6.3 40 2 36 2 28.2V13.4C2 6.7 5.8 2 13 2Z"/>
+      <path fill="none" stroke="#5A5665" stroke-linecap="round" stroke-width="2.2" d="M4 18h52"/>
+      <circle cx="30" cy="30" r="1.8" fill="#5A5665"/>
+    </symbol>
+    <symbol id="case-dark" viewBox="0 0 60 42">
+      <path fill="#272436" d="M13 2h34c7.2 0 11 4.7 11 11.4v14.8C58 36 53.7 40 46 40H14C6.3 40 2 36 2 28.2V13.4C2 6.7 5.8 2 13 2Z"/>
+      <path fill="none" stroke="#F5F3F8" stroke-linecap="round" stroke-width="2.2" d="M4 18h52"/>
+      <circle cx="30" cy="30" r="1.8" fill="#F5F3F8"/>
+    </symbol>
+    <symbol id="case-mint" viewBox="0 0 60 42">
+      <path fill="#8FE2CC" d="M13 2h34c7.2 0 11 4.7 11 11.4v14.8C58 36 53.7 40 46 40H14C6.3 40 2 36 2 28.2V13.4C2 6.7 5.8 2 13 2Z"/>
+      <path fill="none" stroke="#24564E" stroke-linecap="round" stroke-width="2.2" d="M4 18h52"/>
+      <circle cx="30" cy="30" r="1.8" fill="#24564E"/>
+    </symbol>
+    <style>
+      .label { font: 600 16px system-ui, sans-serif; fill: #55515F; text-anchor: middle; }
+      .ring-mint { fill: none; stroke: #36D47A; stroke-width: 5; }
+      .ring-ivory { fill: none; stroke: #F5F3F8; stroke-width: 5; }
+      .wave-mint { fill: none; stroke: #36D47A; stroke-width: 4; stroke-linecap: round; }
+      .dot-mint { fill: #36D47A; }
+      .tile-dark { fill: #272436; }
+      .tile-plum { fill: #33273A; }
+      .tile-light { fill: #E9E7EF; }
+      .tile-mint { fill: #B8EBDD; }
+      .tile-green { fill: #17453F; }
+    </style>
+  </defs>
+  <rect width="1264" height="1264" fill="#F7F6F9"/>
+
+  <!-- All options use the same large, centered product lockup; only palette and a restrained accent vary. -->
+  <g transform="translate(0 88)">
+  <g transform="translate(32 24)"><rect class="tile-dark" width="220" height="220" rx="40"/><use href="#pod-light" x="39" y="18" width="62" height="81"/><use href="#pod-light-right" x="119" y="18" width="62" height="81"/><use href="#case-mint" x="48" y="112" width="124" height="87"/><text class="label" x="110" y="246">01</text></g>
+  <g transform="translate(276 24)"><rect class="tile-plum" width="220" height="220" rx="40"/><rect class="ring-mint" x="7" y="7" width="206" height="206" rx="36"/><use href="#pod-light" x="39" y="18" width="62" height="81"/><use href="#pod-light-right" x="119" y="18" width="62" height="81"/><use href="#case-mint" x="48" y="112" width="124" height="87"/><text class="label" x="110" y="246">02</text></g>
+  <g transform="translate(520 24)"><rect class="tile-light" width="220" height="220" rx="40"/><rect class="ring-mint" x="7" y="7" width="206" height="206" rx="36"/><use href="#pod-dark" x="39" y="18" width="62" height="81"/><use href="#pod-dark-right" x="119" y="18" width="62" height="81"/><use href="#case-mint" x="48" y="112" width="124" height="87"/><text class="label" x="110" y="246">03</text></g>
+  <g transform="translate(764 24)"><rect class="tile-green" width="220" height="220" rx="40"/><use href="#pod-light" x="39" y="18" width="62" height="81"/><use href="#pod-light-right" x="119" y="18" width="62" height="81"/><use href="#case-mint" x="48" y="112" width="124" height="87"/><text class="label" x="110" y="246">04</text></g>
+  <g transform="translate(1008 24)"><rect class="tile-dark" width="220" height="220" rx="40"/><path class="wave-mint" d="M25 61c-12 13-12 39 0 52M195 61c12 13 12 39 0 52"/><use href="#pod-light" x="39" y="18" width="62" height="81"/><use href="#pod-light-right" x="119" y="18" width="62" height="81"/><use href="#case-mint" x="48" y="112" width="124" height="87"/><text class="label" x="110" y="246">05</text></g>
+
+  <g transform="translate(32 288)"><rect class="tile-light" width="220" height="220" rx="40"/><use href="#pod-dark" x="39" y="18" width="62" height="81"/><use href="#pod-dark-right" x="119" y="18" width="62" height="81"/><use href="#case-light" x="48" y="112" width="124" height="87"/><text class="label" x="110" y="246">06</text></g>
+  <g transform="translate(276 288)"><rect class="tile-dark" width="220" height="220" rx="40"/><use href="#pod-light" x="39" y="18" width="62" height="81"/><use href="#pod-light-right" x="119" y="18" width="62" height="81"/><use href="#case-mint" x="48" y="112" width="124" height="87"/><circle class="dot-mint" cx="110" cy="207" r="4"/><text class="label" x="110" y="246">07</text></g>
+  <g transform="translate(520 288)"><rect class="tile-mint" width="220" height="220" rx="40"/><use href="#pod-dark" x="39" y="18" width="62" height="81"/><use href="#pod-dark-right" x="119" y="18" width="62" height="81"/><use href="#case-dark" x="48" y="112" width="124" height="87"/><text class="label" x="110" y="246">08</text></g>
+  <g transform="translate(764 288)"><rect class="tile-plum" width="220" height="220" rx="40"/><rect class="ring-ivory" x="7" y="7" width="206" height="206" rx="36"/><use href="#pod-light" x="39" y="18" width="62" height="81"/><use href="#pod-light-right" x="119" y="18" width="62" height="81"/><use href="#case-dark" x="48" y="112" width="124" height="87"/><text class="label" x="110" y="246">09</text></g>
+  <g transform="translate(1008 288)"><rect class="tile-light" width="220" height="220" rx="40"/><path class="wave-mint" d="M24 67c-10 11-10 31 0 42M196 67c10 11 10 31 0 42"/><use href="#pod-dark" x="39" y="18" width="62" height="81"/><use href="#pod-dark-right" x="119" y="18" width="62" height="81"/><use href="#case-mint" x="48" y="112" width="124" height="87"/><text class="label" x="110" y="246">10</text></g>
+
+  <g transform="translate(32 552)"><rect class="tile-green" width="220" height="220" rx="40"/><rect class="ring-mint" x="7" y="7" width="206" height="206" rx="36"/><use href="#pod-light" x="39" y="18" width="62" height="81"/><use href="#pod-light-right" x="119" y="18" width="62" height="81"/><use href="#case-mint" x="48" y="112" width="124" height="87"/><text class="label" x="110" y="246">11</text></g>
+  <g transform="translate(276 552)"><rect class="tile-dark" width="220" height="220" rx="40"/><use href="#pod-light" x="39" y="18" width="62" height="81"/><use href="#pod-light-right" x="119" y="18" width="62" height="81"/><use href="#case-mint" x="48" y="112" width="124" height="87"/><text class="label" x="110" y="246">12</text></g>
+  <g transform="translate(520 552)"><rect class="tile-plum" width="220" height="220" rx="40"/><path class="wave-mint" d="M25 61c-12 13-12 39 0 52M195 61c12 13 12 39 0 52"/><use href="#pod-light" x="39" y="18" width="62" height="81"/><use href="#pod-light-right" x="119" y="18" width="62" height="81"/><use href="#case-mint" x="48" y="112" width="124" height="87"/><text class="label" x="110" y="246">13</text></g>
+  <g transform="translate(764 552)"><rect class="tile-light" width="220" height="220" rx="40"/><rect class="ring-mint" x="7" y="7" width="206" height="206" rx="36"/><use href="#pod-dark" x="39" y="18" width="62" height="81"/><use href="#pod-dark-right" x="119" y="18" width="62" height="81"/><use href="#case-light" x="48" y="112" width="124" height="87"/><text class="label" x="110" y="246">14</text></g>
+  <g transform="translate(1008 552)"><rect class="tile-mint" width="220" height="220" rx="40"/><use href="#pod-dark" x="39" y="18" width="62" height="81"/><use href="#pod-dark-right" x="119" y="18" width="62" height="81"/><use href="#case-mint" x="48" y="112" width="124" height="87"/><circle cx="110" cy="207" r="4" fill="#272436"/><text class="label" x="110" y="246">15</text></g>
+
+  <g transform="translate(32 816)"><rect class="tile-dark" width="220" height="220" rx="40"/><rect class="ring-ivory" x="7" y="7" width="206" height="206" rx="36"/><use href="#pod-light" x="39" y="18" width="62" height="81"/><use href="#pod-light-right" x="119" y="18" width="62" height="81"/><use href="#case-mint" x="48" y="112" width="124" height="87"/><text class="label" x="110" y="246">16</text></g>
+  <g transform="translate(276 816)"><rect class="tile-light" width="220" height="220" rx="40"/><use href="#pod-dark" x="39" y="18" width="62" height="81"/><use href="#pod-dark-right" x="119" y="18" width="62" height="81"/><use href="#case-mint" x="48" y="112" width="124" height="87"/><text class="label" x="110" y="246">17</text></g>
+  <g transform="translate(520 816)"><rect class="tile-green" width="220" height="220" rx="40"/><use href="#pod-light" x="39" y="18" width="62" height="81"/><use href="#pod-light-right" x="119" y="18" width="62" height="81"/><use href="#case-dark" x="48" y="112" width="124" height="87"/><text class="label" x="110" y="246">18</text></g>
+  <g transform="translate(764 816)"><rect class="tile-plum" width="220" height="220" rx="40"/><rect class="ring-mint" x="7" y="7" width="206" height="206" rx="36"/><use href="#pod-light" x="39" y="18" width="62" height="81"/><use href="#pod-light-right" x="119" y="18" width="62" height="81"/><use href="#case-mint" x="48" y="112" width="124" height="87"/><text class="label" x="110" y="246">19</text></g>
+  <g transform="translate(1008 816)"><rect class="tile-dark" width="220" height="220" rx="40"/><path class="wave-mint" d="M25 61c-12 13-12 39 0 52M195 61c12 13 12 39 0 52"/><use href="#pod-light" x="39" y="18" width="62" height="81"/><use href="#pod-light-right" x="119" y="18" width="62" height="81"/><use href="#case-light" x="48" y="112" width="124" height="87"/><text class="label" x="110" y="246">20</text></g>
+  </g>
+</svg>
