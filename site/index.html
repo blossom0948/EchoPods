@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f3f5f4">
+    <meta name="description" content="EchoPods Android 앱을 내려받고 업데이트하는 공식 안내 페이지입니다.">
+    <title>EchoPods — Android용 AirPods 동반 앱</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --page: #f3f5f4;
+        --surface: #ffffff;
+        --ink: #172321;
+        --muted: #5d6b68;
+        --accent: #007d70;
+        --accent-ink: #ffffff;
+        --line: #dce4e1;
+        --note: #e8efed;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --page: #111817;
+          --surface: #1b2422;
+          --ink: #edf4f1;
+          --muted: #b0bfba;
+          --accent: #9ce5d7;
+          --accent-ink: #073d36;
+          --line: #35423f;
+          --note: #25312e;
+        }
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-width: 320px;
+        background: var(--page);
+        color: var(--ink);
+        font-family: Inter, "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      main {
+        width: min(100% - 36px, 760px);
+        margin: 0 auto;
+        padding: clamp(48px, 10vh, 96px) 0 40px;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 42px;
+        font-size: 17px;
+        font-weight: 700;
+        letter-spacing: -0.035em;
+      }
+      .mark {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        border: 1px solid var(--line);
+        border-radius: 13px;
+        background: var(--surface);
+        color: var(--accent);
+        font-size: 17px;
+        font-weight: 800;
+      }
+      .eyebrow {
+        margin: 0 0 12px;
+        color: var(--accent);
+        font-size: 13px;
+        font-weight: 750;
+        letter-spacing: 0.08em;
+      }
+      h1 {
+        max-width: 640px;
+        margin: 0;
+        font-size: clamp(36px, 8vw, 62px);
+        line-height: 1.08;
+        letter-spacing: -0.065em;
+      }
+      .intro {
+        max-width: 600px;
+        margin: 20px 0 30px;
+        color: var(--muted);
+        font-size: clamp(16px, 3.8vw, 19px);
+        line-height: 1.75;
+      }
+      .card {
+        padding: clamp(22px, 5vw, 34px);
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        background: var(--surface);
+        box-shadow: 0 18px 54px rgb(22 45 39 / 7%);
+      }
+      .button {
+        display: flex;
+        min-height: 58px;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        border-radius: 18px;
+        background: var(--accent);
+        color: var(--accent-ink);
+        font-size: 17px;
+        font-weight: 750;
+        text-decoration: none;
+        transition: filter 140ms ease, transform 140ms ease;
+      }
+      .button:hover { filter: brightness(1.06); }
+      .button:active { transform: scale(0.99); }
+      .button:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+      .version-note {
+        margin: 14px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+        text-align: center;
+      }
+      h2 {
+        margin: 34px 0 13px;
+        font-size: 18px;
+        letter-spacing: -0.03em;
+      }
+      ol {
+        display: grid;
+        gap: 11px;
+        margin: 0;
+        padding-left: 22px;
+        color: var(--muted);
+        line-height: 1.65;
+      }
+      .notice {
+        margin-top: 24px;
+        padding: 16px 18px;
+        border-radius: 16px;
+        background: var(--note);
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.65;
+      }
+      .links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        margin-top: 26px;
+        font-size: 13px;
+      }
+      .links a { color: var(--accent); text-underline-offset: 3px; }
+      footer {
+        margin-top: 38px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.7;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="brand" aria-label="EchoPods">
+        <span class="mark" aria-hidden="true">e</span>
+        <span>EchoPods</span>
+      </div>
+
+      <p class="eyebrow">ANDROID COMPANION</p>
+      <h1>AirPods를<br>Android에서도.</h1>
+      <p class="intro">배터리 상태와 지원되는 기기 제어를 한곳에서 확인하세요. 실제로 제공되는 기능은 휴대전화, AirPods 모델과 펌웨어에 따라 달라질 수 있습니다.</p>
+
+      <section class="card" aria-labelledby="download-title">
+        <h2 id="download-title">EchoPods 다운로드</h2>
+        <a class="button" href="https://github.com/blossom0948/EchoPods/releases/latest/download/app-foss-release.apk">
+          최신 APK 받기 <span aria-hidden="true">↓</span>
+        </a>
+        <p class="version-note">Android 12 이상 · 무료 오픈소스 배포판</p>
+
+        <h2>설치 방법</h2>
+        <ol>
+          <li>APK를 받은 뒤 파일을 열고 설치를 시작합니다.</li>
+          <li>허용 안내가 나오면 이 브라우저 또는 파일 앱에 대해 ‘이 출처 허용’을 켜고 설치 화면으로 돌아옵니다.</li>
+          <li>Android의 최종 설치 확인을 눌러 완료합니다.</li>
+        </ol>
+
+        <div class="notice">
+          EchoPods는 GitHub에서 직접 배포됩니다. 앱이 새 버전을 자동으로 확인하고 다운로드할 수 있지만, Android 보안상 설치를 마치려면 시스템 확인이 필요할 수 있습니다. 업데이트가 보이지 않으면 앱의 설정에서 수동 확인을 사용할 수 있습니다.
+        </div>
+        <div class="links">
+          <a href="https://github.com/blossom0948/EchoPods/releases">모든 버전과 변경 사항</a>
+          <a href="https://github.com/blossom0948/EchoPods">소스 코드</a>
+          <a href="https://github.com/blossom0948/EchoPods/blob/main/PRIVACY.md">개인정보 안내</a>
+        </div>
+      </section>
+
+      <footer>
+        EchoPods는 Apple과 제휴·승인 관계가 없는 독립 프로젝트입니다. AirPods는 Apple Inc.의 상표이며, 제품명은 호환성 안내 목적으로 사용합니다.
+      </footer>
+    </main>
+  </body>
+</html>

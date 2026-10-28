@@ -1,0 +1,90 @@
+name: Update in-app release metadata
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published release tag to sync (for example v0.6.0)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-release-manifest-main
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Read release version from tagged source
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+(\.[0-9]+){1,3}$ ]]; then
+            echo "Unexpected release tag: $RELEASE_TAG" >&2
+            exit 1
+          fi
+
+          gradle_file="$(git show "${RELEASE_TAG}:app/build.gradle.kts")"
+          version_name="$(printf '%s\n' "$gradle_file" | sed -n 's/^val appVersionName = "\([^"]*\)".*/\1/p' | head -n 1)"
+          version_code="$(printf '%s\n' "$gradle_file" | awk '
+            /defaultConfig[[:space:]]*\{/ { in_default = 1; next }
+            in_default && /versionCode[[:space:]]*=/ { gsub(/[^0-9]/, "", $0); print; exit }
+            in_default && /^[[:space:]]*}/ { in_default = 0 }
+          ' )"
+
+          if [[ -z "$version_name" || -z "$version_code" ]]; then
+            echo "Could not read versionName/versionCode from $RELEASE_TAG" >&2
+            exit 1
+          fi
+          if [[ "$RELEASE_TAG" != "v${version_name}" ]]; then
+            echo "Release tag $RELEASE_TAG does not match source version $version_name" >&2
+            exit 1
+          fi
+
+          echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
+          echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
+
+      - name: Download published FOSS APK
+        run: |
+          mkdir -p "$RUNNER_TEMP/release"
+          gh release download "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern app-foss-release.apk \
+            --dir "$RUNNER_TEMP/release"
+          test -s "$RUNNER_TEMP/release/app-foss-release.apk"
+
+      - name: Update update.json with APK checksum
+        run: |
+          scripts/update-release-manifest.sh \
+            "$RELEASE_TAG" \
+            "${{ steps.release.outputs.version_name }}" \
+            "${{ steps.release.outputs.version_code }}" \
+            "$RUNNER_TEMP/release/app-foss-release.apk"
+
+      - name: Commit updated metadata
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add update.json
+          if git diff --cached --quiet; then
+            echo "update.json already points to this release"
+            exit 0
+          fi
+          git commit -m "Update in-app metadata for ${RELEASE_TAG}"
+          git push origin HEAD:main

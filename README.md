@@ -19,9 +19,12 @@ Not every Android phone exposes the same AirPods data or controls. Installation 
 ## Get EchoPods
 
 - **GitHub/FOSS build:** APKs and version notes are published on the [Releases page](https://github.com/blossom0948/EchoPods/releases). Android requires the user to confirm sideloaded app installation. The app's GitHub updater is available only in this build.
+- **간편 다운로드:** [EchoPods 다운로드 페이지](https://blossom0948.github.io/EchoPods/)에서 최신 APK와 설치 안내를 확인할 수 있습니다. 페이지는 저장소에서 GitHub Pages를 한 번 활성화한 뒤 공개됩니다.
 - **Google Play build:** the `play` flavor is prepared separately and omits the GitHub APK updater; Play updates are managed by Google Play. It is not represented as published until a Play Console release is actually made.
 
 Android checks the signing certificate when updating an installed app. The existing GitHub install channel must keep its current signing identity unless a planned migration tells users how to move to a different one. See [Play readiness notes](docs/PLAY_STORE_READINESS.md) for the verified certificate and store-transition constraints.
+
+Release 게시 시 앱 내 업데이트 정보가 자동 갱신되고, GitHub Pages 다운로드 페이지가 별도로 배포됩니다. 자세한 절차와 남은 수동 단계는 [GitHub 배포 안내](docs/GITHUB_RELEASES.md)를 참고하세요.
 
 ## Build from source
 
