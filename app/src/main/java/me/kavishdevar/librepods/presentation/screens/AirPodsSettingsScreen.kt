@@ -25,6 +25,7 @@ import android.annotation.SuppressLint
 import android.content.Context.MODE_PRIVATE
 import android.content.Intent
 import android.content.SharedPreferences
+import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -101,6 +102,7 @@ import kotlinx.coroutines.delay
 import me.kavishdevar.librepods.BuildConfig
 import me.kavishdevar.librepods.R
 import me.kavishdevar.librepods.bluetooth.AACPManager
+import me.kavishdevar.librepods.bluetooth.HeartRateStreamStatus
 import me.kavishdevar.librepods.bluetooth.ATTHandles
 import me.kavishdevar.librepods.data.Capability
 import me.kavishdevar.librepods.data.AirPodsFormFactor
@@ -239,7 +241,9 @@ fun AirPodsSettingsScreen(
 
         reconnectFromSavedMac: () -> Unit,
 ) {
-    val sharedPreferences = LocalContext.current.getSharedPreferences("settings", MODE_PRIVATE)
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("settings", MODE_PRIVATE)
+    val useMaterialAppearance = LocalDesignSystem.current == DesignSystem.Material
     val aacpControlSupported = canAttemptAacpControlSession(
         rootlessBluetoothSupported = hasRootlessBluetoothSupport(),
         bluetoothScopeEnabled = XposedState.bluetoothScopeEnabled,
@@ -291,13 +295,53 @@ fun AirPodsSettingsScreen(
 
             if (state.instance?.model?.capabilities?.contains(Capability.HRM) == true) {
                 item(key = "heart_rate_android_support") {
-                    StyledStandaloneListItem(
-                        name = stringResource(R.string.heart_rate_sensor),
-                        description = stringResource(R.string.heart_rate_android_unavailable),
-                        onClick = null,
-                        enabled = false,
-                        orientation = ListItemOrientation.Vertical,
-                    )
+                    val heartRate = state.heartRateStream
+                    val isFresh = heartRate.status == HeartRateStreamStatus.ACTIVE &&
+                        heartRate.sampledAtEpochMillis?.let { System.currentTimeMillis() - it < 15_000 } == true
+                    val statusDescription = when {
+                        isFresh -> stringResource(R.string.heart_rate_current, heartRate.bpm ?: 0)
+                        else -> stringResource(
+                            when (heartRate.status) {
+                                HeartRateStreamStatus.DISCONNECTED -> R.string.heart_rate_waiting_connection
+                                HeartRateStreamStatus.OFF -> R.string.heart_rate_off
+                                HeartRateStreamStatus.WAITING -> R.string.heart_rate_measuring
+                                HeartRateStreamStatus.ACTIVE -> R.string.heart_rate_stale
+                                HeartRateStreamStatus.NO_DATA -> R.string.heart_rate_no_data
+                            }
+                        )
+                    }
+                    StyledList(title = stringResource(R.string.heart_rate_sensor)) {
+                        StyledListItemInGroup(
+                            name = stringResource(R.string.heart_rate_workout_open),
+                            description = stringResource(R.string.heart_rate_workout_open_description),
+                            onClick = {
+                                val launchIntent = context.packageManager
+                                    .getLaunchIntentForPackage("com.galaxyairpods.health")
+                                if (launchIntent != null) {
+                                    launchIntent.putExtra(
+                                        "appearance_material",
+                                        useMaterialAppearance,
+                                    )
+                                    context.startActivity(launchIntent)
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.heart_rate_workout_app_missing),
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                                }
+                            },
+                            enabled = true,
+                            orientation = ListItemOrientation.Vertical,
+                        )
+                        StyledListItemInGroup(
+                            name = stringResource(R.string.heart_rate_status),
+                            description = statusDescription,
+                            onClick = null,
+                            enabled = false,
+                            orientation = ListItemOrientation.Vertical,
+                        )
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
                 }
             }

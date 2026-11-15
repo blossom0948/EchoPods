@@ -33,6 +33,7 @@ import androidx.core.content.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -44,6 +45,9 @@ import me.kavishdevar.librepods.R
 import me.kavishdevar.librepods.billing.BillingManager
 import me.kavishdevar.librepods.bluetooth.AACPManager
 import me.kavishdevar.librepods.bluetooth.AACPManager.Companion.ControlCommandIdentifiers
+import me.kavishdevar.librepods.bluetooth.HeartRateStreamState
+import me.kavishdevar.librepods.bluetooth.HeartRateStreamStatus
+import me.kavishdevar.librepods.bluetooth.HeartRateWorkoutSummary
 import me.kavishdevar.librepods.bluetooth.ATTCCCDHandles
 import me.kavishdevar.librepods.bluetooth.ATTHandles
 import me.kavishdevar.librepods.bluetooth.BluetoothConnectionManager
@@ -76,6 +80,9 @@ data class AirPodsUiState(
 
     val battery: List<Battery> = emptyList(),
     val ancMode: Int = 3,
+    val heartRateWorkoutActive: Boolean = false,
+    val heartRateStream: HeartRateStreamState = HeartRateStreamState(),
+    val lastHeartRateWorkout: HeartRateWorkoutSummary? = null,
 
     val modelName: String = "",
     val actualModel: String = "",
@@ -227,6 +234,7 @@ class AirPodsViewModel(
         loadInstance()
         loadSharedPreferences()
         observeAACP()
+        observeHeartRate()
         loadCurrentStatus()
         loadEq()
         loadATT()
@@ -250,6 +258,8 @@ class AirPodsViewModel(
     private val xposedRemotePref = XposedRemotePrefProvider.create()
 
     private lateinit var broadcastReceiver: BroadcastReceiver
+    private var heartRateCollectionJob: Job? = null
+    private var finishedHeartRateWorkoutJob: Job? = null
 
 //    private val _cameraAction = MutableStateFlow(
 //        sharedPreferences.getString("camera_action", null)
@@ -288,6 +298,10 @@ class AirPodsViewModel(
     }
 
     override fun onCleared() {
+        heartRateCollectionJob?.cancel()
+        heartRateCollectionJob = null
+        finishedHeartRateWorkoutJob?.cancel()
+        finishedHeartRateWorkoutJob = null
         if (this::controlRepo.isInitialized) {
             listeners.forEach { (id, listener) -> controlRepo.remove(id, listener) }
             listeners.clear()
@@ -352,7 +366,7 @@ class AirPodsViewModel(
                 if (!isDemoMode) when (action) {
                     AirPodsNotifications.AIRPODS_L2CAP_CONNECTED -> {
                         _uiState.update {
-                            it.copy(isLocallyConnected = true)
+                            it.copy(isLocallyConnected = true, heartRateWorkoutActive = false)
                         }
                     }
 
@@ -362,6 +376,8 @@ class AirPodsViewModel(
                                 isLocallyConnected = false,
                                 controlStates = emptyMap(),
                                 ancMode = 0,
+                                heartRateStream = HeartRateStreamState(),
+                                heartRateWorkoutActive = false,
                             )
                         }
                     }
@@ -414,6 +430,30 @@ class AirPodsViewModel(
         }
     }
 
+    private fun observeHeartRate() {
+        heartRateCollectionJob?.cancel()
+        val manager = serviceReference?.get()?.aacpManager ?: return
+        heartRateCollectionJob = viewModelScope.launch {
+            manager.heartRateState.collect { heartRate ->
+                _uiState.update {
+                    it.copy(
+                        heartRateStream = heartRate,
+                        heartRateWorkoutActive = heartRate.status == HeartRateStreamStatus.WAITING ||
+                            heartRate.status == HeartRateStreamStatus.ACTIVE,
+                    )
+                }
+            }
+        }
+        finishedHeartRateWorkoutJob?.cancel()
+        finishedHeartRateWorkoutJob = viewModelScope.launch {
+            manager.finishedHeartRateWorkouts.collect { workout ->
+                _uiState.update {
+                    it.copy(heartRateWorkoutActive = false, lastHeartRateWorkout = workout)
+                }
+            }
+        }
+    }
+
     fun setControlCommandValue(
         identifier: ControlCommandIdentifiers, value: ByteArray
     ) {
@@ -435,11 +475,22 @@ class AirPodsViewModel(
             state.copy(controlStates = state.controlStates + (identifier to requestedValue))
         }
 
+        val manualListeningMode = if (identifier == ControlCommandIdentifiers.LISTENING_MODE) {
+            requestedValue.firstOrNull()?.toInt()?.and(0xff)?.takeIf { it in 1..4 }
+        } else null
+        manualListeningMode?.let { mode ->
+            serviceReference?.get()?.prepareManualListeningModeChange(mode)
+        }
+
         viewModelScope.launch {
             val sent = withContext(Dispatchers.IO) {
                 runCatching { controlRepo.setValue(identifier, requestedValue) }.getOrDefault(false)
             }
             if (sent) return@launch
+
+            manualListeningMode?.let { mode ->
+                serviceReference?.get()?.manualListeningModeChangeFailed(mode)
+            }
 
             val isLatestRequest = synchronized(controlCommandGenerations) {
                 controlCommandGenerations[identifier] == generation
@@ -588,7 +639,6 @@ class AirPodsViewModel(
         )
         val vendorIdHook = xposedRemotePref.getBoolean("vendor_id_hook", false)
         val dynamicEndOfCharge = sharedPreferences.getBoolean("dynamic_end_of_charge", false)
-
         _uiState.update {
             it.copy(
                 offListeningMode = offListeningModeEnabled,
@@ -660,6 +710,33 @@ class AirPodsViewModel(
         _uiState.update {
             it.copy(offListeningMode = enabled)
         }
+    }
+
+    fun startHeartRateWorkout(): Boolean {
+        if (_uiState.value.instance?.model?.capabilities?.contains(Capability.HRM) != true) return false
+        if (isDemoMode) {
+            _uiState.update { it.copy(heartRateWorkoutActive = true, lastHeartRateWorkout = null) }
+            return true
+        }
+        val manager = serviceReference?.get()?.aacpManager ?: return false
+        val started = manager.startHeartRateWorkout()
+        if (started) _uiState.update { it.copy(heartRateWorkoutActive = true, lastHeartRateWorkout = null) }
+        return started
+    }
+
+    fun finishHeartRateWorkout(): HeartRateWorkoutSummary? {
+        if (isDemoMode) {
+            _uiState.update { it.copy(heartRateWorkoutActive = false) }
+            return null
+        }
+        val summary = serviceReference?.get()?.aacpManager?.finishHeartRateWorkout()
+        _uiState.update {
+            it.copy(
+                heartRateWorkoutActive = false,
+                lastHeartRateWorkout = summary ?: it.lastHeartRateWorkout,
+            )
+        }
+        return summary
     }
 
     fun setHeadGesturesEnabled(enabled: Boolean) {

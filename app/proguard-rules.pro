@@ -21,3 +21,6 @@
 #-renamesourcefileattribute SourceFile
 
 -keep class me.kavishdevar.librepods.utils.KotlinModule { *; }
+-keep class me.kavishdevar.librepods.PlayReviewPrompt {
+    public static void request(android.app.Activity);
+}

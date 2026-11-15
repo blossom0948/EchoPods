@@ -107,10 +107,21 @@ import me.kavishdevar.librepods.presentation.theme.LocalDesignSystem
 import me.kavishdevar.librepods.presentation.theme.MaterialTypography
 import me.kavishdevar.librepods.presentation.viewmodel.AppSettingsViewModel
 import me.kavishdevar.librepods.utils.XposedState
+import me.kavishdevar.librepods.utils.ConversationModeReturnPolicy
 import com.galaxyairpods.update.UpdateInfo
 import com.galaxyairpods.update.UpdateManager
 import com.galaxyairpods.update.UpdateState
 import kotlinx.coroutines.launch
+import java.util.Locale
+
+private fun formatConversationDelay(seconds: Int): String = when {
+    Locale.getDefault().language == "ko" && seconds >= 60 && seconds % 60 == 0 -> "${seconds / 60}분"
+    Locale.getDefault().language == "ko" && seconds >= 60 -> "${seconds / 60}분 ${seconds % 60}초"
+    Locale.getDefault().language == "ko" -> "${seconds}초"
+    seconds >= 60 && seconds % 60 == 0 -> "${seconds / 60} min"
+    seconds >= 60 -> "${seconds / 60} min ${seconds % 60} sec"
+    else -> "${seconds} sec"
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -141,7 +152,7 @@ fun AppSettingsScreen(
     val descriptionFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
-        if (!BuildConfig.PLAY_BUILD) {
+        if (!BuildConfig.STORE_BUILD) {
             updateManager.check(automatic = true)
         }
     }
@@ -149,7 +160,7 @@ fun AppSettingsScreen(
     DisposableEffect(lifecycleOwner, updateManager) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                if (!BuildConfig.PLAY_BUILD) {
+                if (!BuildConfig.STORE_BUILD) {
                     updateManager.resumeReadyInstallIfPermitted()
                 }
                 notificationAccessEnabled.value = MediaSessionResolver.hasNotificationAccess(context)
@@ -317,7 +328,63 @@ fun AppSettingsScreen(
                     onCheckedChange = viewModel::setRelativeConversationalAwarenessVolumeEnabled,
                     enabled = state.isPremium,
                 )
+
+                StyledListItem(
+                    name = stringResource(R.string.conversation_mode_return_native),
+                    description = stringResource(R.string.conversation_mode_return_native_description),
+                    orientation = ListItemOrientation.Vertical,
+                    selected = state.conversationModeReturnDelaySeconds == 0,
+                    onClick = { viewModel.setConversationModeReturnDelaySeconds(0) },
+                    trailingContent = {
+                        RadioButton(selected = state.conversationModeReturnDelaySeconds == 0, onClick = null)
+                    },
+                )
+                StyledListItem(
+                    name = stringResource(R.string.conversation_mode_return_custom),
+                    description = if (state.conversationModeReturnDelaySeconds == 0) {
+                        stringResource(R.string.conversation_mode_return_custom_unselected_description)
+                    } else {
+                        stringResource(
+                            R.string.conversation_mode_return_custom_description,
+                            formatConversationDelay(state.conversationModeReturnDelaySeconds),
+                        )
+                    },
+                    orientation = ListItemOrientation.Vertical,
+                    selected = state.conversationModeReturnDelaySeconds > 0,
+                    onClick = {
+                        if (state.conversationModeReturnDelaySeconds == 0) {
+                            viewModel.setConversationModeReturnDelaySeconds(30)
+                        }
+                    },
+                    trailingContent = {
+                        RadioButton(
+                            selected = state.conversationModeReturnDelaySeconds > 0,
+                            onClick = {
+                                if (state.conversationModeReturnDelaySeconds == 0) {
+                                    viewModel.setConversationModeReturnDelaySeconds(30)
+                                }
+                            },
+                        )
+                    },
+                )
             }
+
+            val returnDelay = state.conversationModeReturnDelaySeconds
+            StyledSlider(
+                label = stringResource(
+                    R.string.conversation_mode_return_slider_label,
+                    formatConversationDelay(returnDelay.takeIf { it > 0 } ?: 30),
+                ),
+                description = stringResource(R.string.conversation_mode_return_slider_description),
+                value = (returnDelay.takeIf { it > 0 } ?: 30).toFloat(),
+                valueRange = ConversationModeReturnPolicy.MIN_CUSTOM_DELAY_SECONDS.toFloat()..
+                    ConversationModeReturnPolicy.MAX_CUSTOM_DELAY_SECONDS.toFloat(),
+                startLabel = stringResource(R.string.conversation_mode_return_min_label),
+                endLabel = stringResource(R.string.conversation_mode_return_max_label),
+                onValueChange = { seconds -> viewModel.setConversationModeReturnDelaySeconds(seconds.toInt()) },
+                independent = true,
+                enabled = state.isPremium && returnDelay > 0,
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -463,7 +530,7 @@ fun AppSettingsScreen(
             )
         }
 
-        if (!BuildConfig.PLAY_BUILD) {
+        if (!BuildConfig.STORE_BUILD) {
             Spacer(modifier = Modifier.height(16.dp))
             StyledList {
                 StyledListItem(
@@ -505,14 +572,23 @@ fun AppSettingsScreen(
         }
 
         Spacer(modifier = Modifier.height(20.dp))
-        if (BuildConfig.PLAY_BUILD) {
+        if (BuildConfig.STORE_BUILD) {
             StyledList(title = stringResource(R.string.app_updates)) {
                 StyledListItem(
                     name = stringResource(
                         R.string.current_app_version,
                         BuildConfig.VERSION_NAME.removeSuffix("-debug").removeSuffix("-play"),
                     ),
-                    description = stringResource(R.string.play_store_managed_updates),
+                    description = stringResource(
+                        R.string.store_managed_updates,
+                        stringResource(
+                            if (BuildConfig.FLAVOR == "galaxy") {
+                                R.string.distribution_galaxy_store
+                            } else {
+                                R.string.distribution_google_play
+                            }
+                        )
+                    ),
                     orientation = ListItemOrientation.Vertical,
                     enabled = false,
                 )

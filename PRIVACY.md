@@ -2,7 +2,7 @@
 
 Last updated: October 25, 2026
 
-EchoPods is an independent Android companion app for supported AirPods features. It is not affiliated with or endorsed by Apple. This policy covers the Google Play and GitHub-distributed Android builds; distribution-specific behavior is called out below.
+EchoPods is an independent Android companion app for supported AirPods features. It is not affiliated with or endorsed by Apple. This policy covers the Google Play, Galaxy Store, and GitHub-distributed Android builds; distribution-specific behavior is called out below.
 
 ## Information processed on your device
 
@@ -11,6 +11,8 @@ To provide Bluetooth and AirPods features, EchoPods processes nearby Bluetooth o
 While the Bluetooth service is running, the app automatically keeps up to 1,000 short packet-log entries locally. Each entry records only a source label and packet byte count; this log does not store the packet contents. A separate Android logcat troubleshooting capture starts only when you explicitly run the troubleshooting flow. It is saved in app-private storage, may contain system/app diagnostic details, and should be reviewed before you choose to share it. Neither kind of diagnostic log is uploaded automatically.
 
 The app does not include advertising, analytics, or tracking SDKs and does not require an account.
+
+The separate Echo Health companion receives heart-rate samples from EchoPods only during a workout the user starts. It keeps up to 40 completed workout summaries and a reduced heart-rate chart locally on the device. With separate Health Connect read permission, it reads aggregate active-energy totals, step totals for today, and sleep duration over the past 24 hours for the daily summary; those values are not uploaded to Echo servers. Health Connect workout export is off by default; if enabled, Echo Health asks for permission to write heart-rate and exercise-session records when a workout ends. Samsung Health records appear only when the user enables Health Connect sharing in Samsung Health. Echo Health does not directly connect to Samsung Health or send health records to an Echo server.
 
 ## Google Play build
 
@@ -21,6 +23,10 @@ The app does not include advertising, analytics, or tracking SDKs and does not r
 ## GitHub-distributed build
 
 The GitHub build can check GitHub for release information and download a release APK. These requests may expose ordinary network metadata, including your network address and the requested app/release information, to GitHub. APK updates are downloaded only by the GitHub-distributed build.
+
+## Galaxy Store build
+
+Galaxy Store manages installation and updates for this build. EchoPods does not check GitHub for updates or download/install APK updates itself. GitHub pages open only when you choose a repository or issue link. The browser/GitHub may receive ordinary connection metadata such as your network address.
 
 ## Optional issue reports
 

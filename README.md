@@ -13,8 +13,10 @@ EchoPods brings AirPods battery status and supported device controls to Android.
 - Listening-mode controls, press-and-hold actions, and Quick Settings controls on supported combinations.
 - Optional wear detection and media pause/resume, with support varying by AirPods firmware and Android media-session behavior.
 - Model-aware settings and product artwork where the model can be identified.
+- **Echo Health** companion for user-started workouts, active-energy/step/sleep summaries from Health Connect, and experimental Pro 3 heart-rate data when the AirPods firmware and Android Bluetooth stack expose the sensor. Health Connect read and workout export permissions are optional and separate.
+- EchoPods and Echo Health communicate automatically when both are installed with the same signing certificate; there is no app-pairing screen. Android still requires the user to approve Health Connect access, and Samsung Health must be configured to share with Health Connect.
 
-Not every Android phone exposes the same AirPods data or controls. Installation requires Android 12 or newer; the features that work depend on the AirPods model and firmware, phone Bluetooth chipset, Android build, and manufacturer software. Some combinations provide only ordinary Bluetooth audio. EchoPods does not claim universal support for Find My, heart-rate sensing, head-tracked spatial audio, or two-way audio features.
+Not every Android phone exposes the same AirPods data or controls. Installation requires Android 12 or newer; the features that work depend on the AirPods model and firmware, phone Bluetooth chipset, Android build, and manufacturer software. Some combinations provide only ordinary Bluetooth audio. EchoPods does not claim universal support for Find My, Pro 3 heart-rate sensing, head-tracked spatial audio, or two-way audio features. The Health companion requires EchoPods to remain the Bluetooth owner; it does not connect to AirPods directly.
 
 ## Get EchoPods
 
@@ -33,6 +35,7 @@ Use Android Studio's JDK 21+ runtime and install Android SDK Platform 37, NDK `3
 ```sh
 ./gradlew :app:assembleFossDebug
 ./gradlew :app:assemblePlayDebug
+./gradlew :healthapp:assembleDebug
 ```
 
 Public release artifacts require a stable signing configuration in the untracked local `local.properties` file:
@@ -44,7 +47,7 @@ RELEASE_KEY_ALIAS=...
 RELEASE_KEY_PASSWORD=...
 ```
 
-Then build `:app:assembleFossRelease` for a GitHub APK or `:app:bundlePlayRelease` for a Play App Bundle. Release builds intentionally fail when signing information is absent. Never commit a keystore or its passwords. The Play App Bundle signing key is an **upload key**; Google Play signs delivered APKs with the separately configured app-signing key.
+Then build `:app:assembleFossRelease` for a GitHub APK, `:app:bundlePlayRelease` for a Play App Bundle, or `:app:assembleGalaxyRelease` for a Galaxy Store APK. Build `:healthapp:assembleRelease` for the separate companion APK. Both applications must use the same distribution certificate so the local signature-protected workout bridge works without a pairing flow. Release builds intentionally fail when signing information is absent. Never commit a keystore or its passwords. The Play App Bundle signing key is an **upload key**; Google Play signs delivered APKs with the separately configured app-signing key. For Galaxy Store, the APK is signed by the configured distribution key; if uploading an AAB instead, Galaxy Store requires store-managed app signing. See [Galaxy Store readiness](docs/GALAXY_STORE_READINESS.md) before choosing a signing path.
 
 ## Open source and acknowledgements
 

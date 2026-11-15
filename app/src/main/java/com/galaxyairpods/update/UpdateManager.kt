@@ -54,7 +54,7 @@ class UpdateManager(context: Context) {
     private var lastAutomaticCheckAt = 0L
 
     suspend fun check(automatic: Boolean = false) {
-        if (BuildConfig.PLAY_BUILD) return
+        if (BuildConfig.STORE_BUILD) return
 
         if (automatic) {
             val now = System.currentTimeMillis()
@@ -105,7 +105,7 @@ class UpdateManager(context: Context) {
     }
 
     suspend fun downloadAndInstall(info: UpdateInfo) {
-        if (BuildConfig.PLAY_BUILD) return
+        if (BuildConfig.STORE_BUILD) return
 
         mutex.withLock {
             // Manual retry must always be available, even after an interrupted
@@ -120,7 +120,7 @@ class UpdateManager(context: Context) {
     }
 
     fun installReady(file: File) {
-        if (BuildConfig.PLAY_BUILD) return
+        if (BuildConfig.STORE_BUILD) return
 
         val ready = _state.value as? UpdateState.Ready ?: return
         runCatching { install(ready.info, file) }
@@ -129,7 +129,7 @@ class UpdateManager(context: Context) {
 
     /** Resumes a downloaded install after the user returns from unknown-source settings. */
     fun resumeReadyInstallIfPermitted() {
-        if (BuildConfig.PLAY_BUILD) return
+        if (BuildConfig.STORE_BUILD) return
 
         if (!appContext.packageManager.canRequestPackageInstalls()) return
         val ready = _state.value as? UpdateState.Ready ?: return
@@ -138,7 +138,7 @@ class UpdateManager(context: Context) {
     }
 
     fun markInstallFailure(message: String) {
-        if (BuildConfig.PLAY_BUILD) return
+        if (BuildConfig.STORE_BUILD) return
 
         preferences.edit()
             .remove(ATTEMPTED_VERSION_KEY)
@@ -149,7 +149,7 @@ class UpdateManager(context: Context) {
     }
 
     fun markInstallSuccess() {
-        if (BuildConfig.PLAY_BUILD) return
+        if (BuildConfig.STORE_BUILD) return
 
         preferences.edit()
             .remove(ATTEMPTED_VERSION_KEY)

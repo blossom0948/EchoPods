@@ -390,11 +390,11 @@ object MediaController {
     }
 
     @Synchronized
-    fun stopSpeaking() {
+    fun stopSpeaking(resumeMedia: Boolean = true) {
         Log.d("MediaController", "Stopping speaking, initialVolume: $initialVolume")
         if (initialVolume != null) {
             smoothVolumeTransition(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC), initialVolume!!)
-            if (conversationalAwarenessPauseMusic) {
+            if (resumeMedia && conversationalAwarenessPauseMusic) {
                 sendPlay()
             }
             initialVolume = null

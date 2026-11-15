@@ -21,6 +21,15 @@
 package me.kavishdevar.librepods.bluetooth
 
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import me.kavishdevar.librepods.data.Capability
 import me.kavishdevar.librepods.data.CustomEq
 import java.nio.ByteBuffer
@@ -34,6 +43,13 @@ import kotlin.io.encoding.ExperimentalEncodingApi
  */
 class AACPManager {
     private val TAG = "AACPManager[${System.identityHashCode(this)}]"
+    private val heartRateScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val mutableHeartRateState = MutableStateFlow(HeartRateStreamState())
+    val heartRateState = mutableHeartRateState.asStateFlow()
+    private val mutableFinishedHeartRateWorkouts = MutableSharedFlow<HeartRateWorkoutSummary>(extraBufferCapacity = 1)
+    val finishedHeartRateWorkouts = mutableFinishedHeartRateWorkouts.asSharedFlow()
+    private val heartRateFrames = HeartRateSensorFrames()
+    @Volatile private var heartRateSession: HeartRateSession? = null
     companion object {
         @Suppress("unused")
         object Opcodes {
@@ -376,6 +392,9 @@ class AACPManager {
 
     @OptIn(ExperimentalStdlibApi::class)
     fun receivePacket(packet: ByteArray) {
+        val sensorFrames = heartRateFrames.feed(packet)
+        sensorFrames.forEach { frame -> heartRateSession?.receive(frame) }
+        if (isSensorFrameChunk(packet)) return
         if (!packet.toHexString().startsWith("04000400")) {
             Log.w(TAG, "Received packet with invalid header (${packet.size} bytes)")
             return
@@ -559,6 +578,44 @@ class AACPManager {
             }
         }
     }
+
+    /** Called by AirPodsService immediately after installing the newly connected socket. */
+    fun onSocketConnected() {
+        val socket = BluetoothConnectionManager.aacpSocket ?: return
+        heartRateSession?.finishWorkout(forceAfterDisconnect = true)
+            ?.let(mutableFinishedHeartRateWorkouts::tryEmit)
+        heartRateSession?.close()
+        heartRateFrames.reset()
+        val session = HeartRateSession(
+            socket = socket,
+            sendPacket = { packet ->
+                if (BluetoothConnectionManager.aacpSocket === socket && socket.isConnected) sendPacket(packet)
+                else false
+            },
+            state = mutableHeartRateState,
+        )
+        heartRateSession = session
+        mutableHeartRateState.value = HeartRateStreamState(HeartRateStreamStatus.OFF)
+        heartRateScope.launch {
+            delay(1_000)
+            if (heartRateSession === session) session.requestDescriptors()
+        }
+    }
+
+    fun startHeartRateWorkout(workoutType: String = "OTHER"): Boolean =
+        heartRateSession?.startWorkout(workoutType) ?: false
+
+    fun finishHeartRateWorkout(): HeartRateWorkoutSummary? =
+        heartRateSession?.finishWorkout()?.also(mutableFinishedHeartRateWorkouts::tryEmit)
+
+    fun isHeartRateWorkoutActive(): Boolean = heartRateSession?.isWorkoutActive() == true
+
+    private fun isSensorFrameChunk(packet: ByteArray): Boolean =
+        packet.size >= 10 && packet[0] == 4.toByte() && packet[1] == 0.toByte() &&
+            packet[2] == 4.toByte() && packet[3] == 0.toByte() && packet[4] == 0x17.toByte() &&
+            packet[5] == 0.toByte() &&
+            (packet[6].toInt() and 255) == 0 && (packet[7].toInt() and 255) == 0 &&
+            (packet[8].toInt() and 255) == 0x10 && (packet[9].toInt() and 255) == 0
 
     fun sendNotificationRequest(): Boolean {
         return sendDataPacket(createRequestNotificationPacket())
@@ -1202,6 +1259,12 @@ class AACPManager {
 
     fun disconnected() {
         Log.d(TAG, "Disconnected, clearing state")
+        heartRateSession?.finishWorkout(forceAfterDisconnect = true)
+            ?.let(mutableFinishedHeartRateWorkouts::tryEmit)
+        heartRateSession?.close()
+        heartRateSession = null
+        heartRateFrames.reset()
+        mutableHeartRateState.value = HeartRateStreamState(HeartRateStreamStatus.DISCONNECTED)
         controlCommandStatusList.clear()
         owns = false
         oldConnectedDevices = listOf()

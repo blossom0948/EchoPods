@@ -58,10 +58,10 @@ fun PrivacyPolicyPage(
 
             Text(
                 text = stringResource(
-                    if (BuildConfig.PLAY_BUILD) {
-                        R.string.privacy_local_processing_play
-                    } else {
-                        R.string.privacy_local_processing
+                    when (BuildConfig.FLAVOR) {
+                        "play" -> R.string.privacy_local_processing_play
+                        "galaxy" -> R.string.privacy_local_processing_galaxy
+                        else -> R.string.privacy_local_processing
                     }
                 ),
                 style = MaterialTheme.typography.bodyMedium
@@ -74,10 +74,10 @@ fun PrivacyPolicyPage(
 
             Text(
                 text = stringResource(
-                    if (BuildConfig.PLAY_BUILD) {
-                        R.string.privacy_third_party_text_play
-                    } else {
-                        R.string.privacy_third_party_text
+                    when (BuildConfig.FLAVOR) {
+                        "play" -> R.string.privacy_third_party_text_play
+                        "galaxy" -> R.string.privacy_third_party_text_galaxy
+                        else -> R.string.privacy_third_party_text
                     }
                 ),
                 style = MaterialTheme.typography.bodyMedium

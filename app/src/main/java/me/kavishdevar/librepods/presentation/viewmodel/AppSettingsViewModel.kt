@@ -15,12 +15,15 @@ import me.kavishdevar.librepods.BuildConfig
 import me.kavishdevar.librepods.billing.BillingManager
 import me.kavishdevar.librepods.data.ConnectionPopupStyle
 import me.kavishdevar.librepods.data.XposedRemotePrefProvider
+import me.kavishdevar.librepods.services.HealthWorkoutBridge
+import me.kavishdevar.librepods.utils.ConversationModeReturnPolicy
 import kotlin.math.roundToInt
 
 data class AppSettingsUiState(
     val showPhoneBatteryInWidget: Boolean = false,
     val conversationalAwarenessPauseMusicEnabled: Boolean = false,
     val relativeConversationalAwarenessVolumeEnabled: Boolean = true,
+    val conversationModeReturnDelaySeconds: Int = 0,
     val disconnectWhenNotWearing: Boolean = false,
     val takeoverWhenDisconnected: Boolean = false,
     val takeoverWhenIdle: Boolean = false,
@@ -164,6 +167,9 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
                 showPhoneBatteryInWidget = sharedPreferences.getBoolean("show_phone_battery_in_widget", false),
                 conversationalAwarenessPauseMusicEnabled = sharedPreferences.getBoolean("conversational_awareness_pause_music", false),
                 relativeConversationalAwarenessVolumeEnabled = sharedPreferences.getBoolean("relative_conversational_awareness_volume", true),
+                conversationModeReturnDelaySeconds = ConversationModeReturnPolicy.sanitizeDelay(
+                    sharedPreferences.getInt("conversation_mode_return_delay_seconds", 0)
+                ),
                 disconnectWhenNotWearing = sharedPreferences.getBoolean("disconnect_when_not_wearing", false),
                 takeoverWhenDisconnected = sharedPreferences.getBoolean("takeover_when_disconnected", false),
                 takeoverWhenIdle = sharedPreferences.getBoolean("takeover_when_idle", false),
@@ -199,6 +205,12 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
     fun setRelativeConversationalAwarenessVolumeEnabled(enabled: Boolean) {
         sharedPreferences.edit { putBoolean("relative_conversational_awareness_volume", enabled) }
         _uiState.update { it.copy(relativeConversationalAwarenessVolumeEnabled = enabled) }
+    }
+
+    fun setConversationModeReturnDelaySeconds(seconds: Int) {
+        val safeSeconds = ConversationModeReturnPolicy.sanitizeDelay(seconds)
+        sharedPreferences.edit { putInt("conversation_mode_return_delay_seconds", safeSeconds) }
+        _uiState.update { it.copy(conversationModeReturnDelaySeconds = safeSeconds) }
     }
 
     fun setDisconnectWhenNotWearing(enabled: Boolean) {
@@ -307,5 +319,6 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
     fun setm3eEnabled(enabled: Boolean) {
         sharedPreferences.edit { putBoolean("m3e_enabled", enabled) }
         _uiState.update { it.copy(m3eEnabled = enabled) }
+        HealthWorkoutBridge.sendAppearance(getApplication(), enabled)
     }
 }

@@ -51,7 +51,6 @@ import androidx.core.content.edit
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.lifecycleScope
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.android.play.core.review.ReviewManagerFactory
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import me.kavishdevar.librepods.data.AirPodsNotifications
 import me.kavishdevar.librepods.data.ControlCommandRepository
@@ -82,7 +81,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        if (!BuildConfig.PLAY_BUILD) {
+        if (!BuildConfig.STORE_BUILD) {
             lifecycleScope.launch {
                 UpdateManager.shared(applicationContext).check(automatic = true)
             }
@@ -252,12 +251,11 @@ fun Main() {
 }
 
 private fun triggerReviewFlow(activity: Activity) {
-    val manager = ReviewManagerFactory.create(activity)
-    val request = manager.requestReviewFlow()
-    request.addOnCompleteListener { task ->
-        if (task.isSuccessful) {
-            val reviewInfo = task.result
-            manager.launchReviewFlow(activity, reviewInfo)
-        }
+    runCatching {
+        Class.forName("me.kavishdevar.librepods.PlayReviewPrompt")
+            .getMethod("request", Activity::class.java)
+            .invoke(null, activity)
+    }.onFailure { error ->
+        Log.w("MainActivity", "Play review flow is unavailable in this build", error)
     }
 }

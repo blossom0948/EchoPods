@@ -42,10 +42,10 @@ fun AppInfoCard(
         StyledListItem(
             name = stringResource(R.string.distribution_channel),
             description = stringResource(
-                if (BuildConfig.FLAVOR == "play") {
-                    R.string.distribution_google_play
-                } else {
-                    R.string.distribution_github
+                when (BuildConfig.FLAVOR) {
+                    "play" -> R.string.distribution_google_play
+                    "galaxy" -> R.string.distribution_galaxy_store
+                    else -> R.string.distribution_github
                 }
             ),
         )
