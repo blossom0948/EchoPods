@@ -198,6 +198,8 @@ internal fun IosFitnessTodayScreen(
     overview: HealthConnectTodayState,
     healthConnectAvailable: Boolean,
     onConnectHealthData: () -> Unit,
+    stepGoal: Int,
+    onStepGoalChanged: (Int) -> Unit,
     echoPodsInstalled: Boolean,
     selectedWorkoutType: WorkoutType,
     isConnected: Boolean,
@@ -247,7 +249,10 @@ internal fun IosFitnessTodayScreen(
                         exerciseMinutes = exerciseMinutes,
                         sleepSeconds = overview.recentSleepSeconds,
                         distanceMeters = overview.todayDistanceMeters,
+                        hourlySteps = overview.hourlySteps,
                         weekSteps = overview.weekSteps,
+                        stepGoal = stepGoal,
+                        onStepGoalChanged = onStepGoalChanged,
                         activeCaloriesPermissionGranted = overview.activeCaloriesPermissionGranted,
                     )
                     overview.latestSleep?.let { FitnessSleepStagesCard(it, isKorean, useMaterial = false) }
@@ -273,7 +278,10 @@ internal fun IosFitnessTodayScreen(
                 exerciseMinutes = exerciseMinutes,
                 sleepSeconds = overview.recentSleepSeconds,
                 distanceMeters = overview.todayDistanceMeters,
+                hourlySteps = overview.hourlySteps,
                 weekSteps = overview.weekSteps,
+                stepGoal = stepGoal,
+                onStepGoalChanged = onStepGoalChanged,
                 activeCaloriesPermissionGranted = overview.activeCaloriesPermissionGranted,
             )
             overview.latestSleep?.let { FitnessSleepStagesCard(it, isKorean, useMaterial = false) }
@@ -506,7 +514,10 @@ private fun FitnessActivitySummaryCard(
     exerciseMinutes: Long,
     sleepSeconds: Long?,
     distanceMeters: Double?,
+    hourlySteps: List<HourlyStepCount>,
     weekSteps: List<DailyStepCount>,
+    stepGoal: Int,
+    onStepGoalChanged: (Int) -> Unit,
     activeCaloriesPermissionGranted: Boolean,
 ) {
     val numberFormat = remember(isKorean) { NumberFormat.getIntegerInstance(if (isKorean) Locale.KOREA else Locale.getDefault()) }
@@ -552,6 +563,8 @@ private fun FitnessActivitySummaryCard(
                 FitnessSummaryStat(Modifier.weight(1f), if (isKorean) "거리" else "Distance", distanceValue)
             }
         }
+        StepGoalPicker(stepGoal, isKorean, useMaterial = false, onSelected = onStepGoalChanged)
+        FitnessHourlyStepsChart(hourlySteps, isKorean)
         FitnessWeeklyStepsChart(weekSteps, isKorean)
         Text(
             when {

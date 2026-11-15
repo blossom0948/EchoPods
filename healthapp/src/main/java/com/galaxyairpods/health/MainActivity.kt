@@ -59,6 +59,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.window.Dialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -74,6 +75,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -83,6 +85,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -156,6 +159,8 @@ class MainActivity : ComponentActivity() {
 }
 
 private enum class HealthTab { TODAY, WORKOUT, HISTORY }
+private const val PREF_DAILY_STEP_GOAL = "daily_step_goal"
+private const val DEFAULT_DAILY_STEP_GOAL = 8_000
 
 @Composable
 private fun EchoPodsHealthApp() {
@@ -225,6 +230,9 @@ private fun HealthWorkoutContent(
     }
     var saveToHealthConnect by remember {
         mutableStateOf(preferences.getBoolean(HealthWorkoutBridgeReceiver.PREF_SAVE_HEALTH_CONNECT, false))
+    }
+    var stepGoal by remember {
+        mutableIntStateOf(preferences.getInt(PREF_DAILY_STEP_GOAL, DEFAULT_DAILY_STEP_GOAL))
     }
     var selectedTypeKey by rememberSaveable { mutableStateOf(WorkoutType.WALKING.key) }
     var selectedTab by rememberSaveable { mutableStateOf(HealthTab.TODAY) }
@@ -393,6 +401,11 @@ private fun HealthWorkoutContent(
                             healthOverview = healthOverview,
                             healthConnectAvailable = healthConnectStatus == HealthConnectClient.SDK_AVAILABLE,
                             onConnectHealthData = { readPermissionLauncher.launch(readHealthPermissions) },
+                            stepGoal = stepGoal,
+                            onStepGoalChanged = { goal ->
+                                stepGoal = goal
+                                preferences.edit().putInt(PREF_DAILY_STEP_GOAL, goal).apply()
+                            },
                             echoPodsInstalled = echoPodsInstalled,
                             activeWorkoutType = currentWorkoutType,
                             isConnected = isConnected,
@@ -425,6 +438,11 @@ private fun HealthWorkoutContent(
                             overview = healthOverview,
                             healthConnectAvailable = healthConnectStatus == HealthConnectClient.SDK_AVAILABLE,
                             onConnectHealthData = { readPermissionLauncher.launch(readHealthPermissions) },
+                            stepGoal = stepGoal,
+                            onStepGoalChanged = { goal ->
+                                stepGoal = goal
+                                preferences.edit().putInt(PREF_DAILY_STEP_GOAL, goal).apply()
+                            },
                             echoPodsInstalled = echoPodsInstalled,
                             selectedWorkoutType = currentWorkoutType,
                             isConnected = isConnected,
@@ -592,6 +610,8 @@ private fun TodayScreen(
     healthOverview: HealthConnectTodayState,
     healthConnectAvailable: Boolean,
     onConnectHealthData: () -> Unit,
+    stepGoal: Int,
+    onStepGoalChanged: (Int) -> Unit,
     echoPodsInstalled: Boolean,
     activeWorkoutType: WorkoutType,
     isConnected: Boolean,
@@ -621,6 +641,8 @@ private fun TodayScreen(
             available = healthConnectAvailable,
             isKorean = isKorean,
             useMaterial = useMaterial,
+            stepGoal = stepGoal,
+            onStepGoalChanged = onStepGoalChanged,
             onConnect = onConnectHealthData,
         )
         healthOverview.latestSleep?.let { FitnessSleepStagesCard(it, isKorean, useMaterial) }
@@ -669,6 +691,8 @@ private fun ActivitySummaryCard(
     available: Boolean,
     isKorean: Boolean,
     useMaterial: Boolean,
+    stepGoal: Int,
+    onStepGoalChanged: (Int) -> Unit,
     onConnect: () -> Unit,
 ) {
     val stepNumber = remember(overview.todaySteps, isKorean) {
@@ -728,14 +752,9 @@ private fun ActivitySummaryCard(
                 )
                 if (overview.todaySteps != null) {
                     Spacer(Modifier.height(9.dp))
-                    StepGoalBar(progress = (overview.todaySteps / 8_000f).coerceIn(0f, 1f))
-                    Text(
-                        if (isKorean) "목표 8,000걸음" else "8,000-step goal",
-                        modifier = Modifier.padding(top = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    StepGoalBar(progress = (overview.todaySteps / stepGoal.toFloat()).coerceIn(0f, 1f))
                 }
+                StepGoalPicker(stepGoal, isKorean, useMaterial, onStepGoalChanged)
             }
             Column(Modifier.weight(1f)) {
                 Text(if (isKorean) "수면 · 최근 24시간" else "Sleep · past 24 hours", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -784,6 +803,7 @@ private fun ActivitySummaryCard(
                 Text(if (overview.activeCaloriesPermissionGranted) if (isKorean) "Health Connect 동기화" else "Synced through Health Connect" else if (isKorean) "활동 에너지 권한 필요" else "Allow energy access", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        FitnessHourlyStepsChart(overview.hourlySteps, isKorean)
         FitnessWeeklyStepsChart(overview.weekSteps, isKorean)
         if (!overview.stepsPermissionGranted || !overview.sleepPermissionGranted ||
             !overview.activeCaloriesPermissionGranted || !overview.distancePermissionGranted ||
@@ -802,6 +822,103 @@ private fun ActivitySummaryCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
+        }
+    }
+}
+
+@Composable
+internal fun StepGoalPicker(goal: Int, isKorean: Boolean, useMaterial: Boolean, onSelected: (Int) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        TextButton(
+            onClick = { expanded = true },
+            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
+        ) {
+            val formatted = NumberFormat.getIntegerInstance(if (isKorean) Locale.KOREA else Locale.getDefault()).format(goal)
+            Text(if (isKorean) "목표 ${formatted}걸음 · 변경" else "${formatted}-step goal · Change", style = MaterialTheme.typography.labelSmall)
+        }
+        if (useMaterial) {
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                stepGoalOptions.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(if (isKorean) "${NumberFormat.getIntegerInstance(Locale.KOREA).format(option)}걸음" else NumberFormat.getIntegerInstance().format(option)) },
+                        onClick = {
+                            onSelected(option)
+                            expanded = false
+                        },
+                    )
+                }
+            }
+        } else if (expanded) {
+            Dialog(onDismissRequest = { expanded = false }) {
+                Surface(
+                    modifier = Modifier.widthIn(max = 380.dp),
+                    shape = RoundedCornerShape(28.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                    shadowElevation = 20.dp,
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(if (isKorean) "일일 걸음 목표" else "Daily step goal", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text(if (isKorean) "하루 목표를 선택하세요" else "Choose a daily target", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(4.dp))
+                        stepGoalOptions.forEach { option ->
+                            val selected = option == goal
+                            Row(
+                                Modifier.fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f))
+                                    .clickable {
+                                        onSelected(option)
+                                        expanded = false
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                val label = NumberFormat.getIntegerInstance(if (isKorean) Locale.KOREA else Locale.getDefault()).format(option)
+                                Text(if (isKorean) "${label}걸음" else label, modifier = Modifier.weight(1f), fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+                                if (selected) Text("✓", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private val stepGoalOptions = listOf(4_000, 6_000, 8_000, 10_000, 12_000, 15_000)
+
+@Composable
+internal fun FitnessHourlyStepsChart(data: List<HourlyStepCount>, isKorean: Boolean) {
+    if (data.isEmpty()) return
+    val visible = data.takeLast(12)
+    val maxSteps = visible.mapNotNull { it.total }.maxOrNull()?.coerceAtLeast(1L) ?: 1L
+    val track = MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)
+    val active = MaterialTheme.colorScheme.primary
+    Column(Modifier.fillMaxWidth().padding(top = 14.dp)) {
+        Text(if (isKorean) "오늘 시간대별 걸음" else "Steps by hour today", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(
+            Modifier.fillMaxWidth().padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            visible.forEachIndexed { index, bucket ->
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Canvas(Modifier.fillMaxWidth().height(46.dp)) {
+                        val barWidth = size.width * 0.62f
+                        val left = (size.width - barWidth) / 2f
+                        drawRoundRect(track, topLeft = Offset(left, 0f), size = Size(barWidth, size.height), cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth / 2f))
+                        val barHeight = bucket.total?.takeIf { it > 0L }?.let { (size.height * (it.toFloat() / maxSteps).coerceIn(0.04f, 1f)) } ?: 0f
+                        if (barHeight > 0f) drawRoundRect(active, topLeft = Offset(left, size.height - barHeight), size = Size(barWidth, barHeight), cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth / 2f))
+                    }
+                    if (index == 0 || index % 3 == 0 || index == visible.lastIndex) {
+                        Text(if (isKorean) "${bucket.hour}시" else bucket.hour.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                    } else {
+                        Spacer(Modifier.height(18.dp))
+                    }
+                }
+            }
         }
     }
 }

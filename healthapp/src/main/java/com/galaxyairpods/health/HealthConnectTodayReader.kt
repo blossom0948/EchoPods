@@ -9,6 +9,7 @@ import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.request.AggregateGroupByDurationRequest
 import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
@@ -20,10 +21,12 @@ import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDate
 import java.time.Period
+import java.time.Duration
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
 data class DailyStepCount(val date: LocalDate, val total: Long?)
+data class HourlyStepCount(val hour: Int, val total: Long?)
 
 data class SleepSessionSummary(
     val startEpochMillis: Long,
@@ -53,6 +56,7 @@ data class HealthConnectTodayState(
     val exercisePermissionGranted: Boolean = false,
     val writePermissionsGranted: Boolean = false,
     val todaySteps: Long? = null,
+    val hourlySteps: List<HourlyStepCount> = emptyList(),
     val todayActiveCaloriesKcal: Double? = null,
     val todayDistanceMeters: Double? = null,
     val recentSleepSeconds: Long? = null,
@@ -156,6 +160,24 @@ object HealthConnectTodayReader {
                 }
             }.onFailure { readFailed = true }.getOrDefault(emptyList()) else emptyList()
 
+            val hourlySteps = if (hasSteps && steps != null) runCatching {
+                val grouped = client.aggregateGroupByDuration(
+                    AggregateGroupByDurationRequest(
+                        metrics = setOf(StepsRecord.COUNT_TOTAL),
+                        timeRangeFilter = TimeRangeFilter.between(todayStart, now),
+                        timeRangeSlicer = Duration.ofHours(1),
+                    ),
+                ).associate { bucket ->
+                    Duration.between(todayStart, bucket.startTime).toHours().toInt() to
+                        bucket.result[StepsRecord.COUNT_TOTAL]?.coerceAtLeast(0L)
+                }
+                val completedHours = (Duration.between(todayStart, now).toHours().toInt() + 1).coerceIn(1, 25)
+                (0 until completedHours).map { slot ->
+                    val hour = todayStart.plus(Duration.ofHours(slot.toLong())).atZone(zone).hour
+                    HourlyStepCount(hour, grouped[slot] ?: 0L)
+                }
+            }.onFailure { readFailed = true }.getOrDefault(emptyList()) else emptyList()
+
             val latestSleep = if (hasSleep) runCatching {
                 client.readRecords(
                     ReadRecordsRequest(
@@ -222,6 +244,7 @@ object HealthConnectTodayReader {
                 exercisePermissionGranted = hasExercise,
                 writePermissionsGranted = hasWrites,
                 todaySteps = steps?.takeIf { it >= 0L },
+                hourlySteps = hourlySteps,
                 todayActiveCaloriesKcal = calories?.takeIf { it.isFinite() && it >= 0.0 },
                 todayDistanceMeters = distance?.takeIf { it.isFinite() && it >= 0.0 },
                 recentSleepSeconds = sleepSeconds?.takeIf { it > 0L },
