@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f3f5f4">
-    <meta name="description" content="EchoPods Android 앱을 내려받고 업데이트하는 공식 안내 페이지입니다.">
+    <meta name="description" content="EchoPods와 Echo Health의 기능, 호환성, 설치 방법을 확인하고 최신 Android 앱을 내려받으세요.">
     <title>EchoPods — Android용 AirPods 동반 앱</title>
     <style>
       :root {
@@ -111,6 +111,12 @@
       }
       .button:hover { filter: brightness(1.06); }
       .button:active { transform: scale(0.99); }
+      .button.secondary {
+        margin-top: 10px;
+        border: 1px solid var(--line);
+        background: var(--note);
+        color: var(--ink);
+      }
       .button:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
       .version-note {
         margin: 14px 0 0;
@@ -141,6 +147,29 @@
         font-size: 13px;
         line-height: 1.65;
       }
+      .features {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 26px;
+      }
+      .feature {
+        min-height: 124px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--note);
+      }
+      .feature strong { display: block; margin-bottom: 7px; font-size: 14px; }
+      .feature span { color: var(--muted); font-size: 12px; line-height: 1.55; }
+      .about {
+        margin-top: 20px;
+        padding-top: 18px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.7;
+      }
       .links {
         display: flex;
         flex-wrap: wrap;
@@ -158,6 +187,10 @@
       @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
       }
+      @media (max-width: 540px) {
+        .features { grid-template-columns: 1fr; }
+        .feature { min-height: auto; }
+      }
     </style>
   </head>
   <body>
@@ -171,10 +204,19 @@
       <h1>AirPods를<br>Android에서도.</h1>
       <p class="intro">배터리 상태와 지원되는 기기 제어를 한곳에서 확인하세요. 실제로 제공되는 기능은 휴대전화, AirPods 모델과 펌웨어에 따라 달라질 수 있습니다.</p>
 
+      <div class="features" aria-label="주요 기능">
+        <div class="feature"><strong>배터리와 위젯</strong><span>좌우 유닛과 케이스 상태를 확인하고 홈 화면에서 빠르게 살펴봅니다.</span></div>
+        <div class="feature"><strong>듣기 제어</strong><span>지원되는 조합에서 소음 제어, 착용 감지와 연결 알림을 사용합니다.</span></div>
+        <div class="feature"><strong>Echo Health</strong><span>운동 기록과 Health Connect 건강 요약을 제공하는 별도 동반 앱입니다.</span></div>
+      </div>
+
       <section class="card" aria-labelledby="download-title">
         <h2 id="download-title">EchoPods 다운로드</h2>
         <a class="button" href="https://github.com/blossom0948/EchoPods/releases/latest/download/app-foss-release.apk">
           최신 APK 받기 <span aria-hidden="true">↓</span>
+        </a>
+        <a class="button secondary" href="https://github.com/blossom0948/EchoPods/releases/latest/download/echo-health.apk">
+          Echo Health 받기 <span aria-hidden="true">↓</span>
         </a>
         <p class="version-note">Android 12 이상 · 무료 오픈소스 배포판</p>
 
@@ -186,7 +228,10 @@
         </ol>
 
         <div class="notice">
-          EchoPods는 GitHub에서 직접 배포됩니다. 앱이 새 버전을 자동으로 확인하고 다운로드할 수 있지만, Android 보안상 설치를 마치려면 시스템 확인이 필요할 수 있습니다. 업데이트가 보이지 않으면 앱의 설정에서 수동 확인을 사용할 수 있습니다.
+          EchoPods는 GitHub에서 직접 배포됩니다. 앱이 새 버전을 확인하고 다운로드할 수 있지만, Android 보안상 설치를 마치려면 시스템 확인이 필요할 수 있습니다. Echo Health는 별도 APK이며 두 앱은 같은 서명 빌드에서 자동으로 통신합니다. 건강 데이터 권한은 Android가 요구하는 대로 사용자가 직접 승인해야 합니다.
+        </div>
+        <div class="about">
+          EchoPods는 Android용 독립 프로젝트입니다. 공개 오픈소스 Android 구현에서 출발해 자체 이름과 화면, 위젯, 알림, 업데이트 흐름을 더하며 발전하고 있습니다. 기능 호환성은 기기와 Bluetooth 구현에 따라 달라질 수 있습니다. 코드 출처와 라이선스는 저장소의 <a href="https://github.com/blossom0948/EchoPods/blob/main/NOTICE">NOTICE</a>와 <a href="https://github.com/blossom0948/EchoPods/blob/main/LICENSE">GPL 라이선스</a>에서 확인할 수 있습니다.
         </div>
         <div class="links">
           <a href="https://github.com/blossom0948/EchoPods/releases">모든 버전과 변경 사항</a>
@@ -196,7 +241,7 @@
       </section>
 
       <footer>
-        EchoPods는 Apple과 제휴·승인 관계가 없는 독립 프로젝트입니다. AirPods는 Apple Inc.의 상표이며, 제품명은 호환성 안내 목적으로 사용합니다.
+        EchoPods와 Echo Health는 Apple과 제휴·승인 관계가 없는 독립 프로젝트입니다. AirPods는 Apple Inc.의 상표이며, 제품명은 호환성 안내 목적으로 사용합니다.
       </footer>
     </main>
   </body>

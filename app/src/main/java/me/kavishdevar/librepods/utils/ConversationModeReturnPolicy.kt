@@ -8,6 +8,18 @@ internal data class ConversationModeReturnPlan(
     val delaySeconds: Int,
 )
 
+enum class ConversationReturnBehavior(val preferenceValue: Int) {
+    AIRPODS_DEFAULT(0),
+    AFTER_SPEECH_ENDS(1),
+    FIXED_AFTER_SPEECH_START(2),
+    MANUAL(3);
+
+    companion object {
+        fun fromPreference(value: Int): ConversationReturnBehavior =
+            values().firstOrNull { it.preferenceValue == value } ?: AIRPODS_DEFAULT
+    }
+}
+
 internal object ConversationModeReturnPolicy {
     const val TRANSPARENCY_MODE = 3
 

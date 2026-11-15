@@ -26,5 +26,6 @@ val updates = listOf(
         titleRes = R.string.guide_page_wear_control_update_title,
         descriptionRes = R.string.guide_page_wear_control_update_description,
         screenshotRes = R.drawable.guide_wear_control,
+        detailScreenshotRes = R.drawable.guide_wear_control_detail,
     ),
 )

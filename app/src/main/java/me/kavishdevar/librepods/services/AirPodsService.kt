@@ -101,6 +101,7 @@ import me.kavishdevar.librepods.data.AirPodsNotifications
 import me.kavishdevar.librepods.data.Battery
 import me.kavishdevar.librepods.data.BatteryComponent
 import me.kavishdevar.librepods.data.ConnectionPopupStyle
+import me.kavishdevar.librepods.data.IslandPopupSize
 import me.kavishdevar.librepods.data.BatteryStatus
 import me.kavishdevar.librepods.data.AirPodsFormFactor
 import me.kavishdevar.librepods.data.Capability
@@ -124,6 +125,7 @@ import me.kavishdevar.librepods.utils.CallGesturePolicy
 import me.kavishdevar.librepods.utils.ConversationalAwarenessEvent
 import me.kavishdevar.librepods.utils.ConversationalAwarenessEventParser
 import me.kavishdevar.librepods.utils.ConversationModeReturnPolicy
+import me.kavishdevar.librepods.utils.ConversationReturnBehavior
 import me.kavishdevar.librepods.utils.PhoneCallPhase
 import me.kavishdevar.librepods.utils.BluetoothConnectionEventPolicy
 import me.kavishdevar.librepods.utils.BluetoothProfileConnectPolicy
@@ -183,6 +185,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     private var heartRateBridgeStateJob: Job? = null
     private var finishedHeartRateBridgeJob: Job? = null
     private val socketConnectInProgress = AtomicBoolean(false)
+    private var aacpAutoConnectJob: Job? = null
+    private var aacpAutoConnectAddress: String? = null
     var macAddress = ""
     var localMac = ""
     @Volatile
@@ -276,6 +280,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     @Volatile private var wearResumeRouteAttempts = 0
     private val wearResumeHandler = Handler(Looper.getMainLooper())
     @Volatile private var conversationActive = false
+    @Volatile private var conversationReturnBehavior = ConversationReturnBehavior.AIRPODS_DEFAULT
+    @Volatile private var fixedConversationReturnExpired = false
     @Volatile private var conversationModeBeforeSpeech: Int? = null
     @Volatile private var pendingConversationReturnMode: Int? = null
     @Volatile private var expectedConversationMode: Int? = null
@@ -554,6 +560,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 if (!contains("conversation_mode_return_delay_seconds")) putInt(
                     "conversation_mode_return_delay_seconds", 0
                 )
+                if (!contains("conversation_mode_return_behavior")) {
+                    val legacyDelay = getInt("conversation_mode_return_delay_seconds", 0)
+                    putInt(
+                        "conversation_mode_return_behavior",
+                        if (legacyDelay > 0) ConversationReturnBehavior.AFTER_SPEECH_ENDS.preferenceValue
+                        else ConversationReturnBehavior.AIRPODS_DEFAULT.preferenceValue,
+                    )
+                }
 
                 if (!contains("qs_click_behavior")) putString("qs_click_behavior", "cycle")
                 if (!contains("name")) putString("name", "AirPods")
@@ -762,6 +776,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                             .putExtra("connected", isAndroidAudioProfileConnected)
                             .setPackage(packageName)
                     )
+                    if (!isAndroidAudioProfileConnected) {
+                        aacpAutoConnectJob?.cancel()
+                        aacpAutoConnectJob = null
+                        aacpAutoConnectAddress = null
+                    }
                 } else if (intent?.action == AirPodsNotifications.AIRPODS_CONNECTION_DETECTED) {
                     val connectedDevice = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         intent.getParcelableExtra("device", BluetoothDevice::class.java)
@@ -770,6 +789,21 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     } ?: run {
                         Log.w(TAG, "Ignoring AirPods connection event without a Bluetooth device")
                         return
+                    }
+                    val previousAddress = device?.address
+                    val savedModelAddress =
+                        sharedPreferences.getString("airpods_model_address", null)
+                    if ((previousAddress != null && previousAddress != connectedDevice.address) ||
+                        (savedModelAddress != null && savedModelAddress != connectedDevice.address)
+                    ) {
+                        // Model information belongs to the active Bluetooth device. Never keep
+                        // showing the previous AirPods model while the newly connected device is
+                        // still sending its own AACP information.
+                        airpodsInstance = null
+                        sendBroadcast(
+                            Intent(AirPodsNotifications.AIRPODS_INFORMATION_UPDATED)
+                                .setPackage(packageName)
+                        )
                     }
                     device = connectedDevice
 
@@ -797,10 +831,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                             androidAudioProfileConnected = androidAudioProfileConnected,
                         )
                     ) {
-                        CoroutineScope(Dispatchers.IO).launch {
-                            val bluetoothManager = getSystemService(BluetoothManager::class.java)
-                            connectToSocket(bluetoothManager.adapter, connectedDevice)
-                        }
+                        val bluetoothManager = getSystemService(BluetoothManager::class.java)
+                        requestAacpControlSession(bluetoothManager.adapter, connectedDevice)
                         Log.d(TAG, "Setting metadata")
                         setMetadatas(connectedDevice)
                     } else {
@@ -811,6 +843,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     }
 
                 } else if (intent?.action == AirPodsNotifications.AIRPODS_DISCONNECTED) {
+                    aacpAutoConnectJob?.cancel()
+                    aacpAutoConnectJob = null
+                    aacpAutoConnectAddress = null
                     sharedPreferences.edit { putBoolean("connection_successful", false) }
                     lastWearPosition = null
                     cancelPendingWearResume()
@@ -823,6 +858,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     runCatching { BluetoothConnectionManager.aacpSocket?.close() }
                     runCatching { BluetoothConnectionManager.attSocket?.close() }
                     device = null
+                    airpodsInstance = null
+                    sendBroadcast(
+                        Intent(AirPodsNotifications.AIRPODS_INFORMATION_UPDATED)
+                            .setPackage(packageName)
+                    )
                     popupShown = false
                     updateNotificationContent(false)
                     aacpManager.disconnected()
@@ -1162,6 +1202,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 sharedPreferences.edit {
                     putString("name", deviceInformation.name)
                     putString("airpods_model_number", deviceInformation.modelNumber)
+                    putString("airpods_model_address", device?.address)
                     putString("airpods_manufacturer", deviceInformation.manufacturer)
                     putString("airpods_serial_number", deviceInformation.serialNumber)
                     putString("airpods_left_serial_number", deviceInformation.leftSerialNumber)
@@ -1186,10 +1227,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 config.airpodsUpdaterIdentifier = deviceInformation.updaterIdentifier
 
                 val model = AirPodsModels.getModelByModelNumber(config.airpodsModelNumber)
-                if (model != null) {
-                    airpodsInstance = AirPodsInstance(
+                airpodsInstance = model?.let {
+                    AirPodsInstance(
                         name = config.airpodsName,
-                        model = model,
+                        model = it,
                         actualModelNumber = config.airpodsModelNumber,
                         serialNumber = config.airpodsSerialNumber,
                         leftSerialNumber = config.airpodsLeftSerialNumber,
@@ -1198,8 +1239,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         version2 = config.airpodsVersion2,
                         version3 = config.airpodsVersion3,
                     )
-                    if (device != null) setMetadatas(device!!)
                 }
+                device?.let(::setMetadatas)
+                islandWindow?.updateModel(model)
                 sendBroadcast(
                     Intent(AirPodsNotifications.AIRPODS_INFORMATION_UPDATED).setPackage(
                         packageName
@@ -1862,15 +1904,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
             return
         }
-        if (!Settings.canDrawOverlays(service)) {
-            showPopupNotificationFallback(service, name, type)
-            return
-        }
         val style = ConnectionPopupStyle.fromPreferences(
             storedValue = sharedPreferences.getString("connection_popup_style", null),
             legacyBottomSheetEnabled = sharedPreferences.getBoolean("show_bottom_sheet_popup", true),
             legacyIslandEnabled = sharedPreferences.getBoolean("show_island_popup", true)
         )
+        if (style == ConnectionPopupStyle.DISABLED) return
+        if (!Settings.canDrawOverlays(service)) {
+            showPopupNotificationFallback(service, name, type)
+            return
+        }
         when (style) {
             ConnectionPopupStyle.BOTTOM_SHEET -> showPopup(service, name, replayIfVisible = forceReplay)
             ConnectionPopupStyle.DYNAMIC_ISLAND -> showIsland(
@@ -1880,6 +1923,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 respectLegacyPreference = false,
                 forceReplay = forceReplay,
             )
+            ConnectionPopupStyle.DISABLED -> Unit
         }
     }
 
@@ -1948,6 +1992,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         forceReplay: Boolean = false,
     ) {
         Log.d(TAG, "Showing island window")
+        val popupStyle = ConnectionPopupStyle.fromPreferences(
+            storedValue = sharedPreferences.getString("connection_popup_style", null),
+            legacyBottomSheetEnabled = sharedPreferences.getBoolean("show_bottom_sheet_popup", true),
+            legacyIslandEnabled = sharedPreferences.getBoolean("show_island_popup", true),
+        )
+        if (popupStyle == ConnectionPopupStyle.DISABLED) return
         if (respectLegacyPreference && !sharedPreferences.getBoolean("show_island_popup", true)) {
             return
         }
@@ -1963,13 +2013,24 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             if (islandOpen || islandWindow?.isVisible == true) return@launch
             val window = IslandWindow(service.applicationContext)
             islandWindow = window
+            val activeAddress = device?.address
+            val modelAddress = sharedPreferences.getString("airpods_model_address", null)
+            val model = if (activeAddress != null && activeAddress == modelAddress) {
+                AirPodsModels.getModelByModelNumber(
+                    sharedPreferences.getString("airpods_model_number", "") ?: ""
+                )
+            } else {
+                null
+            }
             window.show(
                 sharedPreferences.getString("name", "AirPods Pro").toString(),
                 batteryPercentage,
                 this@AirPodsService,
                 type,
                 reversed,
-                otherDeviceName
+                otherDeviceName,
+                model,
+                IslandPopupSize.fromPreference(sharedPreferences.getString("island_popup_size", null)),
             )
         }
     }
@@ -2328,6 +2389,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             lowBatteryArtwork(battery),
             battery.level,
             lowBatteryComponentName(battery.component),
+            IslandPopupSize.fromPreference(sharedPreferences.getString("island_popup_size", null)),
         )
         if (!shown) {
             isLowBatteryWarningShowing = false
@@ -3166,6 +3228,54 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 //        CrossDevice.isAvailable = false
     }
 
+    /**
+     * Profile-up events can arrive while Android is still bringing up the
+     * Classic L2CAP endpoint. Keep a short, bounded retry window so a second
+     * profile event lost to the in-flight guard does not leave the app stuck
+     * at "audio connected, control unavailable".
+     */
+    private fun requestAacpControlSession(adapter: BluetoothAdapter, device: BluetoothDevice) {
+        if (!canAttemptAacpControlSession(
+                rootlessBluetoothSupported = hasRootlessBluetoothSupport(),
+                bluetoothScopeEnabled = XposedState.bluetoothScopeEnabled,
+            )
+        ) {
+            // Keep the existing capability gate and its diagnostic log. A retry
+            // cannot make an unsupported Bluetooth stack expose the endpoint.
+            connectToSocket(adapter, device)
+            return
+        }
+
+        if (aacpAutoConnectJob?.isActive == true && aacpAutoConnectAddress == device.address) {
+            Log.d(TAG, "AACP profile-triggered retry sequence already active")
+            return
+        }
+
+        aacpAutoConnectJob?.cancel()
+        aacpAutoConnectAddress = device.address
+        aacpAutoConnectJob = updateCheckScope.launch {
+            repeat(3) { attemptIndex ->
+                delay(if (attemptIndex == 0) 250L else 700L * attemptIndex)
+
+                if (!isActive) return@launch
+                if (BluetoothConnectionManager.aacpSocket?.isConnected == true) return@launch
+                if (this@AirPodsService.device?.address != device.address ||
+                    !isAndroidAudioProfileConnected
+                ) {
+                    Log.i(TAG, "Stopping AACP retries after the selected audio profile ended")
+                    return@launch
+                }
+
+                Log.i(TAG, "Starting AACP control connection attempt ${attemptIndex + 1} of 3")
+                connectToSocket(adapter, device)
+            }
+
+            if (BluetoothConnectionManager.aacpSocket?.isConnected != true) {
+                Log.w(TAG, "AACP control session unavailable after bounded profile retries")
+            }
+        }
+    }
+
     @SuppressLint("MissingPermission", "UnspecifiedRegisterReceiverFlag")
     fun connectToSocket(
         adapter: BluetoothAdapter, device: BluetoothDevice, manual: Boolean = false
@@ -3244,7 +3354,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         aacpManager.onSocketConnected()
 
                         // Create AirPodsInstance from stored config if available
-                        if (airpodsInstance == null && config.airpodsModelNumber.isNotEmpty()) {
+                        val savedModelAddress =
+                            sharedPreferences.getString("airpods_model_address", null)
+                        if (airpodsInstance == null && config.airpodsModelNumber.isNotEmpty() &&
+                            savedModelAddress == device.address
+                        ) {
                             val model =
                                 AirPodsModels.getModelByModelNumber(config.airpodsModelNumber)
                             if (model != null) {
@@ -3710,21 +3824,44 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     private fun handleConversationalAwarenessEvent(event: ConversationalAwarenessEvent) {
         when (event) {
             ConversationalAwarenessEvent.SPEECH_STARTED -> {
-                if (!conversationActive && pendingConversationReturnMode == null) {
-                    val recentPreTransparencyMode = preTransparencyListeningMode
-                        ?.takeIf {
-                            lastStableListeningMode == LISTENING_MODE_TRANSPARENCY &&
-                                SystemClock.uptimeMillis() - lastListeningModeChangeAtMs <= 1_500L
+                if (!conversationActive) {
+                    if (pendingConversationReturnMode == null) {
+                        val recentPreTransparencyMode = preTransparencyListeningMode
+                            ?.takeIf {
+                                lastStableListeningMode == LISTENING_MODE_TRANSPARENCY &&
+                                    SystemClock.uptimeMillis() - lastListeningModeChangeAtMs <= 1_500L
+                            }
+                        conversationModeBeforeSpeech = recentPreTransparencyMode
+                            ?: lastStableListeningMode?.takeIf { it in 1..4 }
+                            ?: ancNotification.status.takeIf { it in 2..4 }
+                    }
+
+                    conversationReturnBehavior = ConversationReturnBehavior.fromPreference(
+                        sharedPreferences.getInt("conversation_mode_return_behavior", 0)
+                    )
+                    fixedConversationReturnExpired = false
+                    conversationModeReturnJob?.cancel()
+                    conversationModeReturnJob = null
+                    conversationModeReturnGeneration++
+                    pendingConversationReturnMode = null
+                    expectedConversationMode = null
+                    conversationActive = true
+
+                    if (conversationReturnBehavior == ConversationReturnBehavior.FIXED_AFTER_SPEECH_START) {
+                        val originalMode = conversationModeBeforeSpeech
+                            ?.takeIf { it in 1..4 && it != LISTENING_MODE_TRANSPARENCY }
+                        if (originalMode != null) {
+                            val delaySeconds = ConversationModeReturnPolicy.sanitizeDelay(
+                                sharedPreferences.getInt("conversation_mode_return_delay_seconds", 0)
+                            ).takeIf { it > 0 } ?: 30
+                            scheduleConversationModeReturn(
+                                mode = originalMode,
+                                delaySeconds = delaySeconds,
+                                allowDuringConversation = true,
+                            )
                         }
-                    conversationModeBeforeSpeech = recentPreTransparencyMode
-                        ?: lastStableListeningMode?.takeIf { it in 1..4 }
-                        ?: ancNotification.status.takeIf { it in 2..4 }
+                    }
                 }
-                conversationModeReturnJob?.cancel()
-                conversationModeReturnJob = null
-                conversationModeReturnGeneration++
-                pendingConversationReturnMode = null
-                conversationActive = true
                 MediaController.startSpeaking()
             }
 
@@ -3732,26 +3869,42 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 MediaController.stopSpeaking()
                 if (!conversationActive) return
                 conversationActive = false
-
-                val delaySeconds = ConversationModeReturnPolicy.sanitizeDelay(
-                    sharedPreferences.getInt("conversation_mode_return_delay_seconds", 0)
-                )
                 val originalMode = conversationModeBeforeSpeech
                     ?: lastStableListeningMode?.takeIf { it in 1..4 }
-                val returnPlan = ConversationModeReturnPolicy.createPlan(delaySeconds, originalMode)
-                if (returnPlan == null) {
-                    conversationModeBeforeSpeech = null
-                    return
-                }
 
-                pendingConversationReturnMode = returnPlan.restoreMode
-                if (!sendConversationListeningMode(returnPlan.temporaryMode)) {
-                    pendingConversationReturnMode = null
-                    conversationModeBeforeSpeech = null
-                    Log.w(TAG, "Custom conversation return delay unavailable: could not hold Transparency mode")
-                    return
+                when (conversationReturnBehavior) {
+                    ConversationReturnBehavior.AIRPODS_DEFAULT -> {
+                        fixedConversationReturnExpired = false
+                        pendingConversationReturnMode = null
+                        conversationModeBeforeSpeech = null
+                    }
+
+                    ConversationReturnBehavior.AFTER_SPEECH_ENDS -> {
+                        val delaySeconds = ConversationModeReturnPolicy.sanitizeDelay(
+                            sharedPreferences.getInt("conversation_mode_return_delay_seconds", 0)
+                        ).takeIf { it > 0 } ?: 30
+                        val returnPlan = ConversationModeReturnPolicy.createPlan(delaySeconds, originalMode)
+                        if (!holdConversationMode(returnPlan?.restoreMode, "speech-ended")) return
+                        scheduleConversationModeReturn(returnPlan!!.restoreMode, returnPlan.delaySeconds)
+                    }
+
+                    ConversationReturnBehavior.FIXED_AFTER_SPEECH_START -> {
+                        if (fixedConversationReturnExpired) {
+                            fixedConversationReturnExpired = false
+                            conversationModeBeforeSpeech = null
+                        }
+                        // The countdown is anchored to the first speech event and continues
+                        // through silence, so do not restart it at speech end.
+                    }
+
+                    ConversationReturnBehavior.MANUAL -> {
+                        if (holdConversationMode(originalMode, "manual")) {
+                            conversationModeReturnJob?.cancel()
+                            conversationModeReturnJob = null
+                            conversationModeReturnGeneration++
+                        }
+                    }
                 }
-                scheduleConversationModeReturn(returnPlan.restoreMode, returnPlan.delaySeconds)
             }
 
             ConversationalAwarenessEvent.INTERMEDIATE_OR_UNKNOWN -> Unit
@@ -3759,7 +3912,30 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     @Synchronized
-    private fun scheduleConversationModeReturn(mode: Int, delaySeconds: Int) {
+    private fun holdConversationMode(restoreMode: Int?, reason: String): Boolean {
+        val safeRestoreMode = restoreMode?.takeIf {
+            it in 1..4 && it != LISTENING_MODE_TRANSPARENCY
+        }
+        if (safeRestoreMode == null) {
+            conversationModeBeforeSpeech = null
+            pendingConversationReturnMode = null
+            return false
+        }
+        pendingConversationReturnMode = safeRestoreMode
+        if (!sendConversationListeningMode(LISTENING_MODE_TRANSPARENCY)) {
+            pendingConversationReturnMode = null
+            conversationModeBeforeSpeech = null
+            Log.w(TAG, "Could not keep Transparency mode for conversation return behavior: $reason")
+            return false
+        }
+        return true
+    }
+
+    private fun scheduleConversationModeReturn(
+        mode: Int,
+        delaySeconds: Int,
+        allowDuringConversation: Boolean = false,
+    ) {
         conversationModeReturnJob?.cancel()
         pendingConversationReturnMode = mode
         val generation = ++conversationModeReturnGeneration
@@ -3767,7 +3943,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             delay(delaySeconds * 1_000L)
             val canRestore = synchronized(this@AirPodsService) {
                 if (generation != conversationModeReturnGeneration ||
-                    pendingConversationReturnMode != mode || conversationActive
+                    pendingConversationReturnMode != mode ||
+                    (conversationActive && !allowDuringConversation)
                 ) {
                     false
                 } else if (BluetoothConnectionManager.aacpSocket?.isConnected != true || !::aacpManager.isInitialized) {
@@ -3779,26 +3956,32 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     false
                 } else {
                     pendingConversationReturnMode = null
-                    conversationModeBeforeSpeech = null
                     conversationModeReturnJob = null
+                    if (allowDuringConversation && conversationActive) {
+                        fixedConversationReturnExpired = true
+                    } else {
+                        conversationModeBeforeSpeech = null
+                    }
                     true
                 }
             }
             if (!canRestore) return@launch
 
             val stillCurrent = synchronized(this@AirPodsService) {
-                generation == conversationModeReturnGeneration && !conversationActive &&
-                    pendingConversationReturnMode == null
+                generation == conversationModeReturnGeneration && pendingConversationReturnMode == null &&
+                    (!conversationActive || (allowDuringConversation && fixedConversationReturnExpired))
             }
             if (!stillCurrent) return@launch
 
             if (sendConversationListeningMode(mode)) {
                 synchronized(this@AirPodsService) {
-                    if (generation == conversationModeReturnGeneration && !conversationActive) {
+                    if (generation == conversationModeReturnGeneration &&
+                        (!conversationActive || (allowDuringConversation && fixedConversationReturnExpired))
+                    ) {
                         lastStableListeningMode = mode
                     }
                 }
-                Log.i(TAG, "Restoring the pre-conversation listening mode after ${delaySeconds}s")
+                Log.i(TAG, "Restored the previous listening mode after ${delaySeconds}s (${if (allowDuringConversation) "from speech start" else "from speech end"})")
             } else {
                 Log.w(TAG, "Could not restore the pre-conversation listening mode")
             }
@@ -3833,6 +4016,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         if (mode !in 1..4) return
         cancelConversationModeReturn(restoreOriginalMode = false, clearConversation = false)
         requestedManualListeningMode = mode
+        conversationReturnBehavior = ConversationReturnBehavior.AIRPODS_DEFAULT
+        fixedConversationReturnExpired = false
         recordStableListeningMode(mode)
         preTransparencyListeningMode = null
         conversationModeBeforeSpeech = mode.takeIf { conversationActive }
@@ -3857,11 +4042,17 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
 
         if (conversationActive) {
+            if (fixedConversationReturnExpired) {
+                recordStableListeningMode(mode)
+                return
+            }
             if (mode == LISTENING_MODE_TRANSPARENCY) return
-            val delaySeconds = ConversationModeReturnPolicy.sanitizeDelay(
-                sharedPreferences.getInt("conversation_mode_return_delay_seconds", 0)
+            val shouldHoldTransparency = conversationReturnBehavior in setOf(
+                ConversationReturnBehavior.AFTER_SPEECH_ENDS,
+                ConversationReturnBehavior.FIXED_AFTER_SPEECH_START,
+                ConversationReturnBehavior.MANUAL,
             )
-            if (delaySeconds > 0 && mode == conversationModeBeforeSpeech) {
+            if (shouldHoldTransparency && mode == conversationModeBeforeSpeech) {
                 sendConversationListeningMode(LISTENING_MODE_TRANSPARENCY)
                 return
             }
@@ -3912,6 +4103,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         if (clearConversation) {
             conversationActive = false
             conversationModeBeforeSpeech = null
+            conversationReturnBehavior = ConversationReturnBehavior.AIRPODS_DEFAULT
+            fixedConversationReturnExpired = false
         }
         if (restoreMode != null && restoreMode in 1..4 && restoreMode != LISTENING_MODE_TRANSPARENCY) {
             if (sendConversationListeningMode(restoreMode)) lastStableListeningMode = restoreMode

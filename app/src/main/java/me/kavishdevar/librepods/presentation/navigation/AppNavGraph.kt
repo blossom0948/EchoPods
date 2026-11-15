@@ -1,11 +1,8 @@
 package me.kavishdevar.librepods.presentation.navigation
 
 import androidx.activity.BackEventCompat.Companion.EDGE_LEFT
-import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -29,6 +26,7 @@ import me.kavishdevar.librepods.presentation.screens.HearingAidAdjustmentsScreen
 import me.kavishdevar.librepods.presentation.screens.HearingAidScreen
 import me.kavishdevar.librepods.presentation.screens.HearingProtectionScreen
 import me.kavishdevar.librepods.presentation.screens.LoadingScreen
+import me.kavishdevar.librepods.presentation.screens.LabsScreen
 import me.kavishdevar.librepods.presentation.screens.LongPress
 import me.kavishdevar.librepods.presentation.screens.MicrophoneSettingsRoute
 import me.kavishdevar.librepods.presentation.screens.OpenSourceLicensesScreen
@@ -67,261 +65,263 @@ fun AppNavGraph(
 
     val m3eEnabled = LocalDesignSystem.current == DesignSystem.Material
 
-    SharedTransitionLayout {
-        NavDisplay(
-            sharedTransitionScope = this,
-            backStack = backStack,
-            onBack = {
-                if (backStack.size > 1) {
-                    backStack.removeAt(backStack.lastIndex)
-                }
-            },
-            entryProvider = { screen ->
-                when (screen) {
-                    Screen.Onboarding ->
-                        NavEntry(screen) {
-                            OnboardingScreen {
-                                onboardingComplete()
-                                if (showReleaseNotes) navigate(Screen.ReleaseNotes) else navigate(Screen.AirPodsSettings)
-                                backStack.remove(screen)
-                            }
+    NavDisplay(
+        backStack = backStack,
+        onBack = {
+            if (backStack.size > 1) {
+                backStack.removeAt(backStack.lastIndex)
+            }
+        },
+        entryProvider = { screen ->
+            when (screen) {
+                Screen.Onboarding ->
+                    NavEntry(screen) {
+                        OnboardingScreen {
+                            onboardingComplete()
+                            backStack[backStack.lastIndex] =
+                                if (showReleaseNotes) Screen.ReleaseNotes else Screen.AirPodsSettings
                         }
-                    Screen.AirPodsSettings ->
-                        NavEntry(screen) {
-                            if (!airPodsViewModel.isReady) LoadingScreen()
-                            AirPodsSettingsRoute(
-                                viewModel = airPodsViewModel,
-                                navigateToRename = { navigate(Screen.Rename) },
-                                navigateToHearingProtection = { navigate(Screen.HearingProtection) },
-                                navigateToHearingAid = { navigate(Screen.HearingAid) },
-                                navigateToLeftLongPress = {
-                                    navigate(
-                                        Screen.LongPress("Left")
-                                    )
-                                },
-                                navigateToRightLongPress = {
-                                    navigate(
-                                        Screen.LongPress("Right")
-                                    )
-                                },
-                                navigateToPurchase = { navigate(Screen.Purchase) },
-                                navigateToAdaptiveStrength = { navigate(Screen.AdaptiveStrength) },
-                                navigateToEqualizer = { navigate(Screen.Equalizer) },
-                                navigateToHeadTracking = { navigate(Screen.HeadTracking) },
-                                navigateToAccessibility = { navigate(Screen.Accessibility) },
-                                navigateToVersion = { navigate(Screen.VersionInfo) },
-                                navigateToTroubleshooting = { navigate(Screen.Troubleshooting) },
-                                navigateToCallControlScreen = { navigate(Screen.CallControl(it)) },
-                                navigateToMicrophoneSettings = { navigate(Screen.MicrophoneSettings) },
-                            )
-                        }
+                    }
+                Screen.AirPodsSettings ->
+                    NavEntry(screen) {
+                        if (!airPodsViewModel.isReady) LoadingScreen()
+                        AirPodsSettingsRoute(
+                            viewModel = airPodsViewModel,
+                            navigateToRename = { navigate(Screen.Rename) },
+                            navigateToHearingProtection = { navigate(Screen.HearingProtection) },
+                            navigateToHearingAid = { navigate(Screen.HearingAid) },
+                            navigateToLeftLongPress = {
+                                navigate(
+                                    Screen.LongPress("Left")
+                                )
+                            },
+                            navigateToRightLongPress = {
+                                navigate(
+                                    Screen.LongPress("Right")
+                                )
+                            },
+                            navigateToPurchase = { navigate(Screen.Purchase) },
+                            navigateToAdaptiveStrength = { navigate(Screen.AdaptiveStrength) },
+                            navigateToEqualizer = { navigate(Screen.Equalizer) },
+                            navigateToHeadTracking = { navigate(Screen.HeadTracking) },
+                            navigateToAccessibility = { navigate(Screen.Accessibility) },
+                            navigateToVersion = { navigate(Screen.VersionInfo) },
+                            navigateToTroubleshooting = { navigate(Screen.Troubleshooting) },
+                            navigateToCallControlScreen = { navigate(Screen.CallControl(it)) },
+                            navigateToMicrophoneSettings = { navigate(Screen.MicrophoneSettings) },
+                        )
+                    }
 
-                    Screen.Rename ->
-                        NavEntry(screen) {
-                            if (!airPodsViewModel.isReady) LoadingScreen()
-                            RenameScreen(airPodsViewModel)
-                        }
+                Screen.Rename ->
+                    NavEntry(screen) {
+                        if (!airPodsViewModel.isReady) LoadingScreen()
+                        RenameScreen(airPodsViewModel)
+                    }
 
-                    Screen.AppSettings ->
-                        NavEntry(screen) {
-                            val vm: AppSettingsViewModel = viewModel()
-                            AppSettingsScreen(
-                                viewModel = vm,
-                                navigateToPurchase = ::navigateToPurchase,
-                                navigateToTroubleshooting = { navigate(Screen.Troubleshooting) },
-                                navigateToOpenSourceLicenses = { navigate(Screen.OpenSourceLicenses) },
-                                navigateToReleaseNotesScreen = { navigate(Screen.ReleaseNotes) }
-                            )
-                        }
+                Screen.AppSettings ->
+                    NavEntry(screen) {
+                        val vm: AppSettingsViewModel = viewModel()
+                        AppSettingsScreen(
+                            viewModel = vm,
+                            navigateToPurchase = ::navigateToPurchase,
+                            navigateToTroubleshooting = { navigate(Screen.Troubleshooting) },
+                            navigateToOpenSourceLicenses = { navigate(Screen.OpenSourceLicenses) },
+                            navigateToReleaseNotesScreen = { navigate(Screen.ReleaseNotes) },
+                            navigateToLabs = { navigate(Screen.Labs) },
+                        )
+                    }
 
-                    Screen.Troubleshooting ->
-                        NavEntry(screen) {
-                            TroubleshootingScreen()
-                        }
+                Screen.Labs ->
+                    NavEntry(screen) {
+                        LabsScreen()
+                    }
 
-                    Screen.HeadTracking ->
-                        NavEntry(screen) {
-                            if (!airPodsViewModel.isReady) LoadingScreen()
-                            HeadTrackingScreen(airPodsViewModel, ::navigateToPurchase)
-                        }
+                Screen.Troubleshooting ->
+                    NavEntry(screen) {
+                        TroubleshootingScreen()
+                    }
 
-                    Screen.Accessibility ->
-                        NavEntry(screen) {
-                            if (!airPodsViewModel.isReady) LoadingScreen()
-                            AccessibilitySettingsScreen(
-                                viewModel = airPodsViewModel,
-                                navigateToPurchase = ::navigateToPurchase,
-                                navigateToTransparencyCustomization = { navigate(Screen.TransparencyCustomization) }
-                            )
-                        }
+                Screen.HeadTracking ->
+                    NavEntry(screen) {
+                        if (!airPodsViewModel.isReady) LoadingScreen()
+                        HeadTrackingScreen(airPodsViewModel, ::navigateToPurchase)
+                    }
 
-                    Screen.TransparencyCustomization ->
-                        NavEntry(screen) {
-                            if (!airPodsViewModel.isReady) LoadingScreen()
-                            TransparencySettingsScreen(airPodsViewModel)
-                        }
+                Screen.Accessibility ->
+                    NavEntry(screen) {
+                        if (!airPodsViewModel.isReady) LoadingScreen()
+                        AccessibilitySettingsScreen(
+                            viewModel = airPodsViewModel,
+                            navigateToPurchase = ::navigateToPurchase,
+                            navigateToTransparencyCustomization = { navigate(Screen.TransparencyCustomization) }
+                        )
+                    }
 
-                    Screen.HearingAid ->
-                        NavEntry(screen) {
-                            if (!airPodsViewModel.isReady) LoadingScreen()
-                            HearingAidScreen(
-                                viewModel = airPodsViewModel,
-                                onNavigateHearingAidAdjustments = { navigate(Screen.HearingAidAdjustments) },
-                                onNavigateHearingTest = { navigate(Screen.UpdateHearingTest) },
-                            )
-                        }
+                Screen.TransparencyCustomization ->
+                    NavEntry(screen) {
+                        if (!airPodsViewModel.isReady) LoadingScreen()
+                        TransparencySettingsScreen(airPodsViewModel)
+                    }
 
-                    Screen.HearingAidAdjustments ->
-                        NavEntry(screen) {
-                            if (!airPodsViewModel.isReady) LoadingScreen()
-                            HearingAidAdjustmentsScreen(airPodsViewModel)
-                        }
+                Screen.HearingAid ->
+                    NavEntry(screen) {
+                        if (!airPodsViewModel.isReady) LoadingScreen()
+                        HearingAidScreen(
+                            viewModel = airPodsViewModel,
+                            onNavigateHearingAidAdjustments = { navigate(Screen.HearingAidAdjustments) },
+                            onNavigateHearingTest = { navigate(Screen.UpdateHearingTest) },
+                        )
+                    }
 
-                    Screen.AdaptiveStrength ->
-                        NavEntry(screen) {
-                            if (!airPodsViewModel.isReady) LoadingScreen()
-                            AdaptiveStrengthScreen(airPodsViewModel, ::navigateToPurchase)
-                        }
+                Screen.HearingAidAdjustments ->
+                    NavEntry(screen) {
+                        if (!airPodsViewModel.isReady) LoadingScreen()
+                        HearingAidAdjustmentsScreen(airPodsViewModel)
+                    }
+
+                Screen.AdaptiveStrength ->
+                    NavEntry(screen) {
+                        if (!airPodsViewModel.isReady) LoadingScreen()
+                        AdaptiveStrengthScreen(airPodsViewModel, ::navigateToPurchase)
+                    }
 
 //                Screen.CameraControl ->
 //                    NavEntry(screen) {
 //                        CameraControlScreen(airPodsViewModel)
 //                    }
 
-                    Screen.OpenSourceLicenses ->
-                        NavEntry(screen) {
-                            OpenSourceLicensesScreen()
-                        }
+                Screen.OpenSourceLicenses ->
+                    NavEntry(screen) {
+                        OpenSourceLicensesScreen()
+                    }
 
-                    Screen.UpdateHearingTest ->
-                        NavEntry(screen) {
-                            UpdateHearingTestRoute(airPodsViewModel)
-                        }
+                Screen.UpdateHearingTest ->
+                    NavEntry(screen) {
+                        UpdateHearingTestRoute(airPodsViewModel)
+                    }
 
-                    Screen.VersionInfo ->
-                        NavEntry(screen) {
-                            if (!airPodsViewModel.isReady) LoadingScreen()
-                            VersionScreen(airPodsViewModel)
-                        }
+                Screen.VersionInfo ->
+                    NavEntry(screen) {
+                        if (!airPodsViewModel.isReady) LoadingScreen()
+                        VersionScreen(airPodsViewModel)
+                    }
 
-                    Screen.HearingProtection ->
-                        NavEntry(screen) {
-                            if (!airPodsViewModel.isReady) LoadingScreen()
-                            HearingProtectionScreen(
-                                viewModel = airPodsViewModel,
-                                navigateToPurchase = ::navigateToPurchase
-                            )
-                        }
-
-                    Screen.Purchase ->
-                        NavEntry(screen) {
-                            val vm: PurchaseViewModel = viewModel()
-                            PurchaseScreen(vm, backStack)
-                        }
-
-                    Screen.Equalizer ->
-                        NavEntry(screen) {
-                            if (!airPodsViewModel.isReady) LoadingScreen()
-                            EqualizerRoute(airPodsViewModel)
-                        }
-
-                    is Screen.LongPress ->
-                        NavEntry(screen) {
-                            if (!airPodsViewModel.isReady) LoadingScreen()
-                            LongPress(
-                                viewModel = airPodsViewModel,
-                                name = screen.bud,
-                                navigateToPurchase = ::navigateToPurchase
-                            )
-                        }
-
-                    is Screen.CallControl ->
-                        NavEntry(screen) {
-                            if (!airPodsViewModel.isReady) LoadingScreen()
-                            CallControlScreen(
-                                viewModel = airPodsViewModel,
-                                action = screen.action,
-                                onCallControlValueChanged = { flipped ->
-                                    airPodsViewModel.setControlCommandValue(
-                                        AACPManager.Companion.ControlCommandIdentifiers.CALL_MANAGEMENT_CONFIG,
-                                        if (flipped) byteArrayOf(0x00, 0x02) else byteArrayOf(
-                                            0x00,
-                                            0x03
-                                        )
-                                    )
-                                }
-                            )
-                        }
-
-                    is Screen.MicrophoneSettings ->
-                        NavEntry(screen) {
-                            if (!airPodsViewModel.isReady) LoadingScreen()
-                            MicrophoneSettingsRoute(viewModel = airPodsViewModel)
-                        }
-
-                    is Screen.ReleaseNotes ->
-                        NavEntry(screen) {
-                            ReleaseNotesScreen(
-                                updates = if (firstRunGuide) gettingStartedGuide else updates,
-                                isFirstRun = firstRunGuide,
-                                releaseNotesShown = {
-                                    if (showReleaseNotes) {
-                                        navigate(Screen.AirPodsSettings)
-                                        backStack.remove(screen)
-                                        updatesShown()
-                                    } else {
-                                        backStack.removeAt(backStack.lastIndex)
-                                    }
-                                }
-                            )
-                        }
-                }
-            },
-            transitionSpec = {
-                slideInHorizontally { it } togetherWith slideOutHorizontally { -it / 4 }
-            },
-            popTransitionSpec = {
-                slideInHorizontally { -it / 4 } togetherWith slideOutHorizontally { it }
-            },
-            predictivePopTransitionSpec = { swipeEdge ->
-                if (m3eEnabled) {
-                    val enterOffset: (Int) -> Int =
-                        if (swipeEdge == EDGE_LEFT) {
-                            { -it / 6 }
-                        } else {
-                            { it / 6 }
-                        }
-
-                    val exitOffset: (Int) -> Int =
-                        if (swipeEdge == EDGE_LEFT) {
-                            { it / 8 }
-                        } else {
-                            { -it / 8 }
-                        }
-
-                    fadeIn(
-                        animationSpec = tween(250)
-                    ) +
-                        slideInHorizontally(
-                            initialOffsetX = enterOffset,
-                            animationSpec = tween(250)
-                        ) togetherWith
-                        fadeOut(
-                            targetAlpha = 0.75f,
-                            animationSpec = tween(250)
-                        ) +
-                        scaleOut(
-                            targetScale = 0.85f,
-                            animationSpec = tween(250)
-                        ) +
-                        slideOutHorizontally(
-                            targetOffsetX = exitOffset,
-                            animationSpec = tween(250)
+                Screen.HearingProtection ->
+                    NavEntry(screen) {
+                        if (!airPodsViewModel.isReady) LoadingScreen()
+                        HearingProtectionScreen(
+                            viewModel = airPodsViewModel,
+                            navigateToPurchase = ::navigateToPurchase
                         )
+                    }
+
+                Screen.Purchase ->
+                    NavEntry(screen) {
+                        val vm: PurchaseViewModel = viewModel()
+                        PurchaseScreen(vm, backStack)
+                    }
+
+                Screen.Equalizer ->
+                    NavEntry(screen) {
+                        if (!airPodsViewModel.isReady) LoadingScreen()
+                        EqualizerRoute(airPodsViewModel)
+                    }
+
+                is Screen.LongPress ->
+                    NavEntry(screen) {
+                        if (!airPodsViewModel.isReady) LoadingScreen()
+                        LongPress(
+                            viewModel = airPodsViewModel,
+                            name = screen.bud,
+                            navigateToPurchase = ::navigateToPurchase
+                        )
+                    }
+
+                is Screen.CallControl ->
+                    NavEntry(screen) {
+                        if (!airPodsViewModel.isReady) LoadingScreen()
+                        CallControlScreen(
+                            viewModel = airPodsViewModel,
+                            action = screen.action,
+                            onCallControlValueChanged = { flipped ->
+                                airPodsViewModel.setControlCommandValue(
+                                    AACPManager.Companion.ControlCommandIdentifiers.CALL_MANAGEMENT_CONFIG,
+                                    if (flipped) byteArrayOf(0x00, 0x02) else byteArrayOf(
+                                        0x00,
+                                        0x03
+                                    )
+                                )
+                            }
+                        )
+                    }
+
+                is Screen.MicrophoneSettings ->
+                    NavEntry(screen) {
+                        if (!airPodsViewModel.isReady) LoadingScreen()
+                        MicrophoneSettingsRoute(viewModel = airPodsViewModel)
+                    }
+
+                is Screen.ReleaseNotes ->
+                    NavEntry(screen) {
+                        ReleaseNotesScreen(
+                            updates = if (firstRunGuide) gettingStartedGuide else updates,
+                            isFirstRun = firstRunGuide,
+                            releaseNotesShown = {
+                                if (showReleaseNotes) {
+                                    backStack[backStack.lastIndex] = Screen.AirPodsSettings
+                                    updatesShown()
+                                } else {
+                                    backStack.removeAt(backStack.lastIndex)
+                                }
+                            }
+                        )
+                    }
+            }
+        },
+        transitionSpec = {
+            val navigationDuration = if (m3eEnabled) 300 else 320
+            val navigationEasing = FastOutSlowInEasing
+            slideInHorizontally(
+                initialOffsetX = { it },
+                animationSpec = tween(navigationDuration, easing = navigationEasing),
+            ) togetherWith slideOutHorizontally(
+                targetOffsetX = { -it / 4 },
+                animationSpec = tween(navigationDuration, easing = navigationEasing),
+            )
+        },
+        popTransitionSpec = {
+            val navigationDuration = if (m3eEnabled) 300 else 320
+            val navigationEasing = FastOutSlowInEasing
+            slideInHorizontally(
+                initialOffsetX = { -it / 4 },
+                animationSpec = tween(navigationDuration, easing = navigationEasing),
+            ) togetherWith slideOutHorizontally(
+                targetOffsetX = { it },
+                animationSpec = tween(navigationDuration, easing = navigationEasing),
+            )
+        },
+        predictivePopTransitionSpec = { swipeEdge ->
+            val enterOffset: (Int) -> Int =
+                if (swipeEdge == EDGE_LEFT) {
+                    { -it / 4 }
                 } else {
-                    slideInHorizontally { -it / 4 } togetherWith slideOutHorizontally { it }
+                    { it / 4 }
                 }
-            },
-        )
-    }
+            val exitOffset: (Int) -> Int =
+                if (swipeEdge == EDGE_LEFT) {
+                    { it }
+                } else {
+                    { -it }
+                }
+            val predictiveDuration = if (m3eEnabled) 240 else 280
+            val predictiveEasing = FastOutSlowInEasing
+            slideInHorizontally(
+                initialOffsetX = enterOffset,
+                animationSpec = tween(predictiveDuration, easing = predictiveEasing),
+            ) togetherWith slideOutHorizontally(
+                targetOffsetX = exitOffset,
+                animationSpec = tween(predictiveDuration, easing = predictiveEasing),
+            )
+        },
+    )
 }

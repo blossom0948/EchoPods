@@ -7,5 +7,6 @@ class FossVariantConfigurationTest {
     @Test
     fun fossFlavorKeepsTheGithubSelfUpdaterEnabled() {
         assertFalse(BuildConfig.PLAY_BUILD)
+        assertFalse(BuildConfig.STORE_BUILD)
     }
 }

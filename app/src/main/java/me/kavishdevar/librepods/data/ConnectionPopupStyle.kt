@@ -5,7 +5,8 @@ import java.util.Locale
 /** The single presentation mode used for connection and case-open popups. */
 enum class ConnectionPopupStyle(val preferenceValue: String) {
     BOTTOM_SHEET("BOTTOM_SHEET"),
-    DYNAMIC_ISLAND("DYNAMIC_ISLAND");
+    DYNAMIC_ISLAND("DYNAMIC_ISLAND"),
+    DISABLED("DISABLED");
 
     companion object {
         fun fromPreferences(
@@ -15,6 +16,7 @@ enum class ConnectionPopupStyle(val preferenceValue: String) {
         ): ConnectionPopupStyle = when (storedValue?.uppercase(Locale.ROOT)) {
             BOTTOM_SHEET.preferenceValue -> BOTTOM_SHEET
             DYNAMIC_ISLAND.preferenceValue -> DYNAMIC_ISLAND
+            DISABLED.preferenceValue -> DISABLED
             // Migrate an old single-choice configuration. If both old toggles were on,
             // prefer the bottom card so first launch cannot show two popups.
             else -> if (legacyIslandEnabled && !legacyBottomSheetEnabled) {

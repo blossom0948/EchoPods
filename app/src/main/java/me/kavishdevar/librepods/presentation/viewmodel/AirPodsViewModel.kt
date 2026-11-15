@@ -42,7 +42,6 @@ import kotlinx.coroutines.withContext
 import java.lang.ref.WeakReference
 import me.kavishdevar.librepods.BuildConfig
 import me.kavishdevar.librepods.R
-import me.kavishdevar.librepods.billing.BillingManager
 import me.kavishdevar.librepods.bluetooth.AACPManager
 import me.kavishdevar.librepods.bluetooth.AACPManager.Companion.ControlCommandIdentifiers
 import me.kavishdevar.librepods.bluetooth.HeartRateStreamState
@@ -106,7 +105,7 @@ data class AirPodsUiState(
     val transparencyData: ByteArray = byteArrayOf(),
     val hearingAidData: ByteArray = byteArrayOf(),
 
-    val isPremium: Boolean = false,
+    val isPremium: Boolean = true,
     val vendorIdHook: Boolean = false,
 
     val dynamicEndOfCharge: Boolean = false,
@@ -240,7 +239,6 @@ class AirPodsViewModel(
         loadATT()
         observeATT()
         observeSharedPreferences()
-        observeBilling()
         if (isDemoMode) activateDemoMode()
         isReady = true
     }
@@ -321,30 +319,6 @@ class AirPodsViewModel(
     private fun loadName() {
         val name = sharedPreferences.getString("name", "AirPods Pro")!!
         _uiState.update { it.copy(deviceName = name) }
-    }
-
-    private fun observeBilling() {
-        if (isDemoMode) return
-        viewModelScope.launch {
-            BillingManager.provider.isPremium.collect { premium ->
-                if (premium) {
-                    sharedPreferences.edit {
-                        remove("premium_expiry_time")
-                        if (BuildConfig.PLAY_BUILD) remove("foss_upgraded")
-                    }
-                    _uiState.update { it.copy(isPremium = true, timeUntilFOSSPremiumExpiry = 0L) }
-                } else {
-                    if (_uiState.value.timeUntilFOSSPremiumExpiry <= 0L) {
-                        setControlCommandBoolean(
-                            ControlCommandIdentifiers.CONVERSATION_DETECT_CONFIG,
-                            false
-                        )
-                        setHeadGesturesEnabled(false)
-                        _uiState.update { it.copy(isPremium = false) }
-                    }
-                }
-            }
-        }
     }
 
     private fun observeSharedPreferences() {
@@ -654,54 +628,6 @@ class AirPodsViewModel(
             )
         }
 
-        // faulty update on Play caused PLAY_BUILD to be false and resulted in use of FOSS billing in Play. since FOSS is not verified, we need to give 2 weeks to verify the purchase
-        if (BuildConfig.PLAY_BUILD) {
-            val fossUpgraded = sharedPreferences.getBoolean("foss_upgraded", false)
-            val expiryTime = sharedPreferences.getLong("premium_expiry_time", 0L)
-            val now = System.currentTimeMillis()
-
-            when {
-                // existing temporary premium
-                expiryTime > 0L -> {
-                    if (expiryTime <= now) {
-                        sharedPreferences.edit {
-                            remove("premium_expiry_time")
-                            remove("foss_upgraded")
-                        }
-
-                        _uiState.update {
-                            it.copy(
-                                timeUntilFOSSPremiumExpiry = 0L,
-                                isPremium = false
-                            )
-                        }
-                    } else {
-                        _uiState.update {
-                            it.copy(
-                                timeUntilFOSSPremiumExpiry = expiryTime - now,
-                                isPremium = true
-                            )
-                        }
-                    }
-                }
-
-                // First migration from accidental FOSS Play build
-                fossUpgraded && !_uiState.value.isPremium -> {
-                    val newExpiry = now + 28L * 24 * 60 * 60 * 1000
-
-                    sharedPreferences.edit {
-                        putLong("premium_expiry_time", newExpiry)
-                    }
-
-                    _uiState.update {
-                        it.copy(
-                            timeUntilFOSSPremiumExpiry = newExpiry - now,
-                            isPremium = true
-                        )
-                    }
-                }
-            }
-        }
     }
 
     fun setOffListeningMode(enabled: Boolean) {
@@ -763,33 +689,38 @@ class AirPodsViewModel(
     }
 
     private fun loadInstance() {
-        val instance = service.airpodsInstance ?: AirPodsInstance(
-            name = "AirPods",
-            model = AirPodsModels.getModelByModelNumber("A3049")!!,
-            actualModelNumber = "A3049",
-            serialNumber = null,
-            leftSerialNumber = null,
-            rightSerialNumber = null,
-            version1 = null,
-            version2 = null,
-            version3 = null,
-        )
+        // Do not guess Pro 2 when AACP has not identified the connected model yet.
+        // A guessed model leaks incorrect artwork and exposes controls the device may not have.
+        val instance = service.airpodsInstance
 
         _uiState.update {
-            it.copy(
-                capabilities = instance.model.capabilities,
-                instance = instance,
-                modelName = instance.model.displayName,
-                actualModel = instance.actualModelNumber,
-                serialNumbers = listOf(
-                    instance.serialNumber ?: "",
-                    instance.leftSerialNumber ?: "",
-                    instance.rightSerialNumber ?: ""
-                ),
-                version1 = instance.version1 ?: "",
-                version2 = instance.version2 ?: "",
-                version3 = instance.version3 ?: ""
-            )
+            if (instance == null) {
+                it.copy(
+                    capabilities = emptySet(),
+                    instance = null,
+                    modelName = "",
+                    actualModel = "",
+                    serialNumbers = emptyList(),
+                    version1 = "",
+                    version2 = "",
+                    version3 = "",
+                )
+            } else {
+                it.copy(
+                    capabilities = instance.model.capabilities,
+                    instance = instance,
+                    modelName = instance.model.displayName,
+                    actualModel = instance.actualModelNumber,
+                    serialNumbers = listOf(
+                        instance.serialNumber ?: "",
+                        instance.leftSerialNumber ?: "",
+                        instance.rightSerialNumber ?: ""
+                    ),
+                    version1 = instance.version1 ?: "",
+                    version2 = instance.version2 ?: "",
+                    version3 = instance.version3 ?: ""
+                )
+            }
         }
     }
 

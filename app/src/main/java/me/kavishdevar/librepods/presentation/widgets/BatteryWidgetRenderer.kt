@@ -26,7 +26,7 @@ internal object BatteryWidgetRingPolicy {
             ?: return BatteryWidgetRingStyle(sweepDegrees = 0f, progressColor = null)
         return BatteryWidgetRingStyle(
             sweepDegrees = knownLevel * 3.6f,
-            progressColor = if (knownLevel <= 20) LOW_RED else NORMAL_GREEN,
+            progressColor = if (knownLevel < 20) LOW_RED else NORMAL_GREEN,
         )
     }
 }

@@ -59,6 +59,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -212,6 +213,55 @@ class MomentumAnimation(
         }
     }
 }
+
+/**
+ * The shared iOS slider thumb treatment. Keep other slider-like controls on
+ * this same backdrop, lens and momentum path so the glass response stays
+ * consistent across the app.
+ */
+fun Modifier.liquidGlassSliderThumb(
+    backdrop: Backdrop,
+    momentumAnimation: MomentumAnimation,
+    shape: Shape = RoundedCornerShape(28.dp),
+    surfaceColor: Color = Color.White,
+    chromaticAberration: Boolean = true,
+    idleProgress: Float = 0f,
+): Modifier = drawBackdrop(
+    backdrop = backdrop,
+    shape = { shape },
+    highlight = {
+        Highlight.Ambient.copy(alpha = momentumAnimation.progress.coerceAtLeast(idleProgress))
+    },
+    shadow = {
+        Shadow(radius = 4f.dp, color = Color.Black.copy(0.05f))
+    },
+    innerShadow = {
+        InnerShadow(
+            radius = 4f.dp * momentumAnimation.progress.coerceAtLeast(idleProgress),
+            alpha = momentumAnimation.progress.coerceAtLeast(idleProgress),
+        )
+    },
+    layerBlock = {
+        scaleX = momentumAnimation.scaleX
+        scaleY = momentumAnimation.scaleY
+        val velocity = momentumAnimation.velocity / 5000f
+        scaleX /= 1f - (velocity * 0.75f).fastCoerceIn(-0.15f, 0.15f)
+        scaleY *= 1f - (velocity * 0.25f).fastCoerceIn(-0.15f, 0.15f)
+    },
+    onDrawSurface = {
+        drawRect(surfaceColor.copy(alpha = 1f - momentumAnimation.progress.coerceAtLeast(idleProgress)))
+    },
+    effects = {
+        val progress = momentumAnimation.progress.coerceAtLeast(idleProgress)
+        blur(8f.dp.toPx() * (1f - progress))
+        lens(
+            refractionHeight = 6f.dp.toPx() * progress,
+            refractionAmount = size.height / 2f * progress,
+            depthEffect = true,
+            chromaticAberration = chromaticAberration,
+        )
+    },
+)
 
 @SuppressLint("UnrememberedMutableState")
 @Composable
@@ -367,13 +417,7 @@ fun StyledSlider(
             val trackColor =
                 if (isDarkTheme) Color(0xFF787880).copy(0.36f)
                 else Color(0xFF787878).copy(0.2f)
-            val accentColor =
-                if (enabled) {
-                    if (isDarkTheme) Color(0xFF0091FF)
-                    else Color(0xFF0088FF)
-                } else {
-                    trackColor
-                }
+            val accentColor = if (enabled) MaterialTheme.colorScheme.primary else trackColor
             val labelTextColor = if (isDarkTheme) Color.White else Color.Black
 
             val fraction by derivedStateOf {
@@ -638,53 +682,11 @@ fun StyledSlider(
                                             }
                                         )
                                         .then(momentumAnimation.modifier)
-                                        .drawBackdrop(
-                                            rememberCombinedBackdrop(backdrop, sliderBackdrop),
-                                            { RoundedCornerShape(28.dp) },
-                                            highlight = {
-                                                val progress = momentumAnimation.progress
-                                                Highlight.Ambient.copy(alpha = progress)
-                                            },
-                                            shadow = {
-                                                Shadow(
-                                                    radius = 4f.dp,
-                                                    color = Color.Black.copy(0.05f)
-                                                )
-                                            },
-                                            innerShadow = {
-                                                val progress = momentumAnimation.progress
-                                                InnerShadow(
-                                                    radius = 4f.dp * progress,
-                                                    alpha = progress
-                                                )
-                                            },
-                                            layerBlock = {
-                                                scaleX = momentumAnimation.scaleX
-                                                scaleY = momentumAnimation.scaleY
-                                                val velocity = momentumAnimation.velocity / 5000f
-                                                scaleX /= 1f - (velocity * 0.75f).fastCoerceIn(
-                                                    -0.15f,
-                                                    0.15f
-                                                )
-                                                scaleY *= 1f - (velocity * 0.25f).fastCoerceIn(
-                                                    -0.15f,
-                                                    0.15f
-                                                )
-                                            },
-                                            onDrawSurface = {
-                                                val progress = momentumAnimation.progress
-                                                drawRect(Color.White.copy(alpha = 1f - progress))
-                                            },
-                                            effects = {
-                                                val progress = momentumAnimation.progress
-                                                blur(8f.dp.toPx() * (1f - progress))
-                                                lens(
-                                                    refractionHeight = 6f.dp.toPx() * progress,
-                                                    refractionAmount = size.height / 2f * progress,
-                                                    depthEffect = true,
-                                                    chromaticAberration = true
-                                                )
-                                            }
+                                        .liquidGlassSliderThumb(
+                                            backdrop = rememberCombinedBackdrop(backdrop, sliderBackdrop),
+                                            momentumAnimation = momentumAnimation,
+                                            shape = RoundedCornerShape(28.dp),
+                                            chromaticAberration = true,
                                         )
                                 } else {
                                     Modifier.background(trackColor, RoundedCornerShape(28.dp))

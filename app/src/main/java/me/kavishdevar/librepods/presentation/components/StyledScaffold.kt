@@ -25,6 +25,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -128,7 +130,7 @@ fun StyledScaffold(
                                 }
                             },
                             title = {
-                                Crossfade(targetState = title) {
+                                Crossfade(targetState = title, animationSpec = tween(160)) {
                                     Text(
                                         text = it,
                                         maxLines = 1,
@@ -177,13 +179,13 @@ fun StyledScaffold(
                     val bgColor = MaterialTheme.colorScheme.surfaceContainer
                     AnimatedVisibility(
                         visible = showBackButton,
-                        enter = fadeIn() + scaleIn(
-                            initialScale = 0f,
-                            animationSpec = tween()
+                        enter = fadeIn(animationSpec = tween(170)) + scaleIn(
+                            initialScale = 0.92f,
+                            animationSpec = tween(200)
                         ),
-                        exit = fadeOut() + scaleOut(
-                            targetScale = 0.5f,
-                            animationSpec = tween(100)
+                        exit = fadeOut(animationSpec = tween(120)) + scaleOut(
+                            targetScale = 0.96f,
+                            animationSpec = tween(120)
                         ),
                         modifier = Modifier
                             .zIndex(3f)
@@ -199,13 +201,13 @@ fun StyledScaffold(
 
                     AnimatedVisibility(
                         visible = visible,
-                        enter = fadeIn() + scaleIn(
-                            initialScale = 0f,
-                            animationSpec = tween()
+                        enter = fadeIn(animationSpec = tween(180)) + slideInVertically(
+                            initialOffsetY = { -it / 12 },
+                            animationSpec = tween(220)
                         ),
-                        exit = fadeOut() + scaleOut(
-                            targetScale = 0.5f,
-                            animationSpec = tween(100)
+                        exit = fadeOut(animationSpec = tween(140)) + slideOutVertically(
+                            targetOffsetY = { -it / 12 },
+                            animationSpec = tween(140)
                         ),
                         modifier = Modifier
                             .zIndex(2f)
@@ -231,7 +233,7 @@ fun StyledScaffold(
 
                             Column(modifier = Modifier.fillMaxSize()) {
                                 Spacer(modifier = Modifier.height(topPadding + 12.dp))
-                                Crossfade(targetState = title) {
+                                Crossfade(targetState = title, animationSpec = tween(160)) {
                                     Text(
                                         text = it,
                                         style = TextStyle(
@@ -250,13 +252,13 @@ fun StyledScaffold(
 
                     AnimatedVisibility(
                         visible = visible && actionButtons.isNotEmpty(),
-                        enter = fadeIn() + scaleIn(
-                            initialScale = 0f,
-                            animationSpec = tween()
+                        enter = fadeIn(animationSpec = tween(170)) + slideInHorizontally(
+                            initialOffsetX = { it / 10 },
+                            animationSpec = tween(220)
                         ),
-                        exit = fadeOut() + scaleOut(
-                            targetScale = 0.5f,
-                            animationSpec = tween(100)
+                        exit = fadeOut(animationSpec = tween(130)) + slideOutHorizontally(
+                            targetOffsetX = { it / 10 },
+                            animationSpec = tween(140)
                         ),
                         modifier = Modifier
                             .zIndex(3f)

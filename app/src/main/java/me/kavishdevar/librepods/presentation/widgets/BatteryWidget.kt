@@ -122,6 +122,10 @@ class BatteryWidget : AppWidgetProvider() {
 
     companion object {
         private val widgetLayouts = linkedMapOf(
+            // One UI on Fold4 reports a 2×2 home widget as ~168×215dp rather than square.
+            // Give that exact host size the square composition so the launcher does not
+            // select the 1×2 portrait fallback and stack all four battery rings vertically.
+            SizeF(168.38f, 214.85f) to R.layout.battery_widget,
             SizeF(180f, 180f) to R.layout.battery_widget,
             SizeF(180f, 90f) to R.layout.battery_widget_wide,
             SizeF(300f, 90f) to R.layout.battery_widget_wide,

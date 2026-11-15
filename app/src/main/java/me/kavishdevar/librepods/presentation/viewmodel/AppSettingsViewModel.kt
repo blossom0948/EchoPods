@@ -11,12 +11,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import me.kavishdevar.librepods.BuildConfig
-import me.kavishdevar.librepods.billing.BillingManager
 import me.kavishdevar.librepods.data.ConnectionPopupStyle
+import me.kavishdevar.librepods.data.IslandPopupSize
 import me.kavishdevar.librepods.data.XposedRemotePrefProvider
 import me.kavishdevar.librepods.services.HealthWorkoutBridge
 import me.kavishdevar.librepods.utils.ConversationModeReturnPolicy
+import me.kavishdevar.librepods.utils.ConversationReturnBehavior
 import kotlin.math.roundToInt
 
 data class AppSettingsUiState(
@@ -24,6 +24,7 @@ data class AppSettingsUiState(
     val conversationalAwarenessPauseMusicEnabled: Boolean = false,
     val relativeConversationalAwarenessVolumeEnabled: Boolean = true,
     val conversationModeReturnDelaySeconds: Int = 0,
+    val conversationReturnBehavior: ConversationReturnBehavior = ConversationReturnBehavior.AIRPODS_DEFAULT,
     val disconnectWhenNotWearing: Boolean = false,
     val takeoverWhenDisconnected: Boolean = false,
     val takeoverWhenIdle: Boolean = false,
@@ -37,9 +38,10 @@ data class AppSettingsUiState(
     val cameraPackageValue: String = "",
     val cameraPackageError: String? = null,
     val vendorIdHook: Boolean = false,
-    val isPremium: Boolean = false,
+    val isPremium: Boolean = true,
     val connectionSuccessful: Boolean = false,
     val connectionPopupStyle: ConnectionPopupStyle = ConnectionPopupStyle.BOTTOM_SHEET,
+    val islandPopupSize: IslandPopupSize = IslandPopupSize.SMALL,
     val popupOnWearChange: Boolean = true,
     val automaticEarDetectionEnabled: Boolean = true,
     val mediaControlOnWearChangeEnabled: Boolean = true,
@@ -60,6 +62,9 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
             "connection_successful" -> _uiState.update {
                 it.copy(connectionSuccessful = sharedPref.getBoolean(key, false))
             }
+            "island_popup_size" -> _uiState.update {
+                it.copy(islandPopupSize = IslandPopupSize.fromPreference(sharedPref.getString(key, null)))
+            }
             "popup_on_wear_change" -> _uiState.update {
                 it.copy(popupOnWearChange = sharedPref.getBoolean(key, true))
             }
@@ -75,7 +80,6 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
 
     init {
         loadSettings()
-        observeBilling()
         sharedPreferences.registerOnSharedPreferenceChangeListener(sharedPrefListener)
     }
 
@@ -83,74 +87,7 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(sharedPrefListener)
     }
 
-    private fun observeBilling() {
-        viewModelScope.launch {
-            BillingManager.provider.isPremium.collect { premium ->
-                if (premium) {
-                    sharedPreferences.edit {
-                        remove("premium_expiry_time")
-                        if (BuildConfig.PLAY_BUILD) remove("foss_upgraded")
-                    }
-                    _uiState.update { it.copy(isPremium = true, timeUntilFOSSPremiumExpiry = 0L) }
-                } else {
-                    // No billing premium, only update if no temporary premium is active
-                    if (_uiState.value.timeUntilFOSSPremiumExpiry <= 0L) {
-                        _uiState.update { it.copy(isPremium = false) }
-                    }
-                }
-            }
-        }
-    }
-
     private fun loadSettings() {
-        // faulty update on Play caused PLAY_BUILD to be false and resulted in use of FOSS billing in Play. since FOSS is not verified, we need to give 2 weeks to verify the purchase
-
-        val fossUpgraded = sharedPreferences.getBoolean("foss_upgraded", false)
-        val expiryTime = sharedPreferences.getLong("premium_expiry_time", 0L)
-        val now = System.currentTimeMillis()
-
-        when {
-            // existing temporary premium
-            expiryTime > 0L -> {
-                if (expiryTime <= now) {
-                    sharedPreferences.edit {
-                        remove("premium_expiry_time")
-                        remove("foss_upgraded")
-                    }
-
-                    _uiState.update {
-                        it.copy(
-                            timeUntilFOSSPremiumExpiry = 0L,
-                            isPremium = false
-                        )
-                    }
-                } else {
-                    _uiState.update {
-                        it.copy(
-                            timeUntilFOSSPremiumExpiry = expiryTime - now,
-                            isPremium = true
-                        )
-                    }
-                }
-            }
-
-            // First migration from accidental FOSS Play build
-            fossUpgraded && !_uiState.value.isPremium && BuildConfig.PLAY_BUILD -> {
-                val newExpiry = now + 28L * 24 * 60 * 60 * 1000
-
-                sharedPreferences.edit {
-                    putLong("premium_expiry_time", newExpiry)
-                }
-
-                _uiState.update {
-                    it.copy(
-                        timeUntilFOSSPremiumExpiry = newExpiry - now,
-                        isPremium = true
-                    )
-                }
-            }
-        }
-
         val popupStyle = ConnectionPopupStyle.fromPreferences(
             storedValue = sharedPreferences.getString("connection_popup_style", null),
             legacyBottomSheetEnabled = sharedPreferences.getBoolean("show_bottom_sheet_popup", true),
@@ -161,15 +98,37 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
                 putString("connection_popup_style", popupStyle.preferenceValue)
             }
         }
+        val islandPopupSize = IslandPopupSize.fromPreference(
+            sharedPreferences.getString("island_popup_size", null),
+        )
+        if (!sharedPreferences.contains("island_popup_size")) {
+            sharedPreferences.edit { putString("island_popup_size", islandPopupSize.preferenceValue) }
+        }
+
+        val returnDelay = ConversationModeReturnPolicy.sanitizeDelay(
+            sharedPreferences.getInt("conversation_mode_return_delay_seconds", 0)
+        )
+        val returnBehavior = if (sharedPreferences.contains("conversation_mode_return_behavior")) {
+            ConversationReturnBehavior.fromPreference(
+                sharedPreferences.getInt("conversation_mode_return_behavior", 0)
+            )
+        } else {
+            if (returnDelay > 0) ConversationReturnBehavior.AFTER_SPEECH_ENDS
+            else ConversationReturnBehavior.AIRPODS_DEFAULT
+        }
+        if (!sharedPreferences.contains("conversation_mode_return_behavior")) {
+            sharedPreferences.edit {
+                putInt("conversation_mode_return_behavior", returnBehavior.preferenceValue)
+            }
+        }
 
         _uiState.update { currentState ->
             currentState.copy(
                 showPhoneBatteryInWidget = sharedPreferences.getBoolean("show_phone_battery_in_widget", false),
                 conversationalAwarenessPauseMusicEnabled = sharedPreferences.getBoolean("conversational_awareness_pause_music", false),
                 relativeConversationalAwarenessVolumeEnabled = sharedPreferences.getBoolean("relative_conversational_awareness_volume", true),
-                conversationModeReturnDelaySeconds = ConversationModeReturnPolicy.sanitizeDelay(
-                    sharedPreferences.getInt("conversation_mode_return_delay_seconds", 0)
-                ),
+                conversationModeReturnDelaySeconds = returnDelay,
+                conversationReturnBehavior = returnBehavior,
                 disconnectWhenNotWearing = sharedPreferences.getBoolean("disconnect_when_not_wearing", false),
                 takeoverWhenDisconnected = sharedPreferences.getBoolean("takeover_when_disconnected", false),
                 takeoverWhenIdle = sharedPreferences.getBoolean("takeover_when_idle", false),
@@ -184,6 +143,7 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
                 // This indicates a live AACP capability, not durable user data.
                 connectionSuccessful = false,
                 connectionPopupStyle = popupStyle,
+                islandPopupSize = islandPopupSize,
                 popupOnWearChange = sharedPreferences.getBoolean("popup_on_wear_change", true),
                 automaticEarDetectionEnabled = sharedPreferences.getBoolean("automatic_ear_detection", true),
                 mediaControlOnWearChangeEnabled = sharedPreferences.getBoolean("media_control_on_wear_change", true),
@@ -211,6 +171,11 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
         val safeSeconds = ConversationModeReturnPolicy.sanitizeDelay(seconds)
         sharedPreferences.edit { putInt("conversation_mode_return_delay_seconds", safeSeconds) }
         _uiState.update { it.copy(conversationModeReturnDelaySeconds = safeSeconds) }
+    }
+
+    fun setConversationReturnBehavior(behavior: ConversationReturnBehavior) {
+        sharedPreferences.edit { putInt("conversation_mode_return_behavior", behavior.preferenceValue) }
+        _uiState.update { it.copy(conversationReturnBehavior = behavior) }
     }
 
     fun setDisconnectWhenNotWearing(enabled: Boolean) {
@@ -287,6 +252,11 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
     fun setConnectionPopupStyle(style: ConnectionPopupStyle) {
         sharedPreferences.edit { putString("connection_popup_style", style.preferenceValue) }
         _uiState.update { it.copy(connectionPopupStyle = style) }
+    }
+
+    fun setIslandPopupSize(size: IslandPopupSize) {
+        sharedPreferences.edit { putString("island_popup_size", size.preferenceValue) }
+        _uiState.update { it.copy(islandPopupSize = size) }
     }
 
     fun setPopupOnWearChange(enabled: Boolean) {

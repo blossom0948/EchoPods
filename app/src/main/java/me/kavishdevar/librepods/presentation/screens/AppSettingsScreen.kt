@@ -25,6 +25,9 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -41,6 +44,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -69,6 +73,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -90,6 +95,7 @@ import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import me.kavishdevar.librepods.BuildConfig
 import me.kavishdevar.librepods.R
 import me.kavishdevar.librepods.data.ConnectionPopupStyle
+import me.kavishdevar.librepods.data.IslandPopupSize
 import me.kavishdevar.librepods.presentation.components.AppInfoCard
 import me.kavishdevar.librepods.presentation.components.DeviceInfoCard
 import me.kavishdevar.librepods.presentation.components.StyledBottomSheet
@@ -105,9 +111,11 @@ import me.kavishdevar.librepods.services.MediaSessionResolver
 import me.kavishdevar.librepods.presentation.theme.DesignSystem
 import me.kavishdevar.librepods.presentation.theme.LocalDesignSystem
 import me.kavishdevar.librepods.presentation.theme.MaterialTypography
+import me.kavishdevar.librepods.presentation.viewmodel.AppSettingsUiState
 import me.kavishdevar.librepods.presentation.viewmodel.AppSettingsViewModel
 import me.kavishdevar.librepods.utils.XposedState
 import me.kavishdevar.librepods.utils.ConversationModeReturnPolicy
+import me.kavishdevar.librepods.utils.ConversationReturnBehavior
 import com.galaxyairpods.update.UpdateInfo
 import com.galaxyairpods.update.UpdateManager
 import com.galaxyairpods.update.UpdateState
@@ -123,6 +131,103 @@ private fun formatConversationDelay(seconds: Int): String = when {
     else -> "${seconds} sec"
 }
 
+@Composable
+private fun ConversationReturnSettings(
+    state: AppSettingsUiState,
+    onBehaviorSelected: (ConversationReturnBehavior) -> Unit,
+    onDelayChanged: (Int) -> Unit,
+) {
+    val behavior = state.conversationReturnBehavior
+    val delay = state.conversationModeReturnDelaySeconds.takeIf { it > 0 } ?: 30
+    val delayText = formatConversationDelay(delay)
+    val timedBehavior = behavior == ConversationReturnBehavior.AFTER_SPEECH_ENDS ||
+        behavior == ConversationReturnBehavior.FIXED_AFTER_SPEECH_START
+
+    StyledList(title = stringResource(R.string.conversation_mode_return_section)) {
+        StyledListItem(
+            name = stringResource(R.string.conversation_mode_return_native),
+            description = stringResource(R.string.conversation_mode_return_native_description),
+            orientation = ListItemOrientation.Vertical,
+            selected = behavior == ConversationReturnBehavior.AIRPODS_DEFAULT,
+            onClick = { onBehaviorSelected(ConversationReturnBehavior.AIRPODS_DEFAULT) },
+            trailingContent = {
+                RadioButton(selected = behavior == ConversationReturnBehavior.AIRPODS_DEFAULT, onClick = null)
+            },
+        )
+        StyledListItem(
+            name = stringResource(R.string.conversation_mode_return_after_speech),
+            description = if (behavior == ConversationReturnBehavior.AFTER_SPEECH_ENDS) {
+                stringResource(R.string.conversation_mode_return_after_speech_selected, delayText)
+            } else {
+                stringResource(R.string.conversation_mode_return_after_speech_description)
+            },
+            orientation = ListItemOrientation.Vertical,
+            selected = behavior == ConversationReturnBehavior.AFTER_SPEECH_ENDS,
+            onClick = {
+                if (state.conversationModeReturnDelaySeconds == 0) onDelayChanged(30)
+                onBehaviorSelected(ConversationReturnBehavior.AFTER_SPEECH_ENDS)
+            },
+            trailingContent = {
+                RadioButton(
+                    selected = behavior == ConversationReturnBehavior.AFTER_SPEECH_ENDS,
+                    onClick = {
+                        if (state.conversationModeReturnDelaySeconds == 0) onDelayChanged(30)
+                        onBehaviorSelected(ConversationReturnBehavior.AFTER_SPEECH_ENDS)
+                    },
+                )
+            },
+        )
+        StyledListItem(
+            name = stringResource(R.string.conversation_mode_return_fixed),
+            description = if (behavior == ConversationReturnBehavior.FIXED_AFTER_SPEECH_START) {
+                stringResource(R.string.conversation_mode_return_fixed_selected, delayText)
+            } else {
+                stringResource(R.string.conversation_mode_return_fixed_description)
+            },
+            orientation = ListItemOrientation.Vertical,
+            selected = behavior == ConversationReturnBehavior.FIXED_AFTER_SPEECH_START,
+            onClick = {
+                if (state.conversationModeReturnDelaySeconds == 0) onDelayChanged(30)
+                onBehaviorSelected(ConversationReturnBehavior.FIXED_AFTER_SPEECH_START)
+            },
+            trailingContent = {
+                RadioButton(
+                    selected = behavior == ConversationReturnBehavior.FIXED_AFTER_SPEECH_START,
+                    onClick = {
+                        if (state.conversationModeReturnDelaySeconds == 0) onDelayChanged(30)
+                        onBehaviorSelected(ConversationReturnBehavior.FIXED_AFTER_SPEECH_START)
+                    },
+                )
+            },
+        )
+        StyledListItem(
+            name = stringResource(R.string.conversation_mode_return_manual),
+            description = stringResource(R.string.conversation_mode_return_manual_description),
+            orientation = ListItemOrientation.Vertical,
+            selected = behavior == ConversationReturnBehavior.MANUAL,
+            onClick = { onBehaviorSelected(ConversationReturnBehavior.MANUAL) },
+            trailingContent = {
+                RadioButton(selected = behavior == ConversationReturnBehavior.MANUAL, onClick = null)
+            },
+        )
+    }
+
+    if (timedBehavior) {
+        StyledSlider(
+            label = stringResource(R.string.conversation_mode_return_slider_label, formatConversationDelay(delay)),
+            description = stringResource(R.string.conversation_mode_return_slider_description),
+            value = delay.toFloat(),
+            valueRange = ConversationModeReturnPolicy.MIN_CUSTOM_DELAY_SECONDS.toFloat()..
+                ConversationModeReturnPolicy.MAX_CUSTOM_DELAY_SECONDS.toFloat(),
+            startLabel = stringResource(R.string.conversation_mode_return_min_label),
+            endLabel = stringResource(R.string.conversation_mode_return_max_label),
+            onValueChange = { onDelayChanged(it.toInt()) },
+            independent = true,
+            enabled = true,
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppSettingsScreen(
@@ -130,7 +235,8 @@ fun AppSettingsScreen(
     navigateToPurchase: () -> Unit,
     navigateToTroubleshooting: () -> Unit,
     navigateToOpenSourceLicenses: () -> Unit,
-    navigateToReleaseNotesScreen: () -> Unit
+    navigateToReleaseNotesScreen: () -> Unit,
+    navigateToLabs: () -> Unit,
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
@@ -186,22 +292,6 @@ fun AppSettingsScreen(
 
         val isDarkTheme = isSystemInDarkTheme()
 
-        if (!state.isPremium && state.connectionSuccessful) {
-            StyledButton(
-                onClick = navigateToPurchase,
-                backdrop = rememberLayerBackdrop(),
-                modifier = Modifier.fillMaxWidth(),
-                maxScale = 0.05f,
-                surfaceColor = MaterialTheme.colorScheme.primary
-            ) {
-                Text(
-                    stringResource(R.string.unlock_advanced_features),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-        }
         StyledList(title = stringResource(R.string.appearance)) {
             StyledListItem(
                 name = stringResource(R.string.appearance_android),
@@ -259,6 +349,20 @@ fun AppSettingsScreen(
                 }
             )
 
+            StyledListItem(
+                name = stringResource(R.string.popup_style_disabled),
+                description = stringResource(R.string.popup_style_disabled_description),
+                orientation = ListItemOrientation.Vertical,
+                selected = state.connectionPopupStyle == ConnectionPopupStyle.DISABLED,
+                onClick = { viewModel.setConnectionPopupStyle(ConnectionPopupStyle.DISABLED) },
+                trailingContent = {
+                    RadioButton(
+                        selected = state.connectionPopupStyle == ConnectionPopupStyle.DISABLED,
+                        onClick = null,
+                    )
+                },
+            )
+
             StyledToggle(
                 label = stringResource(R.string.show_popup_on_wear_change),
                 description = stringResource(R.string.show_popup_on_wear_change_description),
@@ -266,6 +370,24 @@ fun AppSettingsScreen(
                 onCheckedChange = viewModel::setPopupOnWearChange,
             )
         }
+        val islandPopupSizeName = when (state.islandPopupSize) {
+            IslandPopupSize.SMALL -> stringResource(R.string.island_popup_size_small)
+            IslandPopupSize.MEDIUM -> stringResource(R.string.island_popup_size_medium)
+            IslandPopupSize.LARGE -> stringResource(R.string.island_popup_size_large)
+        }
+        StyledSlider(
+            label = stringResource(R.string.island_popup_size_value, islandPopupSizeName),
+            description = stringResource(R.string.island_popup_size_description),
+            value = state.islandPopupSize.sliderPosition,
+            valueRange = IslandPopupSize.SMALL.sliderPosition..IslandPopupSize.LARGE.sliderPosition,
+            snapPoints = IslandPopupSize.entries.map { it.sliderPosition },
+            snapThreshold = 0.18f,
+            startLabel = stringResource(R.string.island_popup_size_small),
+            endLabel = stringResource(R.string.island_popup_size_large),
+            onValueChange = { viewModel.setIslandPopupSize(IslandPopupSize.fromSliderPosition(it)) },
+            independent = true,
+        )
+        IslandPopupSizePreview(size = state.islandPopupSize)
         Spacer(modifier = Modifier.height(16.dp))
 
         StyledList(title = stringResource(R.string.wear_detection_settings)) {
@@ -300,6 +422,13 @@ fun AppSettingsScreen(
         }
         Spacer(modifier = Modifier.height(16.dp))
 
+        ConversationReturnSettings(
+            state = state,
+            onBehaviorSelected = viewModel::setConversationReturnBehavior,
+            onDelayChanged = viewModel::setConversationModeReturnDelaySeconds,
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+
         if (state.connectionSuccessful) {
             StyledToggle(
                 title = stringResource(R.string.widget),
@@ -307,7 +436,6 @@ fun AppSettingsScreen(
                 description = stringResource(R.string.show_phone_battery_in_widget_description),
                 checked = state.showPhoneBatteryInWidget,
                 onCheckedChange = viewModel::setShowPhoneBatteryInWidget,
-                enabled = state.isPremium
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -318,7 +446,6 @@ fun AppSettingsScreen(
                     description = stringResource(R.string.conversational_awareness_pause_music_description),
                     checked = state.conversationalAwarenessPauseMusicEnabled,
                     onCheckedChange = viewModel::setConversationalAwarenessPauseMusicEnabled,
-                    enabled = state.isPremium
                 )
 
                 StyledToggle(
@@ -326,65 +453,9 @@ fun AppSettingsScreen(
                     description = stringResource(R.string.relative_conversational_awareness_volume_description),
                     checked = state.relativeConversationalAwarenessVolumeEnabled,
                     onCheckedChange = viewModel::setRelativeConversationalAwarenessVolumeEnabled,
-                    enabled = state.isPremium,
                 )
 
-                StyledListItem(
-                    name = stringResource(R.string.conversation_mode_return_native),
-                    description = stringResource(R.string.conversation_mode_return_native_description),
-                    orientation = ListItemOrientation.Vertical,
-                    selected = state.conversationModeReturnDelaySeconds == 0,
-                    onClick = { viewModel.setConversationModeReturnDelaySeconds(0) },
-                    trailingContent = {
-                        RadioButton(selected = state.conversationModeReturnDelaySeconds == 0, onClick = null)
-                    },
-                )
-                StyledListItem(
-                    name = stringResource(R.string.conversation_mode_return_custom),
-                    description = if (state.conversationModeReturnDelaySeconds == 0) {
-                        stringResource(R.string.conversation_mode_return_custom_unselected_description)
-                    } else {
-                        stringResource(
-                            R.string.conversation_mode_return_custom_description,
-                            formatConversationDelay(state.conversationModeReturnDelaySeconds),
-                        )
-                    },
-                    orientation = ListItemOrientation.Vertical,
-                    selected = state.conversationModeReturnDelaySeconds > 0,
-                    onClick = {
-                        if (state.conversationModeReturnDelaySeconds == 0) {
-                            viewModel.setConversationModeReturnDelaySeconds(30)
-                        }
-                    },
-                    trailingContent = {
-                        RadioButton(
-                            selected = state.conversationModeReturnDelaySeconds > 0,
-                            onClick = {
-                                if (state.conversationModeReturnDelaySeconds == 0) {
-                                    viewModel.setConversationModeReturnDelaySeconds(30)
-                                }
-                            },
-                        )
-                    },
-                )
             }
-
-            val returnDelay = state.conversationModeReturnDelaySeconds
-            StyledSlider(
-                label = stringResource(
-                    R.string.conversation_mode_return_slider_label,
-                    formatConversationDelay(returnDelay.takeIf { it > 0 } ?: 30),
-                ),
-                description = stringResource(R.string.conversation_mode_return_slider_description),
-                value = (returnDelay.takeIf { it > 0 } ?: 30).toFloat(),
-                valueRange = ConversationModeReturnPolicy.MIN_CUSTOM_DELAY_SECONDS.toFloat()..
-                    ConversationModeReturnPolicy.MAX_CUSTOM_DELAY_SECONDS.toFloat(),
-                startLabel = stringResource(R.string.conversation_mode_return_min_label),
-                endLabel = stringResource(R.string.conversation_mode_return_max_label),
-                onValueChange = { seconds -> viewModel.setConversationModeReturnDelaySeconds(seconds.toInt()) },
-                independent = true,
-                enabled = state.isPremium && returnDelay > 0,
-            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -406,7 +477,6 @@ fun AppSettingsScreen(
                     )
                 },
                 independent = true,
-                enabled = state.isPremium
             )
 
 //            if (!BuildConfig.PLAY_BUILD) {
@@ -433,7 +503,6 @@ fun AppSettingsScreen(
                     description = stringResource(R.string.disconnect_when_not_wearing_description),
                     checked = state.disconnectWhenNotWearing,
                     onCheckedChange = viewModel::setDisconnectWhenNotWearing,
-                    enabled = state.isPremium
                 )
             }
 
@@ -443,21 +512,18 @@ fun AppSettingsScreen(
                     description = stringResource(R.string.takeover_disconnected_desc),
                     checked = state.takeoverWhenDisconnected,
                     onCheckedChange = viewModel::setTakeoverWhenDisconnected,
-                    enabled = state.isPremium
                 )
                 StyledToggle(
                     label = stringResource(R.string.takeover_idle),
                     description = stringResource(R.string.takeover_idle_desc),
                     checked = state.takeoverWhenIdle,
                     onCheckedChange = viewModel::setTakeoverWhenIdle,
-                    enabled = state.isPremium
                 )
                 StyledToggle(
                     label = stringResource(R.string.takeover_music),
                     description = stringResource(R.string.takeover_music_desc),
                     checked = state.takeoverWhenMusic,
                     onCheckedChange = viewModel::setTakeoverWhenMusic,
-                    enabled = state.isPremium
                 )
 
                 StyledToggle(
@@ -465,7 +531,6 @@ fun AppSettingsScreen(
                     description = stringResource(R.string.takeover_call_desc),
                     checked = state.takeoverWhenCall,
                     onCheckedChange = viewModel::setTakeoverWhenCall,
-                    enabled = state.isPremium
                 )
             }
 
@@ -477,14 +542,12 @@ fun AppSettingsScreen(
                     description = stringResource(R.string.takeover_ringing_call_desc),
                     checked = state.takeoverWhenRingingCall,
                     onCheckedChange = viewModel::setTakeoverWhenRingingCall,
-                    enabled = state.isPremium
                 )
                 StyledToggle(
                     label = stringResource(R.string.takeover_media_start),
                     description = stringResource(R.string.takeover_media_start_desc),
                     checked = state.takeoverWhenMediaStart,
                     onCheckedChange = viewModel::setTakeoverWhenMediaStart,
-                    enabled = state.isPremium
                 )
             }
 
@@ -494,7 +557,6 @@ fun AppSettingsScreen(
                 description = stringResource(R.string.use_alternate_head_tracking_packets_description),
                 checked = state.useAlternateHeadTrackingPackets,
                 onCheckedChange = viewModel::setUseAlternateHeadTrackingPackets,
-                enabled = state.isPremium
             )
             Spacer(modifier = Modifier.height(16.dp))
         } else {
@@ -606,6 +668,17 @@ fun AppSettingsScreen(
         DeviceInfoCard()
         Spacer(modifier = Modifier.height(16.dp))
         AppInfoCard(navigateToReleaseNotesScreen)
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        StyledList(title = stringResource(R.string.labs)) {
+            StyledListItem(
+                name = stringResource(R.string.echo_health_name),
+                description = stringResource(R.string.echo_health_labs_description),
+                orientation = ListItemOrientation.Vertical,
+                onClick = navigateToLabs,
+            )
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -839,5 +912,70 @@ private fun UpdateCard(
             onClick = onCheck,
             enabled = !busy,
         )
+    }
+}
+
+@Composable
+private fun IslandPopupSizePreview(size: IslandPopupSize) {
+    val widthFraction by animateFloatAsState(
+        targetValue = when (size) {
+            IslandPopupSize.SMALL -> 0.60f
+            IslandPopupSize.MEDIUM -> 0.82f
+            IslandPopupSize.LARGE -> 0.95f
+        },
+        animationSpec = spring(dampingRatio = 0.82f, stiffness = 520f),
+        label = "islandSizePreview",
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.island_popup_preview),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(6.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(76.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerLow),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth(widthFraction)
+                    .padding(top = 12.dp)
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(Color.Black)
+                    .padding(horizontal = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.airpods),
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                )
+                Text(
+                    text = "AirPods Pro",
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 8.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White,
+                    maxLines = 1,
+                )
+                Image(
+                    painter = painterResource(R.drawable.ic_battery_outline),
+                    contentDescription = null,
+                    modifier = Modifier.size(width = 28.dp, height = 14.dp),
+                )
+            }
+        }
     }
 }

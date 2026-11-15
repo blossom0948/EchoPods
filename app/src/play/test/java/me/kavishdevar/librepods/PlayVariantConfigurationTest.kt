@@ -7,5 +7,6 @@ class PlayVariantConfigurationTest {
     @Test
     fun playFlavorDisablesTheGithubSelfUpdater() {
         assertTrue(BuildConfig.PLAY_BUILD)
+        assertTrue(BuildConfig.STORE_BUILD)
     }
 }

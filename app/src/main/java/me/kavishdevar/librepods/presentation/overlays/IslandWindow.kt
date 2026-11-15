@@ -61,10 +61,12 @@ import androidx.dynamicanimation.animation.DynamicAnimation
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
 import me.kavishdevar.librepods.R
+import me.kavishdevar.librepods.data.AirPodsBase
 import me.kavishdevar.librepods.data.AirPodsNotifications
 import me.kavishdevar.librepods.data.Battery
 import me.kavishdevar.librepods.data.BatteryComponent
 import me.kavishdevar.librepods.data.BatteryStatus
+import me.kavishdevar.librepods.data.IslandPopupSize
 import me.kavishdevar.librepods.services.ServiceManager
 import me.kavishdevar.librepods.utils.BatterySummaryPolicy
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -120,6 +122,9 @@ class IslandWindow(private val context: Context) {
     private var islandVideoTextureView: TextureView? = null
     private var islandVideoFallbackView: ImageView? = null
     private var islandRequestedVideoUri: Uri? = null
+    private var islandModel: AirPodsBase? = null
+
+    private val pro2ModelNumbers = setOf("A2931", "A2699", "A2698", "A3047", "A3048", "A3049")
 
     private val islandSurfaceTextureListener = object : TextureView.SurfaceTextureListener {
         override fun onSurfaceTextureAvailable(surfaceTexture: SurfaceTexture, width: Int, height: Int) {
@@ -193,12 +198,21 @@ class IslandWindow(private val context: Context) {
     @SuppressLint("SetTextI18s", "ClickableViewAccessibility", "UnspecifiedRegisterReceiverFlag",
         "SetTextI18n"
     )
-    fun show(name: String, batteryPercentage: Int, context: Context, type: IslandType = IslandType.CONNECTED, reversed: Boolean = false, otherDeviceName: String? = null) {
+    fun show(
+        name: String,
+        batteryPercentage: Int,
+        context: Context,
+        type: IslandType = IslandType.CONNECTED,
+        reversed: Boolean = false,
+        otherDeviceName: String? = null,
+        model: AirPodsBase? = null,
+        popupSize: IslandPopupSize = IslandPopupSize.SMALL,
+    ) {
         if (ServiceManager.getService()?.islandOpen == true) return
         else ServiceManager.getService()?.islandOpen = true
 
         val displayMetrics = Resources.getSystem().displayMetrics
-        val width = (displayMetrics.widthPixels * 0.95).toInt()
+        val width = popupSize.widthPx(displayMetrics.widthPixels, displayMetrics.density)
         screenHeight = displayMetrics.heightPixels
 
         val batteryList = ServiceManager.getService()?.getBattery()
@@ -387,7 +401,6 @@ class IslandWindow(private val context: Context) {
 
         val videoView = islandView.findViewById<TextureView>(R.id.island_video_view)
         val videoFallbackView = islandView.findViewById<ImageView>(R.id.island_video_fallback)
-        val videoUri = "android.resource://${context.packageName}/${R.raw.island}".toUri()
         islandVideoPrepared = false
         islandVideoSetupStarted = false
         islandEntranceComplete = false
@@ -397,18 +410,8 @@ class IslandWindow(private val context: Context) {
         islandVideoFallbackView = videoFallbackView
         videoView.isOpaque = false
         videoView.alpha = 0f
-        videoView.visibility = View.VISIBLE
         videoView.surfaceTextureListener = islandSurfaceTextureListener
-        videoFallbackView.setImageResource(R.drawable.airpods)
-        videoFallbackView.alpha = 1f
-        videoFallbackView.visibility = View.VISIBLE
-        fun prepareVideoAfterEntrance() {
-            if (islandEntranceComplete && !islandVideoSetupStarted && !isClosing) {
-                islandVideoSetupStarted = true
-                islandRequestedVideoUri = videoUri
-                prepareIslandVideoIfReady()
-            }
-        }
+        applyModelArtwork(model, animate = false)
         try {
             windowManager.addView(containerView, params)
         } catch (e: Exception) {
@@ -457,12 +460,87 @@ class IslandWindow(private val context: Context) {
                 override fun onAnimationEnd(animation: Animator) {
                     islandEntranceComplete = true
                     containerView.animate().setListener(null)
-                    prepareVideoAfterEntrance()
+                    if (usesPro2IslandVideo(islandModel)) {
+                        startPro2VideoIfReady()
+                    } else {
+                        animateModelArtworkEntrance()
+                    }
                 }
             })
             .start()
 
         resetAutoCloseTimer()
+    }
+
+    /** Refreshes the art when AACP identifies the model after the overlay has appeared. */
+    fun updateModel(model: AirPodsBase?) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { updateModel(model) }
+            return
+        }
+        if (!isVisible || isClosing) return
+        applyModelArtwork(model, animate = true)
+    }
+
+    private fun usesPro2IslandVideo(model: AirPodsBase?): Boolean =
+        model?.modelNumber?.any(pro2ModelNumbers::contains) == true
+
+    private fun applyModelArtwork(model: AirPodsBase?, animate: Boolean) {
+        islandModel = model
+        val videoView = islandVideoTextureView ?: return
+        val fallbackView = islandVideoFallbackView ?: return
+        fallbackView.animate().cancel()
+        videoView.animate().cancel()
+        fallbackView.setImageResource(model?.budsRes ?: R.drawable.airpods)
+        fallbackView.rotationY = 0f
+        fallbackView.visibility = View.VISIBLE
+
+        if (usesPro2IslandVideo(model)) {
+            videoView.visibility = View.VISIBLE
+            if (islandEntranceComplete) startPro2VideoIfReady()
+            return
+        }
+
+        releaseIslandVideoPlayer()
+        islandRequestedVideoUri = null
+        islandVideoSetupStarted = false
+        islandVideoPrepared = false
+        islandVideoFrameRevealed = false
+        videoView.alpha = 0f
+        videoView.visibility = View.GONE
+        fallbackView.alpha = if (animate && islandEntranceComplete) 0f else 1f
+        fallbackView.translationY = if (animate && islandEntranceComplete) 8f else 0f
+        fallbackView.scaleX = if (animate && islandEntranceComplete) 0.92f else 1f
+        fallbackView.scaleY = if (animate && islandEntranceComplete) 0.92f else 1f
+        if (animate && islandEntranceComplete) animateModelArtworkEntrance()
+    }
+
+    private fun animateModelArtworkEntrance() {
+        val artwork = islandVideoFallbackView ?: return
+        if (isClosing || usesPro2IslandVideo(islandModel)) return
+        artwork.visibility = View.VISIBLE
+        artwork.animate().cancel()
+        artwork.rotationY = 0f
+        artwork.cameraDistance = context.resources.displayMetrics.density * 2400f
+        artwork.animate()
+            .alpha(1f)
+            .translationY(0f)
+            .scaleX(1f)
+            .scaleY(1f)
+            .rotationY(360f)
+            .setDuration(720L)
+            .setInterpolator(DecelerateInterpolator(1.5f))
+            .withEndAction { artwork.rotationY = 0f }
+            .start()
+    }
+
+    private fun startPro2VideoIfReady() {
+        if (!islandEntranceComplete || islandVideoSetupStarted || isClosing) return
+        val videoView = islandVideoTextureView ?: return
+        videoView.visibility = View.VISIBLE
+        islandVideoSetupStarted = true
+        islandRequestedVideoUri = "android.resource://${context.packageName}/${R.raw.island}".toUri()
+        prepareIslandVideoIfReady()
     }
 
     private fun prepareIslandVideoIfReady() {

@@ -8,7 +8,8 @@ class BatteryWidgetRingPolicyTest {
     @Test
     fun twentyPercentIsLowAndTwentyOnePercentIsNormal() {
         assertEquals(72f, BatteryWidgetRingPolicy.style(20).sweepDegrees, 0.001f)
-        assertEquals(BatteryWidgetRingPolicy.LOW_RED, BatteryWidgetRingPolicy.style(20).progressColor)
+        assertEquals(BatteryWidgetRingPolicy.NORMAL_GREEN, BatteryWidgetRingPolicy.style(20).progressColor)
+        assertEquals(BatteryWidgetRingPolicy.LOW_RED, BatteryWidgetRingPolicy.style(19).progressColor)
         assertEquals(BatteryWidgetRingPolicy.NORMAL_GREEN, BatteryWidgetRingPolicy.style(21).progressColor)
     }
 

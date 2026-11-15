@@ -2,13 +2,13 @@
 
 ## 사용자가 할 일
 
-1. 공개할 `foss` APK를 안정적인 배포 서명 키로 빌드합니다.
-2. GitHub에서 `v버전명` 형식의 Release를 만들고, APK를 정확히 `app-foss-release.apk`라는 이름으로 첨부해 게시합니다.
+1. 공개할 `foss` APK를 현재 설치본과 같은 서명 인증서로 빌드합니다.
+2. GitHub에서 `v버전명` 형식의 Release를 만들고 `app-foss-release.apk`와 동반 앱을 함께 게시합니다. Echo Health APK는 `echo-health.apk`라는 파일명으로 첨부해야 합니다.
 3. Release 게시 후 `Update in-app release metadata` 작업이 자동 실행되어 APK SHA-256과 다운로드 주소를 `update.json`에 반영합니다.
 
 앱은 `update.json`의 더 높은 `versionCode`를 발견하면 APK를 내려받고 해시·패키지·버전을 검사한 뒤 Android 설치 화면을 요청합니다. 앱을 열 때 확인하고, AirPods 백그라운드 서비스가 실행 중이면 30분 간격으로도 확인합니다. 서비스가 중지된 동안에는 주기 확인이 보장되지 않으며, 다음 앱 실행 때 다시 확인합니다. 재실행해도 같은 릴리스 메타데이터라면 작업은 안전하게 끝나며, 낮거나 같은 버전 코드로 다른 파일을 덮어쓰지는 않습니다. 워크플로에는 `contents: write`만 명시해 `update.json` 갱신에 필요한 최소 권한만 줍니다. 저장소/조직 정책이나 `main` 브랜치 보호 규칙이 이를 제한하면 GitHub Actions 설정에서 해당 쓰기를 허용해야 합니다.
 
-릴리스 APK는 현재 사용자 설치본과 동일한 서명 인증서로 서명되어야 하고 `versionCode`를 올려야 합니다. 이 저장소에는 FOSS 배포 키를 GitHub Actions에 넣지 않았으므로 APK 빌드·서명·Release 첨부 자체는 자동화하지 않습니다. 특히 Android 기본 debug 키를 CI 배포용 키로 복사하거나 새 키로 바꾸지 마세요. 서명이 바뀌면 기존 앱을 업데이트할 수 없을 수 있습니다.
+릴리스 APK는 현재 사용자 설치본과 동일한 서명 인증서로 서명되어야 하고 `versionCode`를 올려야 합니다. 공개 v0.6.0은 로컬 Android Debug 인증서로 서명되어 있습니다. v0.6.2도 기존 설치본을 업데이트할 수 있도록 같은 로컬 인증서로 서명하고, 키 파일은 저장소나 GitHub Actions에 올리지 않습니다. 이 서명은 Play Store/Galaxy Store 배포용이 아닙니다. 향후 스토어 서명으로 옮기면 기존 사용자는 앱을 제거한 뒤 새 서명의 앱을 다시 설치해야 할 수 있으므로, 서명을 조용히 교체하지 마세요. EchoPods와 Echo Health도 같은 인증서로 서명되어야 앱 간 심박 브리지가 연결됩니다. APK 빌드·서명·Release 첨부는 계속 로컬에서 하고, GitHub Actions에는 공개 APK의 메타데이터 갱신만 맡깁니다.
 
 ## 간단 다운로드 페이지
 
