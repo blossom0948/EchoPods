@@ -55,9 +55,9 @@
     <string name="conversational_awareness_pause_music_description">When you start speaking, music will be paused.</string>
     <string name="conversation_mode_return_section">Conversation mode return</string>
     <string name="conversation_mode_return_native">AirPods default</string>
-    <string name="conversation_mode_return_native_description">Let AirPods manage the return timing. Their default is usually about 5 seconds.</string>
+    <string name="conversation_mode_return_native_description">AirPods firmware chooses when to return. Its default is usually about 5 seconds.</string>
     <string name="conversation_mode_return_after_speech">After speech ends</string>
-    <string name="conversation_mode_return_after_speech_description">Wait for AirPods to report that speech has ended, then restore the previous listening mode.</string>
+    <string name="conversation_mode_return_after_speech_description">After speech ends, wait for the selected delay before restoring the previous listening mode.</string>
     <string name="conversation_mode_return_after_speech_selected">Restore the previous listening mode %1$s after speech ends.</string>
     <string name="conversation_mode_return_fixed">Fixed time after speech starts</string>
     <string name="conversation_mode_return_fixed_description">Restore the previous listening mode after a set time, even if speech continues.</string>
@@ -69,6 +69,8 @@
     <string name="conversation_mode_return_custom_description">Return to the previous listening mode %1$s after AirPods reports speech has ended. Noise or firmware behavior may change the actual timing.</string>
     <string name="conversation_mode_return_slider_label">Return delay · %1$s</string>
     <string name="conversation_mode_return_slider_description">Choose between 10 seconds and 2 minutes.</string>
+    <string name="conversation_mode_return_open">Conversation settings</string>
+    <string name="conversation_mode_return_open_description">Choose how and when the listening mode returns.</string>
     <string name="conversation_mode_return_min_label">10 sec</string>
     <string name="conversation_mode_return_max_label">2 min</string>
     <string name="appwidget_text">EXAMPLE</string>
@@ -85,6 +87,8 @@
     <string name="island_moved_to_other_device_reversed_text">Reconnect from notification</string>
     <string name="head_tracking">Head Tracking</string>
     <string name="head_gestures_details">For an incoming call, nod to answer or shake your head to decline. Gestures do not control outgoing or active calls.</string>
+    <string name="head_gesture_phone_permission_description">Allow phone permissions so EchoPods can detect incoming calls and use head gestures to answer or decline. Active calls disable gestures automatically.</string>
+    <string name="head_gesture_grant_phone_permission">Allow call permissions</string>
     <string name="general_settings_header">General</string>
     <string name="qs_click_behavior_title">Quick Settings Tile Action</string>
     <string name="qs_click_behavior_dialog_desc">Show noise control dialog on tap.</string>
@@ -426,6 +430,14 @@
     <string name="guide_page_slider_fix_update_description">Fixed descriptions and controls shifting when choosing a conversation-return option, and improved sticky dragging. Island size now follows your finger smoothly.</string>
     <string name="guide_page_labs_fix_update_title">Labs navigation display fix</string>
     <string name="guide_page_labs_fix_update_description">Fixed Labs guidance overlapping its menu row and text showing through the top header. The live preview pop-up now closes when leaving Settings.</string>
+    <string name="guide_page_compact_island_v064_title">Compact island battery</string>
+    <string name="guide_page_compact_island_v064_description">The compact pop-up shows artwork and battery for the worn AirPod. When both are worn, one ring shows the lower battery level.</string>
+    <string name="guide_page_conversation_v064_title">Conversation return settings</string>
+    <string name="guide_page_conversation_v064_description">Open conversation settings directly and adjust the return delay smoothly from 10 seconds to 2 minutes. Fixed shifting labels and choices.</string>
+    <string name="guide_page_gesture_v064_title">Gesture and navigation fixes</string>
+    <string name="guide_page_gesture_v064_description">Head gesture control now checks for an active control session, and screen transitions are smoother. Behavior still depends on AirPods model, firmware, and connection.</string>
+    <string name="guide_page_health_v064_title">Workout heart-rate display</string>
+    <string name="guide_page_health_v064_description">Workout screens show only fresh heart-rate samples actually received. Pro 3 sensor data still needs compatible firmware and real-device validation, so support is not guaranteed.</string>
     <string name="guide_bug_fix_label">Bug fixes</string>
     <string name="guide_new_feature_label">NEW</string>
     <string name="guide_next">Next</string>
@@ -522,6 +534,8 @@
     <string name="test_head_gestures">Test Head Gestures</string>
     <string name="yes_gesture_detected">Positive gesture detected.</string>
     <string name="no_gesture_detected">Negative gesture detected.</string>
+    <string name="head_gesture_test_unavailable">No control session or gesture detected. Check the AirPods connection and try again.</string>
+    <string name="head_tracking_start_unavailable">An AirPods control session is required. Check the connection and try again after any call ends.</string>
     <string name="grant_all">Grant all</string>
     <string name="welcome_to">Welcome to</string>
     <string name="privacy_overview">Overview</string>

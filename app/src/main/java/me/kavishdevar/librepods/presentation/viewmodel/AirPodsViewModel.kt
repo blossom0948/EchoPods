@@ -732,9 +732,11 @@ class AirPodsViewModel(
         service.setName(name)
     }
 
-    fun startHeadTracking() {
-        service.startHeadTracking()
-        _uiState.update { it.copy(headTrackingActive = true) }
+    fun startHeadTracking(): Boolean {
+        val started = service.startHeadTracking()
+        _uiState.update { it.copy(headTrackingActive = started) }
+        if (!started) service.sendToast(service.getString(R.string.head_tracking_start_unavailable))
+        return started
     }
 
     fun stopHeadTracking() {

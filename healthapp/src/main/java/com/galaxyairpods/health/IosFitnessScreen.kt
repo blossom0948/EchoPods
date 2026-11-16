@@ -86,6 +86,7 @@ import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Date
@@ -200,6 +201,9 @@ internal fun IosFitnessTodayScreen(
     onConnectHealthData: () -> Unit,
     stepGoal: Int,
     onStepGoalChanged: (Int) -> Unit,
+    weeklyExerciseGoalMinutes: Int,
+    onWeeklyExerciseGoalChanged: (Int) -> Unit,
+    activeWorkoutStartedAtMillis: Long?,
     echoPodsInstalled: Boolean,
     selectedWorkoutType: WorkoutType,
     isConnected: Boolean,
@@ -214,6 +218,8 @@ internal fun IosFitnessTodayScreen(
     sampleCount: Int,
     recentSamples: List<CompanionHeartRateSample>,
     history: List<SavedWorkout>,
+    workoutGoalTarget: WorkoutGoalTarget,
+    onWorkoutGoalSelected: (WorkoutGoalTarget) -> Unit,
     onWorkoutTypeSelected: (WorkoutType) -> Unit,
     onStart: () -> Unit,
     onPause: () -> Unit,
@@ -223,12 +229,17 @@ internal fun IosFitnessTodayScreen(
     onOpenWorkoutTab: () -> Unit,
     onOpenHistory: (Long) -> Unit,
 ) {
-    val now = System.currentTimeMillis()
-    val startOfDay = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    val zone = ZoneId.systemDefault()
+    val today = LocalDate.now(zone)
     val completedWorkoutMillis = history.sumOf { workout ->
-        (minOf(workout.endedAtEpochMillis, now) - maxOf(workout.startedAtEpochMillis, startOfDay)).coerceAtLeast(0L)
+        if (Instant.ofEpochMilli(workout.startedAtEpochMillis).atZone(zone).toLocalDate() == today) {
+            workout.activeDurationMillis ?: (workout.endedAtEpochMillis - workout.startedAtEpochMillis).coerceAtLeast(0L)
+        } else 0L
     }
-    val exerciseMinutes = ((completedWorkoutMillis + if (active) elapsed else 0L) / 60_000L)
+    val activeToday = activeWorkoutStartedAtMillis?.let {
+        Instant.ofEpochMilli(it).atZone(zone).toLocalDate() == today
+    } == true
+    val exerciseMinutes = ((completedWorkoutMillis + if (active && activeToday) elapsed else 0L) / 60_000L)
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -256,11 +267,23 @@ internal fun IosFitnessTodayScreen(
                         activeCaloriesPermissionGranted = overview.activeCaloriesPermissionGranted,
                     )
                     overview.latestSleep?.let { FitnessSleepStagesCard(it, isKorean, useMaterial = false) }
+                    WeeklyExerciseSummaryCard(
+                        isKorean = isKorean,
+                        useMaterial = false,
+                        localWorkouts = history,
+                        sharedWorkouts = overview.recentExerciseSessions,
+                        exercisePermissionGranted = overview.exercisePermissionGranted,
+                        goalMinutes = weeklyExerciseGoalMinutes,
+                        onGoalMinutesChanged = onWeeklyExerciseGoalChanged,
+                        activeWorkoutStartedAtMillis = activeWorkoutStartedAtMillis,
+                        activeWorkoutElapsedMillis = if (active) elapsed else 0L,
+                    )
                     FitnessHealthConnectCard(backdrop, overview, healthConnectAvailable, isKorean, onConnectHealthData)
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     FitnessWorkoutActionCard(
                         backdrop, isKorean, selectedWorkoutType, isConnected, echoPodsInstalled, active, paused, locationTracking, elapsed,
+                        workoutGoalTarget, onWorkoutGoalSelected,
                         onWorkoutTypeSelected, onStart, onPause, onResume, onStop, onOpenEchoPods,
                     )
                     HeartRateCard(
@@ -285,8 +308,20 @@ internal fun IosFitnessTodayScreen(
                 activeCaloriesPermissionGranted = overview.activeCaloriesPermissionGranted,
             )
             overview.latestSleep?.let { FitnessSleepStagesCard(it, isKorean, useMaterial = false) }
+            WeeklyExerciseSummaryCard(
+                isKorean = isKorean,
+                useMaterial = false,
+                localWorkouts = history,
+                sharedWorkouts = overview.recentExerciseSessions,
+                exercisePermissionGranted = overview.exercisePermissionGranted,
+                goalMinutes = weeklyExerciseGoalMinutes,
+                onGoalMinutesChanged = onWeeklyExerciseGoalChanged,
+                activeWorkoutStartedAtMillis = activeWorkoutStartedAtMillis,
+                activeWorkoutElapsedMillis = if (active) elapsed else 0L,
+            )
             FitnessWorkoutActionCard(
                 backdrop, isKorean, selectedWorkoutType, isConnected, echoPodsInstalled, active, paused, locationTracking, elapsed,
+                workoutGoalTarget, onWorkoutGoalSelected,
                 onWorkoutTypeSelected, onStart, onPause, onResume, onStop, onOpenEchoPods,
             )
             HeartRateCard(
@@ -323,6 +358,8 @@ internal fun IosFitnessWorkoutScreen(
     maxBpm: Int?,
     sampleCount: Int,
     recentSamples: List<CompanionHeartRateSample>,
+    workoutGoalTarget: WorkoutGoalTarget,
+    onWorkoutGoalSelected: (WorkoutGoalTarget) -> Unit,
     onWorkoutTypeSelected: (WorkoutType) -> Unit,
     onStart: () -> Unit,
     onPause: () -> Unit,
@@ -336,6 +373,7 @@ internal fun IosFitnessWorkoutScreen(
     ) {
         FitnessWorkoutActionCard(
             backdrop, isKorean, selectedWorkoutType, isConnected, echoPodsInstalled, active, paused, locationTracking, elapsed,
+            workoutGoalTarget, onWorkoutGoalSelected,
             onWorkoutTypeSelected, onStart, onPause, onResume, onStop, onOpenEchoPods,
         )
         HeartRateCard(
@@ -798,6 +836,8 @@ private fun FitnessWorkoutActionCard(
     paused: Boolean,
     locationTracking: WorkoutTrackingData,
     elapsed: Long,
+    workoutGoalTarget: WorkoutGoalTarget,
+    onWorkoutGoalSelected: (WorkoutGoalTarget) -> Unit,
     onWorkoutTypeSelected: (WorkoutType) -> Unit,
     onStart: () -> Unit,
     onPause: () -> Unit,
@@ -847,8 +887,18 @@ private fun FitnessWorkoutActionCard(
             }
         }
         Spacer(Modifier.height(14.dp))
+        WorkoutGoalSelector(
+            selectedType = selectedWorkoutType,
+            target = workoutGoalTarget,
+            isKorean = isKorean,
+            useMaterial = false,
+            onSelected = onWorkoutGoalSelected,
+            backdrop = backdrop,
+            enabled = !active,
+        )
+        Spacer(Modifier.height(12.dp))
         if (active) {
-            WorkoutProgressCard(locationTracking, selectedWorkoutType, elapsed, paused, isKorean, useMaterial = false, backdrop = backdrop)
+            WorkoutProgressCard(locationTracking, selectedWorkoutType, elapsed, paused, isKorean, useMaterial = false, workoutGoalTarget = workoutGoalTarget, backdrop = backdrop)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 FitnessPrimaryButton(
                     backdrop = backdrop,

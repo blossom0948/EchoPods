@@ -44,6 +44,7 @@ fun AudioSettings(
 
     navigateToAdaptiveStrength: () -> Unit,
     navigateToEqualizer: () -> Unit,
+    navigateToConversationSettings: () -> Unit,
 
     vendorIdHook: Boolean,
     isPremium: Boolean
@@ -66,8 +67,15 @@ fun AudioSettings(
                     description = stringResource(R.string.conversational_awareness_description),
                     checked = conversationalAwarenessChecked,
                     onCheckedChange = onConversationalAwarenessCheckedChange,
-                    enabled = isPremium,
                 )
+                if (conversationalAwarenessChecked) {
+                    StyledListItem(
+                        name = stringResource(R.string.conversation_mode_return_open),
+                        description = stringResource(R.string.conversation_mode_return_open_description),
+                        orientation = ListItemOrientation.Vertical,
+                        onClick = navigateToConversationSettings,
+                    )
+                }
             }
 
             if (loudSoundReductionCapability && vendorIdHook) {

@@ -57,6 +57,7 @@ fun NavigationRoot(
         Screen.Accessibility -> stringResource(R.string.accessibility)
         Screen.AdaptiveStrength -> stringResource(R.string.customize_adaptive_audio)
         Screen.AppSettings -> stringResource(R.string.settings)
+        Screen.ConversationSettings -> stringResource(R.string.conversation_mode_return_open)
 //        Screen.CameraControl -> stringResource(R.string.camera_control)
         Screen.Equalizer -> stringResource(R.string.equalizer)
         Screen.HeadTracking -> stringResource(R.string.head_tracking)

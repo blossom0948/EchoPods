@@ -26,7 +26,6 @@ import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.res.ColorStateList
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.res.Resources
@@ -39,6 +38,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log.e
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -551,15 +551,21 @@ class IslandWindow(private val context: Context) {
         }
         root.setPadding(rootPadding, rootPadding, rootPadding, rootPadding)
 
-        val artSizeDp = if (size == IslandPopupSize.SMALL) 28 else 40
+        val artSizeDp = if (size == IslandPopupSize.SMALL) 30 else 40
         val artLp = compactContainer.findViewById<ImageView>(R.id.island_compact_artwork).layoutParams
         artLp.width = (artSizeDp * density).roundToInt()
         artLp.height = (artSizeDp * density).roundToInt()
         compactContainer.findViewById<ImageView>(R.id.island_compact_artwork).layoutParams = artLp
+        val ringSizeDp = if (size == IslandPopupSize.SMALL) 38 else 44
+        islandView.findViewById<IslandBatteryRingView>(R.id.island_compact_battery).layoutParams =
+            islandView.findViewById<IslandBatteryRingView>(R.id.island_compact_battery).layoutParams.apply {
+                width = (ringSizeDp * density).roundToInt()
+                height = (ringSizeDp * density).roundToInt()
+            }
         compactContainer.findViewById<TextView>(R.id.island_compact_name).textSize =
-            if (size == IslandPopupSize.SMALL) 11f else 13f
+            if (size == IslandPopupSize.SMALL) 14.5f else 15f
         compactContainer.findViewById<TextView>(R.id.island_compact_status).textSize =
-            if (size == IslandPopupSize.SMALL) 9f else 10f
+            if (size == IslandPopupSize.SMALL) 12f else 12.5f
 
         val largeArtSize = (if (size == IslandPopupSize.LARGE) 80 else 40) * density
         artContainer.layoutParams = artContainer.layoutParams.apply {
@@ -582,8 +588,6 @@ class IslandWindow(private val context: Context) {
 
     private fun renderCompactArtworkAndRows(wearState: Pair<Boolean, Boolean>?) {
         val image = islandView.findViewById<ImageView>(R.id.island_compact_artwork)
-        val leftRow = islandView.findViewById<View>(R.id.island_compact_left_row)
-        val rightRow = islandView.findViewById<View>(R.id.island_compact_right_row)
         val (leftWorn, rightWorn) = wearState ?: (false to false)
         val resource = when {
             wearState != null && leftWorn && !rightWorn -> islandModel?.leftBudsRes
@@ -591,45 +595,32 @@ class IslandWindow(private val context: Context) {
             else -> islandModel?.budsRes
         } ?: R.drawable.airpods
         image.setImageResource(resource)
-
-        when {
-            wearState?.first == true && wearState.second -> {
-                leftRow.visibility = View.VISIBLE
-                rightRow.visibility = View.VISIBLE
-            }
-            wearState?.first == true -> {
-                leftRow.visibility = View.VISIBLE
-                rightRow.visibility = View.GONE
-            }
-            wearState?.second == true -> {
-                leftRow.visibility = View.GONE
-                rightRow.visibility = View.VISIBLE
-            }
-            else -> {
-                leftRow.visibility = View.VISIBLE
-                rightRow.visibility = View.VISIBLE
-            }
-        }
     }
 
     private fun updateCompactBatteryDisplay(batteryList: List<Battery>?) {
-        renderCompactArtworkAndRows(ServiceManager.getService()?.latestEarWearState())
+        val wearState = ServiceManager.getService()?.latestEarWearState()
+        val (leftWorn, rightWorn) = wearState ?: (false to false)
+        renderCompactArtworkAndRows(wearState)
         val byComponent = batteryList.orEmpty().associateBy { it.component }
-        listOf(
-            R.id.island_compact_left_battery to BatteryComponent.LEFT,
-            R.id.island_compact_right_battery to BatteryComponent.RIGHT,
-        ).forEach { (viewId, component) ->
-            val bar = islandView.findViewById<ProgressBar>(viewId)
-            val battery = byComponent[component]
-            val freshKnownLevel = battery?.takeIf {
-                it.isLevelKnown && it.level in 0..100 && it.status != BatteryStatus.DISCONNECTED
-            }?.level
-            bar.progress = freshKnownLevel ?: 0
-            bar.progressTintList = ColorStateList.valueOf(
-                if (freshKnownLevel != null && freshKnownLevel < 20) 0xFFFF453A.toInt()
-                else 0xFF30D158.toInt(),
-            )
+        val selectedBattery = when {
+            leftWorn && rightWorn ->
+                listOfNotNull(byComponent[BatteryComponent.LEFT], byComponent[BatteryComponent.RIGHT])
+                    .filter { it.isLevelKnown && it.level in 0..100 }
+                    .minByOrNull { it.level }
+            leftWorn -> byComponent[BatteryComponent.LEFT]
+            rightWorn -> byComponent[BatteryComponent.RIGHT]
+            else -> listOfNotNull(byComponent[BatteryComponent.LEFT], byComponent[BatteryComponent.RIGHT])
+                .filter { it.isLevelKnown && it.level in 0..100 }
+                .minByOrNull { it.level }
         }
+        val knownLevel = selectedBattery?.takeIf { it.isLevelKnown && it.level in 0..100 }?.level
+        val capturedAt = selectedBattery?.levelCapturedAtElapsedMs ?: 0L
+        val age = SystemClock.elapsedRealtime() - capturedAt
+        val stale = selectedBattery == null ||
+            selectedBattery.status == BatteryStatus.DISCONNECTED ||
+            capturedAt <= 0L || age !in 0..Battery.LEVEL_FRESHNESS_TTL_MS
+        islandView.findViewById<IslandBatteryRingView>(R.id.island_compact_battery)
+            .setBatteryLevel(knownLevel, stale)
     }
 
     private fun usesPro2IslandVideo(model: AirPodsBase?): Boolean =

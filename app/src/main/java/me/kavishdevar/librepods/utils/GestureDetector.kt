@@ -97,14 +97,22 @@ class GestureDetector(
         while (verticalAvgBuffer.size < 3) verticalAvgBuffer.add(0.0)
     }
 
-fun startDetection(doNotStop: Boolean = false, onGestureDetected: (Boolean) -> Unit) {
-        if (isRunning) return
+    @Synchronized
+    fun isRunning(): Boolean = isRunning
+
+@Synchronized
+fun startDetection(doNotStop: Boolean = false, onGestureDetected: (Boolean) -> Unit): Boolean {
+        if (isRunning) return false
+
+        // Don't leave a detector loop running when Android audio is connected but
+        // the AirPods control socket is not. The old code ignored this failure,
+        // so the UI looked active while no orientation packets could arrive.
+        if (!airPodsService.startHeadTracking()) return false
 
         Log.d(TAG, "Starting gesture detection...")
         isRunning = true
         gestureDetectedCallback = onGestureDetected
-
-        Log.d(TAG, "started: ${airPodsService.startHeadTracking()}")
+        Log.d(TAG, "Head tracking control request accepted")
 
         clearData()
 
@@ -127,7 +135,10 @@ fun startDetection(doNotStop: Boolean = false, onGestureDetected: (Boolean) -> U
                 }
             }
         }
+        return true
     }
+
+    @Synchronized
     fun stopDetection(doNotStop: Boolean = false) {
         if (!isRunning) return
 

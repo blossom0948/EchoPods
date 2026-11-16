@@ -151,7 +151,8 @@ fun AirPodsSettingsRoute(
     navigateToVersion: () -> Unit,
     navigateToTroubleshooting: () -> Unit,
     navigateToCallControlScreen: (action: String) -> Unit,
-    navigateToMicrophoneSettings: () -> Unit
+    navigateToMicrophoneSettings: () -> Unit,
+    navigateToConversationSettings: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsState()
 
@@ -197,6 +198,7 @@ fun AirPodsSettingsRoute(
             navigateToTroubleshooting = navigateToTroubleshooting,
             navigateToCallControlScreen = navigateToCallControlScreen,
             navigateToMicrophoneSettings = navigateToMicrophoneSettings,
+            navigateToConversationSettings = navigateToConversationSettings,
 
             reconnectFromSavedMac = viewModel::reconnectFromSavedMac
         )
@@ -240,6 +242,7 @@ fun AirPodsSettingsScreen(
         navigateToMicrophoneSettings: () -> Unit,
 
         reconnectFromSavedMac: () -> Unit,
+        navigateToConversationSettings: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val sharedPreferences = context.getSharedPreferences("settings", MODE_PRIVATE)
@@ -296,10 +299,14 @@ fun AirPodsSettingsScreen(
             if (state.instance?.model?.capabilities?.contains(Capability.HRM) == true) {
                 item(key = "heart_rate_android_support") {
                     val heartRate = state.heartRateStream
+                    val heartRateSampleAge = heartRate.sampledAtEpochMillis?.let {
+                        System.currentTimeMillis() - it
+                    }
+                    val currentBpm = heartRate.bpm?.takeIf { it in 30..220 }
                     val isFresh = heartRate.status == HeartRateStreamStatus.ACTIVE &&
-                        heartRate.sampledAtEpochMillis?.let { System.currentTimeMillis() - it < 15_000 } == true
+                        currentBpm != null && heartRateSampleAge?.let { it in 0..15_000 } == true
                     val statusDescription = when {
-                        isFresh -> stringResource(R.string.heart_rate_current, heartRate.bpm ?: 0)
+                        isFresh -> stringResource(R.string.heart_rate_current, currentBpm)
                         else -> stringResource(
                             when (heartRate.status) {
                                 HeartRateStreamStatus.DISCONNECTED -> R.string.heart_rate_waiting_connection
@@ -507,7 +514,7 @@ fun AirPodsSettingsScreen(
                             checked
                         )
                     },
-                    conversationalAwarenessChecked = conversationalAwarenessChecked && state.isPremium,
+                    conversationalAwarenessChecked = conversationalAwarenessChecked,
                     onConversationalAwarenessCheckedChange = { checked ->
                         setControlCommandBoolean(
                             AACPManager.Companion.ControlCommandIdentifiers.CONVERSATION_DETECT_CONFIG,
@@ -523,6 +530,7 @@ fun AirPodsSettingsScreen(
                     },
                     navigateToAdaptiveStrength = navigateToAdaptiveStrength,
                     navigateToEqualizer = navigateToEqualizer,
+                    navigateToConversationSettings = navigateToConversationSettings,
                     vendorIdHook = state.vendorIdHook,
                     isPremium = state.isPremium
                 )

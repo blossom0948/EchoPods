@@ -3,6 +3,8 @@ package me.kavishdevar.librepods.presentation.navigation
 import androidx.activity.BackEventCompat.Companion.EDGE_LEFT
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -20,6 +22,7 @@ import me.kavishdevar.librepods.presentation.screens.AdaptiveStrengthScreen
 import me.kavishdevar.librepods.presentation.screens.AirPodsSettingsRoute
 import me.kavishdevar.librepods.presentation.screens.AppSettingsScreen
 import me.kavishdevar.librepods.presentation.screens.CallControlScreen
+import me.kavishdevar.librepods.presentation.screens.ConversationReturnSettingsScreen
 import me.kavishdevar.librepods.presentation.screens.EqualizerRoute
 import me.kavishdevar.librepods.presentation.screens.HeadTrackingScreen
 import me.kavishdevar.librepods.presentation.screens.HearingAidAdjustmentsScreen
@@ -105,6 +108,7 @@ fun AppNavGraph(
                             navigateToTroubleshooting = { navigate(Screen.Troubleshooting) },
                             navigateToCallControlScreen = { navigate(Screen.CallControl(it)) },
                             navigateToMicrophoneSettings = { navigate(Screen.MicrophoneSettings) },
+                            navigateToConversationSettings = { navigate(Screen.ConversationSettings) },
                         )
                     }
 
@@ -127,6 +131,12 @@ fun AppNavGraph(
                         )
                     }
 
+                Screen.ConversationSettings ->
+                    NavEntry(screen) {
+                        val vm: AppSettingsViewModel = viewModel()
+                        ConversationReturnSettingsScreen(viewModel = vm)
+                    }
+
                 Screen.Labs ->
                     NavEntry(screen) {
                         LabsScreen()
@@ -140,7 +150,7 @@ fun AppNavGraph(
                 Screen.HeadTracking ->
                     NavEntry(screen) {
                         if (!airPodsViewModel.isReady) LoadingScreen()
-                        HeadTrackingScreen(airPodsViewModel, ::navigateToPurchase)
+                        HeadTrackingScreen(airPodsViewModel)
                     }
 
                 Screen.Accessibility ->
@@ -275,49 +285,49 @@ fun AppNavGraph(
             }
         },
         transitionSpec = {
-            val navigationDuration = 240
+            val navigationDuration = 280
             val navigationEasing = FastOutSlowInEasing
-            slideInHorizontally(
-                initialOffsetX = { it / 24 },
+            ((slideInHorizontally(
+                initialOffsetX = { it / 12 },
                 animationSpec = tween(navigationDuration, easing = navigationEasing),
-            ) togetherWith slideOutHorizontally(
-                targetOffsetX = { -it / 48 },
+            ) + fadeIn(animationSpec = tween(210, easing = navigationEasing))) togetherWith (slideOutHorizontally(
+                targetOffsetX = { -it / 24 },
                 animationSpec = tween(navigationDuration, easing = navigationEasing),
-            )
+            ) + fadeOut(animationSpec = tween(180, easing = navigationEasing)))).apply { targetContentZIndex = 1f }
         },
         popTransitionSpec = {
-            val navigationDuration = 240
+            val navigationDuration = 280
             val navigationEasing = FastOutSlowInEasing
-            slideInHorizontally(
-                initialOffsetX = { -it / 48 },
+            ((slideInHorizontally(
+                initialOffsetX = { -it / 24 },
                 animationSpec = tween(navigationDuration, easing = navigationEasing),
-            ) togetherWith slideOutHorizontally(
-                targetOffsetX = { it / 24 },
+            ) + fadeIn(animationSpec = tween(210, easing = navigationEasing))) togetherWith (slideOutHorizontally(
+                targetOffsetX = { it / 12 },
                 animationSpec = tween(navigationDuration, easing = navigationEasing),
-            )
+            ) + fadeOut(animationSpec = tween(180, easing = navigationEasing)))).apply { targetContentZIndex = 1f }
         },
         predictivePopTransitionSpec = { swipeEdge ->
             val enterOffset: (Int) -> Int =
                 if (swipeEdge == EDGE_LEFT) {
-                    { -it / 48 }
+                    { -it / 24 }
                 } else {
-                    { it / 48 }
+                    { it / 24 }
                 }
             val exitOffset: (Int) -> Int =
                 if (swipeEdge == EDGE_LEFT) {
-                    { it / 24 }
+                    { it / 12 }
                 } else {
-                    { -it / 24 }
+                    { -it / 12 }
                 }
-            val predictiveDuration = 240
+            val predictiveDuration = 280
             val predictiveEasing = FastOutSlowInEasing
-            slideInHorizontally(
+            ((slideInHorizontally(
                 initialOffsetX = enterOffset,
                 animationSpec = tween(predictiveDuration, easing = predictiveEasing),
-            ) togetherWith slideOutHorizontally(
+            ) + fadeIn(animationSpec = tween(210, easing = predictiveEasing))) togetherWith (slideOutHorizontally(
                 targetOffsetX = exitOffset,
                 animationSpec = tween(predictiveDuration, easing = predictiveEasing),
-            )
+            ) + fadeOut(animationSpec = tween(180, easing = predictiveEasing)))).apply { targetContentZIndex = 1f }
         },
     )
 }

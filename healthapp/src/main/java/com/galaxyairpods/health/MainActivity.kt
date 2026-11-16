@@ -161,6 +161,10 @@ class MainActivity : ComponentActivity() {
 private enum class HealthTab { TODAY, WORKOUT, HISTORY }
 private const val PREF_DAILY_STEP_GOAL = "daily_step_goal"
 private const val DEFAULT_DAILY_STEP_GOAL = 8_000
+private const val PREF_WEEKLY_EXERCISE_GOAL_MINUTES = "weekly_exercise_goal_minutes"
+private const val DEFAULT_WEEKLY_EXERCISE_GOAL_MINUTES = 150
+private const val PREF_WORKOUT_GOAL_KIND = "workout_goal_kind"
+private const val PREF_WORKOUT_GOAL_VALUE = "workout_goal_value"
 
 @Composable
 private fun EchoPodsHealthApp() {
@@ -234,6 +238,19 @@ private fun HealthWorkoutContent(
     var stepGoal by remember {
         mutableIntStateOf(preferences.getInt(PREF_DAILY_STEP_GOAL, DEFAULT_DAILY_STEP_GOAL))
     }
+    var weeklyExerciseGoalMinutes by remember {
+        mutableIntStateOf(preferences.getInt(PREF_WEEKLY_EXERCISE_GOAL_MINUTES, DEFAULT_WEEKLY_EXERCISE_GOAL_MINUTES))
+    }
+    var workoutGoalTarget by remember(preferences) {
+        mutableStateOf(
+            WorkoutGoalTarget(
+                kind = runCatching {
+                    WorkoutGoalKind.valueOf(preferences.getString(PREF_WORKOUT_GOAL_KIND, WorkoutGoalKind.NONE.name)!!)
+                }.getOrDefault(WorkoutGoalKind.NONE),
+                value = preferences.getLong(PREF_WORKOUT_GOAL_VALUE, 0L).coerceAtLeast(0L),
+            ),
+        )
+    }
     var selectedTypeKey by rememberSaveable { mutableStateOf(WorkoutType.WALKING.key) }
     var selectedTab by rememberSaveable { mutableStateOf(HealthTab.TODAY) }
     var selectedWorkoutStart by rememberSaveable { mutableLongStateOf(0L) }
@@ -241,14 +258,30 @@ private fun HealthWorkoutContent(
     var pendingLocationWorkout by remember { mutableStateOf<WorkoutType?>(null) }
     val active = activeHealthWorkout != null || workoutState.status == "WAITING" || workoutState.status == "ACTIVE"
     val isConnected = workoutState.status != "DISCONNECTED"
-    val currentBpm = workoutState.bpm?.takeIf {
-        workoutState.capturedAtEpochMillis?.let { captured -> now - captured < SAMPLE_FRESHNESS_MS } == true
+    val currentBpm = workoutState.bpm?.takeIf { bpm ->
+        bpm in 30..220 && workoutState.status == "ACTIVE" &&
+            workoutState.capturedAtEpochMillis?.let { captured ->
+                (now - captured) in 0..SAMPLE_FRESHNESS_MS
+            } == true
     }
     val startedAt = activeHealthWorkout?.startedAtEpochMillis ?: workoutState.startedAtEpochMillis
     val paused = activeHealthWorkout?.pausedAtEpochMillis != null
     val elapsed = activeHealthWorkout?.let { HealthWorkoutSessionStore.elapsedMillis(it, now) }
         ?: startedAt?.let { (now - it).coerceAtLeast(0L) }
         ?: 0L
+    val updateWorkoutGoalTarget: (WorkoutGoalTarget) -> Unit = { target ->
+        workoutGoalTarget = target
+        preferences.edit()
+            .putString(PREF_WORKOUT_GOAL_KIND, target.kind.name)
+            .putLong(PREF_WORKOUT_GOAL_VALUE, target.value)
+            .apply()
+    }
+    val selectWorkoutType: (WorkoutType) -> Unit = { type ->
+        selectedTypeKey = type.key
+        if (!type.recordsGps && workoutGoalTarget.kind == WorkoutGoalKind.DISTANCE) {
+            updateWorkoutGoalTarget(WorkoutGoalTarget.NONE)
+        }
+    }
     val healthConnectStatus = remember(context) { HealthConnectClient.getSdkStatus(context) }
     val healthPermissions = remember {
         setOf(
@@ -406,6 +439,12 @@ private fun HealthWorkoutContent(
                                 stepGoal = goal
                                 preferences.edit().putInt(PREF_DAILY_STEP_GOAL, goal).apply()
                             },
+                            weeklyExerciseGoalMinutes = weeklyExerciseGoalMinutes,
+                            onWeeklyExerciseGoalChanged = { goal ->
+                                weeklyExerciseGoalMinutes = goal
+                                preferences.edit().putInt(PREF_WEEKLY_EXERCISE_GOAL_MINUTES, goal).apply()
+                            },
+                            activeWorkoutStartedAtMillis = startedAt.takeIf { active },
                             echoPodsInstalled = echoPodsInstalled,
                             activeWorkoutType = currentWorkoutType,
                             isConnected = isConnected,
@@ -420,7 +459,9 @@ private fun HealthWorkoutContent(
                             maxBpm = workoutState.maxBpm,
                             sampleCount = workoutState.sampleCount,
                             history = history,
-                            onTypeSelected = { selectedTypeKey = it.key },
+                            workoutGoalTarget = workoutGoalTarget,
+                            onWorkoutGoalSelected = updateWorkoutGoalTarget,
+                            onTypeSelected = selectWorkoutType,
                             onStart = startSelectedWorkout,
                             onPause = pauseSelectedWorkout,
                             onResume = resumeSelectedWorkout,
@@ -443,6 +484,12 @@ private fun HealthWorkoutContent(
                                 stepGoal = goal
                                 preferences.edit().putInt(PREF_DAILY_STEP_GOAL, goal).apply()
                             },
+                            weeklyExerciseGoalMinutes = weeklyExerciseGoalMinutes,
+                            onWeeklyExerciseGoalChanged = { goal ->
+                                weeklyExerciseGoalMinutes = goal
+                                preferences.edit().putInt(PREF_WEEKLY_EXERCISE_GOAL_MINUTES, goal).apply()
+                            },
+                            activeWorkoutStartedAtMillis = startedAt.takeIf { active },
                             echoPodsInstalled = echoPodsInstalled,
                             selectedWorkoutType = currentWorkoutType,
                             isConnected = isConnected,
@@ -457,7 +504,9 @@ private fun HealthWorkoutContent(
                             sampleCount = workoutState.sampleCount,
                             recentSamples = workoutState.recentSamples,
                             history = history,
-                            onWorkoutTypeSelected = { selectedTypeKey = it.key },
+                            workoutGoalTarget = workoutGoalTarget,
+                            onWorkoutGoalSelected = updateWorkoutGoalTarget,
+                            onWorkoutTypeSelected = selectWorkoutType,
                             onStart = startSelectedWorkout,
                             onPause = pauseSelectedWorkout,
                             onResume = resumeSelectedWorkout,
@@ -487,7 +536,9 @@ private fun HealthWorkoutContent(
                             averageBpm = workoutState.averageBpm,
                             maxBpm = workoutState.maxBpm,
                             sampleCount = workoutState.sampleCount,
-                            onTypeSelected = { selectedTypeKey = it.key },
+                            workoutGoalTarget = workoutGoalTarget,
+                            onWorkoutGoalSelected = updateWorkoutGoalTarget,
+                            onTypeSelected = selectWorkoutType,
                             onStart = startSelectedWorkout,
                             onPause = pauseSelectedWorkout,
                             onResume = resumeSelectedWorkout,
@@ -509,7 +560,9 @@ private fun HealthWorkoutContent(
                             maxBpm = workoutState.maxBpm,
                             sampleCount = workoutState.sampleCount,
                             recentSamples = workoutState.recentSamples,
-                            onWorkoutTypeSelected = { selectedTypeKey = it.key },
+                            workoutGoalTarget = workoutGoalTarget,
+                            onWorkoutGoalSelected = updateWorkoutGoalTarget,
+                            onWorkoutTypeSelected = selectWorkoutType,
                             onStart = startSelectedWorkout,
                             onPause = pauseSelectedWorkout,
                             onResume = resumeSelectedWorkout,
@@ -612,6 +665,9 @@ private fun TodayScreen(
     onConnectHealthData: () -> Unit,
     stepGoal: Int,
     onStepGoalChanged: (Int) -> Unit,
+    weeklyExerciseGoalMinutes: Int,
+    onWeeklyExerciseGoalChanged: (Int) -> Unit,
+    activeWorkoutStartedAtMillis: Long?,
     echoPodsInstalled: Boolean,
     activeWorkoutType: WorkoutType,
     isConnected: Boolean,
@@ -626,6 +682,8 @@ private fun TodayScreen(
     maxBpm: Int?,
     sampleCount: Int,
     history: List<SavedWorkout>,
+    workoutGoalTarget: WorkoutGoalTarget,
+    onWorkoutGoalSelected: (WorkoutGoalTarget) -> Unit,
     onTypeSelected: (WorkoutType) -> Unit,
     onStart: () -> Unit,
     onPause: () -> Unit,
@@ -646,6 +704,17 @@ private fun TodayScreen(
             onConnect = onConnectHealthData,
         )
         healthOverview.latestSleep?.let { FitnessSleepStagesCard(it, isKorean, useMaterial) }
+        WeeklyExerciseSummaryCard(
+            isKorean = isKorean,
+            useMaterial = useMaterial,
+            localWorkouts = history,
+            sharedWorkouts = healthOverview.recentExerciseSessions,
+            exercisePermissionGranted = healthOverview.exercisePermissionGranted,
+            goalMinutes = weeklyExerciseGoalMinutes,
+            onGoalMinutesChanged = onWeeklyExerciseGoalChanged,
+            activeWorkoutStartedAtMillis = activeWorkoutStartedAtMillis,
+            activeWorkoutElapsedMillis = if (active) elapsed else 0L,
+        )
         Spacer(Modifier.height(14.dp))
         if (wide) {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -656,7 +725,8 @@ private fun TodayScreen(
                     )
                     WorkoutStartCard(
                         activeWorkoutType, isKorean, useMaterial, isConnected, active,
-                        paused, locationTracking, elapsed, echoPodsInstalled, onTypeSelected, onStart, onPause, onResume, onStop, onOpenEchoPods,
+                        paused, locationTracking, elapsed, echoPodsInstalled, workoutGoalTarget, onWorkoutGoalSelected,
+                        onTypeSelected, onStart, onPause, onResume, onStop, onOpenEchoPods,
                     )
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -672,7 +742,8 @@ private fun TodayScreen(
                 )
                 WorkoutStartCard(
                     activeWorkoutType, isKorean, useMaterial, isConnected, active,
-                    paused, locationTracking, elapsed, echoPodsInstalled, onTypeSelected, onStart, onPause, onResume, onStop, onOpenEchoPods,
+                    paused, locationTracking, elapsed, echoPodsInstalled, workoutGoalTarget, onWorkoutGoalSelected,
+                    onTypeSelected, onStart, onPause, onResume, onStop, onOpenEchoPods,
                 )
                 TodayHighlightsCard(history, isKorean, useMaterial, onOpenHistory)
                 RecentWorkoutsCard(history.take(3), isKorean, useMaterial, onOpenHistory)
@@ -1035,6 +1106,7 @@ internal fun WorkoutProgressCard(
     paused: Boolean,
     isKorean: Boolean,
     useMaterial: Boolean,
+    workoutGoalTarget: WorkoutGoalTarget = WorkoutGoalTarget.NONE,
     backdrop: LayerBackdrop? = null,
 ) {
     val context = LocalContext.current
@@ -1060,6 +1132,7 @@ internal fun WorkoutProgressCard(
             WorkoutMetric(Modifier.weight(1f), if (isKorean) "거리" else "Distance", distanceLabel)
             WorkoutMetric(Modifier.weight(1f), if (type == WorkoutType.CYCLING) (if (isKorean) "속도" else "Speed") else (if (isKorean) "페이스" else "Pace"), paceLabel)
         }
+        WorkoutGoalProgress(workoutGoalTarget, type, elapsedMillis, tracking.distanceMeters, isKorean)
         tracking.laps.lastOrNull()?.let { lap ->
             Text(
                 if (isKorean) "최근 구간 · ${formatDuration(lap.activeDurationMillis)}${lap.distanceMeters.takeIf { it > 0.0 }?.let { " · ${formatWorkoutDistance(it, true)}" } ?: ""} · ${tracking.laps.size}개 기록"
@@ -1190,6 +1263,8 @@ private fun WorkoutStartCard(
     locationTracking: WorkoutTrackingData,
     elapsed: Long,
     echoPodsInstalled: Boolean,
+    workoutGoalTarget: WorkoutGoalTarget,
+    onWorkoutGoalSelected: (WorkoutGoalTarget) -> Unit,
     onTypeSelected: (WorkoutType) -> Unit,
     onStart: () -> Unit,
     onPause: () -> Unit,
@@ -1211,9 +1286,11 @@ private fun WorkoutStartCard(
         )
         Spacer(Modifier.height(10.dp))
         WorkoutTypeSelector(selectedType, isKorean, onTypeSelected, enabled = !active)
+        Spacer(Modifier.height(8.dp))
+        WorkoutGoalSelector(selectedType, workoutGoalTarget, isKorean, useMaterial, onWorkoutGoalSelected, enabled = !active)
         Spacer(Modifier.height(12.dp))
         if (active) {
-            WorkoutProgressCard(locationTracking, WorkoutType.fromKey(locationTracking.workoutType ?: selectedType.key), elapsed, paused, isKorean, useMaterial)
+            WorkoutProgressCard(locationTracking, WorkoutType.fromKey(locationTracking.workoutType ?: selectedType.key), elapsed, paused, isKorean, useMaterial, workoutGoalTarget)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(
                     modifier = Modifier.weight(1f).height(52.dp),
@@ -1381,6 +1458,8 @@ private fun WorkoutScreen(
     maxBpm: Int?,
     sampleCount: Int,
     recentSamples: List<CompanionHeartRateSample>,
+    workoutGoalTarget: WorkoutGoalTarget,
+    onWorkoutGoalSelected: (WorkoutGoalTarget) -> Unit,
     onTypeSelected: (WorkoutType) -> Unit,
     onStart: () -> Unit,
     onPause: () -> Unit,
@@ -1392,7 +1471,7 @@ private fun WorkoutScreen(
         if (wide) {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    WorkoutStartCard(activeWorkoutType, isKorean, useMaterial, isConnected, active, paused, locationTracking, elapsed, echoPodsInstalled, onTypeSelected, onStart, onPause, onResume, onStop, onOpenEchoPods)
+                    WorkoutStartCard(activeWorkoutType, isKorean, useMaterial, isConnected, active, paused, locationTracking, elapsed, echoPodsInstalled, workoutGoalTarget, onWorkoutGoalSelected, onTypeSelected, onStart, onPause, onResume, onStop, onOpenEchoPods)
                     ConnectionStatusCard(isConnected, echoPodsInstalled, isKorean, useMaterial, onOpenEchoPods)
                 }
                 Column(Modifier.weight(1f)) {
@@ -1401,7 +1480,7 @@ private fun WorkoutScreen(
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                WorkoutStartCard(activeWorkoutType, isKorean, useMaterial, isConnected, active, paused, locationTracking, elapsed, echoPodsInstalled, onTypeSelected, onStart, onPause, onResume, onStop, onOpenEchoPods)
+                WorkoutStartCard(activeWorkoutType, isKorean, useMaterial, isConnected, active, paused, locationTracking, elapsed, echoPodsInstalled, workoutGoalTarget, onWorkoutGoalSelected, onTypeSelected, onStart, onPause, onResume, onStop, onOpenEchoPods)
                 HeartRateCard(currentBpm, status, active, echoPodsInstalled, elapsed, averageBpm, maxBpm, sampleCount, recentSamples, isKorean, useMaterial)
                 ConnectionStatusCard(isConnected, echoPodsInstalled, isKorean, useMaterial, onOpenEchoPods)
             }

@@ -140,13 +140,6 @@ fun PurchaseScreen(
                 )
 
                 StyledListItem(
-                    name = stringResource(R.string.head_gestures),
-                    description = stringResource(R.string.head_gestures_details),
-                    enabled = false,
-                    orientation = ListItemOrientation.Vertical
-                )
-
-                StyledListItem(
                     name = stringResource(R.string.advanced_device_settings),
                     description = stringResource(R.string.advanced_device_settings_description),
                     enabled = false,

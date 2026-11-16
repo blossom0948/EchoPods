@@ -205,7 +205,6 @@ fun Main() {
                     sharedPreferences = applicationContext.getSharedPreferences("settings", MODE_PRIVATE),
                     appContext = applicationContext
                 )
-
             }
 
             override fun onServiceDisconnected(name: ComponentName?) {

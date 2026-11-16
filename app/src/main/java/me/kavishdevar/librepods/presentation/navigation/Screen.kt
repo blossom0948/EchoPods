@@ -23,6 +23,9 @@ sealed interface Screen: NavKey {
     data object AppSettings: Screen
 
     @Serializable
+    data object ConversationSettings: Screen
+
+    @Serializable
     data object Labs: Screen
 
     @Serializable

@@ -31,6 +31,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -66,7 +67,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInParent
@@ -613,26 +613,18 @@ fun StyledSlider(
                                     ) {
                                         Box(
                                             Modifier
+                                                .fillMaxWidth()
+                                                .height(6.dp)
                                                 .clip(RoundedCornerShape(28.dp))
                                                 .background(trackColor)
-                                                .height(6f.dp)
-                                                .fillMaxWidth()
-                                        )
-
-                                        Box(
-                                            Modifier
-                                                .clip(RoundedCornerShape(28.dp))
-                                                .background(accentColor)
-                                                .height(6f.dp)
-                                                .layout { measurable, constraints ->
-                                                    val placeable = measurable.measure(constraints)
-                                                    val width =
-                                                        (visibleFraction * constraints.maxWidth).fastRoundToInt()
-                                                    layout(width, placeable.height) {
-                                                        placeable.place(0, 0)
-                                                    }
-                                                }
-                                        )
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth(visibleFraction)
+                                                    .fillMaxHeight()
+                                                    .background(accentColor, RoundedCornerShape(28.dp)),
+                                            )
+                                        }
                                     }
                                     if (endIcon != null) {
                                         Text(

@@ -25,6 +25,12 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -128,6 +134,17 @@ private fun formatConversationDelay(seconds: Int): String = when {
 }
 
 @Composable
+private fun ConversationReturnRadio(selected: Boolean) {
+    Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+        RadioButton(
+            selected = selected,
+            onClick = null,
+            modifier = Modifier.size(48.dp),
+        )
+    }
+}
+
+@Composable
 private fun ConversationReturnSettings(
     state: AppSettingsUiState,
     onBehaviorSelected: (ConversationReturnBehavior) -> Unit,
@@ -138,6 +155,17 @@ private fun ConversationReturnSettings(
     val delayText = formatConversationDelay(delay)
     val timedBehavior = behavior == ConversationReturnBehavior.AFTER_SPEECH_ENDS ||
         behavior == ConversationReturnBehavior.FIXED_AFTER_SPEECH_START
+    val delayDescription = when (behavior) {
+        ConversationReturnBehavior.AFTER_SPEECH_ENDS -> stringResource(
+            R.string.conversation_mode_return_after_speech_selected,
+            delayText,
+        )
+        ConversationReturnBehavior.FIXED_AFTER_SPEECH_START -> stringResource(
+            R.string.conversation_mode_return_fixed_selected,
+            delayText,
+        )
+        else -> stringResource(R.string.conversation_mode_return_slider_description)
+    }
 
     StyledList(title = stringResource(R.string.conversation_mode_return_section)) {
         StyledListItem(
@@ -146,9 +174,7 @@ private fun ConversationReturnSettings(
             orientation = ListItemOrientation.Vertical,
             selected = behavior == ConversationReturnBehavior.AIRPODS_DEFAULT,
             onClick = { onBehaviorSelected(ConversationReturnBehavior.AIRPODS_DEFAULT) },
-            trailingContent = {
-                RadioButton(selected = behavior == ConversationReturnBehavior.AIRPODS_DEFAULT, onClick = null)
-            },
+            trailingContent = { ConversationReturnRadio(behavior == ConversationReturnBehavior.AIRPODS_DEFAULT) },
         )
         StyledListItem(
             name = stringResource(R.string.conversation_mode_return_after_speech),
@@ -159,15 +185,7 @@ private fun ConversationReturnSettings(
                 if (state.conversationModeReturnDelaySeconds == 0) onDelayChanged(30)
                 onBehaviorSelected(ConversationReturnBehavior.AFTER_SPEECH_ENDS)
             },
-            trailingContent = {
-                RadioButton(
-                    selected = behavior == ConversationReturnBehavior.AFTER_SPEECH_ENDS,
-                    onClick = {
-                        if (state.conversationModeReturnDelaySeconds == 0) onDelayChanged(30)
-                        onBehaviorSelected(ConversationReturnBehavior.AFTER_SPEECH_ENDS)
-                    },
-                )
-            },
+            trailingContent = { ConversationReturnRadio(behavior == ConversationReturnBehavior.AFTER_SPEECH_ENDS) },
         )
         StyledListItem(
             name = stringResource(R.string.conversation_mode_return_fixed),
@@ -178,15 +196,7 @@ private fun ConversationReturnSettings(
                 if (state.conversationModeReturnDelaySeconds == 0) onDelayChanged(30)
                 onBehaviorSelected(ConversationReturnBehavior.FIXED_AFTER_SPEECH_START)
             },
-            trailingContent = {
-                RadioButton(
-                    selected = behavior == ConversationReturnBehavior.FIXED_AFTER_SPEECH_START,
-                    onClick = {
-                        if (state.conversationModeReturnDelaySeconds == 0) onDelayChanged(30)
-                        onBehaviorSelected(ConversationReturnBehavior.FIXED_AFTER_SPEECH_START)
-                    },
-                )
-            },
+            trailingContent = { ConversationReturnRadio(behavior == ConversationReturnBehavior.FIXED_AFTER_SPEECH_START) },
         )
         StyledListItem(
             name = stringResource(R.string.conversation_mode_return_manual),
@@ -194,16 +204,18 @@ private fun ConversationReturnSettings(
             orientation = ListItemOrientation.Vertical,
             selected = behavior == ConversationReturnBehavior.MANUAL,
             onClick = { onBehaviorSelected(ConversationReturnBehavior.MANUAL) },
-            trailingContent = {
-                RadioButton(selected = behavior == ConversationReturnBehavior.MANUAL, onClick = null)
-            },
+            trailingContent = { ConversationReturnRadio(behavior == ConversationReturnBehavior.MANUAL) },
         )
     }
 
-    if (timedBehavior) {
+    AnimatedVisibility(
+        visible = timedBehavior,
+        enter = expandVertically(animationSpec = tween(190)) + fadeIn(animationSpec = tween(150)),
+        exit = shrinkVertically(animationSpec = tween(170)) + fadeOut(animationSpec = tween(110)),
+    ) {
         StyledSlider(
-            label = stringResource(R.string.conversation_mode_return_slider_label, formatConversationDelay(delay)),
-            description = stringResource(R.string.conversation_mode_return_slider_description),
+            label = stringResource(R.string.conversation_mode_return_slider_label, delayText),
+            description = delayDescription,
             value = delay.toFloat(),
             valueRange = ConversationModeReturnPolicy.MIN_CUSTOM_DELAY_SECONDS.toFloat()..
                 ConversationModeReturnPolicy.MAX_CUSTOM_DELAY_SECONDS.toFloat(),
@@ -213,6 +225,36 @@ private fun ConversationReturnSettings(
             independent = true,
             enabled = true,
         )
+    }
+}
+
+@Composable
+fun ConversationReturnSettingsScreen(
+    viewModel: AppSettingsViewModel = viewModel(),
+) {
+    val state by viewModel.uiState.collectAsState()
+    val useMaterialAppearance = LocalDesignSystem.current == DesignSystem.Material
+    val topPadding = if (useMaterialAppearance) 16.dp
+    else WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 84.dp
+    val bottomPadding = if (useMaterialAppearance) 16.dp
+    else WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 12.dp
+    val backdrop = rememberLayerBackdrop()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .layerBackdrop(backdrop)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp),
+    ) {
+        Spacer(Modifier.height(topPadding))
+        ConversationReturnSettings(
+            state = state,
+            onBehaviorSelected = viewModel::setConversationReturnBehavior,
+            onDelayChanged = viewModel::setConversationModeReturnDelaySeconds,
+        )
+        Spacer(Modifier.height(bottomPadding))
     }
 }
 
@@ -423,13 +465,6 @@ fun AppSettingsScreen(
                 },
             )
         }
-        Spacer(modifier = Modifier.height(16.dp))
-
-        ConversationReturnSettings(
-            state = state,
-            onBehaviorSelected = viewModel::setConversationReturnBehavior,
-            onDelayChanged = viewModel::setConversationModeReturnDelaySeconds,
-        )
         Spacer(modifier = Modifier.height(16.dp))
 
         if (state.connectionSuccessful) {

@@ -53,6 +53,7 @@ fun ConnectionSettings(
 
         StyledListItem(
             name = stringResource(R.string.media_session_access),
+            orientation = ListItemOrientation.Vertical,
             description = stringResource(
                 if (MediaSessionResolver.hasNotificationAccess(context)) {
                     R.string.media_session_access_enabled
