@@ -107,12 +107,16 @@ fun startDetection(doNotStop: Boolean = false, onGestureDetected: (Boolean) -> U
         // Don't leave a detector loop running when Android audio is connected but
         // the AirPods control socket is not. The old code ignored this failure,
         // so the UI looked active while no orientation packets could arrive.
-        if (!airPodsService.startHeadTracking()) return false
+        val trackingStarted = airPodsService.startHeadTracking()
+        // Keep the detector alive when the service has queued the packet for the
+        // control socket. Reject only when tracking was explicitly refused
+        // (for example, after a call was answered).
+        if (!trackingStarted && !airPodsService.headTrackingStartPending) return false
 
         Log.d(TAG, "Starting gesture detection...")
         isRunning = true
         gestureDetectedCallback = onGestureDetected
-        Log.d(TAG, "Head tracking control request accepted")
+        Log.d(TAG, if (trackingStarted) "Head tracking control request accepted" else "Head tracking detector waiting for queued control request")
 
         clearData()
 

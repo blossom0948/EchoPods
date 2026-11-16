@@ -11,19 +11,16 @@ enum class ConnectionPopupStyle(val preferenceValue: String) {
     companion object {
         fun fromPreferences(
             storedValue: String?,
-            legacyBottomSheetEnabled: Boolean = true,
+            legacyBottomSheetEnabled: Boolean = false,
             legacyIslandEnabled: Boolean = true
         ): ConnectionPopupStyle = when (storedValue?.uppercase(Locale.ROOT)) {
             BOTTOM_SHEET.preferenceValue -> BOTTOM_SHEET
             DYNAMIC_ISLAND.preferenceValue -> DYNAMIC_ISLAND
             DISABLED.preferenceValue -> DISABLED
-            // Migrate an old single-choice configuration. If both old toggles were on,
-            // prefer the bottom card so first launch cannot show two popups.
-            else -> if (legacyIslandEnabled && !legacyBottomSheetEnabled) {
-                DYNAMIC_ISLAND
-            } else {
-                BOTTOM_SHEET
-            }
+            // The top island is the default. Respect the old bottom-sheet preference only
+            // when the old island preference was explicitly off.
+            else -> if (legacyBottomSheetEnabled && !legacyIslandEnabled) BOTTOM_SHEET
+            else DYNAMIC_ISLAND
         }
     }
 }

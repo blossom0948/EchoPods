@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Dp
@@ -79,7 +80,8 @@ fun StyledListItem(
     enabled: Boolean = true,
     orientation: ListItemOrientation = ListItemOrientation.Horizontal,
     leadingContent: (@Composable () -> Unit)? = null,
-    trailingContent: (@Composable () -> Unit)? = null
+    trailingContent: (@Composable () -> Unit)? = null,
+    descriptionMaxLines: Int = Int.MAX_VALUE
 ) {
     val m3eEnabled = LocalDesignSystem.current == DesignSystem.Material
     Column {
@@ -117,7 +119,8 @@ fun StyledListItem(
                 count = 1,
                 orientation = orientation,
                 leadingContent = leadingContent,
-                trailingContent = trailingContent
+                trailingContent = trailingContent,
+                descriptionMaxLines = descriptionMaxLines
             )
         }
     }
@@ -133,7 +136,8 @@ fun StyledListScope.StyledListItem(
     orientation: ListItemOrientation = ListItemOrientation.Horizontal,
     selected: Boolean? = null,
     leadingContent: (@Composable () -> Unit)? = null,
-    trailingContent: (@Composable () -> Unit)? = null
+    trailingContent: (@Composable () -> Unit)? = null,
+    descriptionMaxLines: Int = Int.MAX_VALUE
 ) {
     item { index, count ->
         StyledListItemContent(
@@ -147,7 +151,8 @@ fun StyledListScope.StyledListItem(
             modifier = modifier,
             selected = selected,
             leadingContent = leadingContent,
-            trailingContent = trailingContent
+            trailingContent = trailingContent,
+            descriptionMaxLines = descriptionMaxLines
         )
     }
 }
@@ -171,7 +176,8 @@ private fun StyledListItemContent(
     orientation: ListItemOrientation = ListItemOrientation.Horizontal,
     selected: Boolean? = null,
     leadingContent: (@Composable () -> Unit)? = null,
-    trailingContent: (@Composable () -> Unit)? = null
+    trailingContent: (@Composable () -> Unit)? = null,
+    descriptionMaxLines: Int = Int.MAX_VALUE
 ) {
     val isDarkTheme = isSystemInDarkTheme()
     val surfaceDimColor = MaterialTheme.colorScheme.surfaceDim
@@ -262,7 +268,12 @@ private fun StyledListItemContent(
                         leadingContent()
                         Spacer(modifier = Modifier.width(12.dp))
                     }
-                    Column (verticalArrangement = Arrangement.Center) {
+                    Column(
+                        modifier = if (orientation == ListItemOrientation.Vertical) {
+                            Modifier.weight(1f).padding(end = if (trailingContent != null) 12.dp else 0.dp)
+                        } else Modifier,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
                         Text(
                             text = name,
                             style = MaterialTheme.typography.bodyMedium,
@@ -274,17 +285,23 @@ private fun StyledListItemContent(
                                 text = description,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(if (isDarkTheme) 0.6f else 0.8f), // TODO: move to color scheme
+                                maxLines = descriptionMaxLines,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.weight(1f))
+                    if (orientation == ListItemOrientation.Horizontal) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
 
                     if (orientation == ListItemOrientation.Horizontal && description != null) {
                         Text(
                             text = description,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(if (isDarkTheme) 0.6f else 0.8f) // TODO: move to color scheme
+                            color = MaterialTheme.colorScheme.onSurface.copy(if (isDarkTheme) 0.6f else 0.8f), // TODO: move to color scheme
+                            maxLines = descriptionMaxLines,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
 
@@ -352,7 +369,9 @@ private fun StyledListItemContent(
                         if (description != null) Text(
                             description,
                             style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(bottom = 4.dp)
+                            modifier = Modifier.padding(bottom = 4.dp),
+                            maxLines = descriptionMaxLines,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     },
                     content = {

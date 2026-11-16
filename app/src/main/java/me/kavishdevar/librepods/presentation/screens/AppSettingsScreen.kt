@@ -175,6 +175,7 @@ private fun ConversationReturnSettings(
             selected = behavior == ConversationReturnBehavior.AIRPODS_DEFAULT,
             onClick = { onBehaviorSelected(ConversationReturnBehavior.AIRPODS_DEFAULT) },
             trailingContent = { ConversationReturnRadio(behavior == ConversationReturnBehavior.AIRPODS_DEFAULT) },
+            descriptionMaxLines = 2,
         )
         StyledListItem(
             name = stringResource(R.string.conversation_mode_return_after_speech),
@@ -186,6 +187,7 @@ private fun ConversationReturnSettings(
                 onBehaviorSelected(ConversationReturnBehavior.AFTER_SPEECH_ENDS)
             },
             trailingContent = { ConversationReturnRadio(behavior == ConversationReturnBehavior.AFTER_SPEECH_ENDS) },
+            descriptionMaxLines = 2,
         )
         StyledListItem(
             name = stringResource(R.string.conversation_mode_return_fixed),
@@ -197,6 +199,7 @@ private fun ConversationReturnSettings(
                 onBehaviorSelected(ConversationReturnBehavior.FIXED_AFTER_SPEECH_START)
             },
             trailingContent = { ConversationReturnRadio(behavior == ConversationReturnBehavior.FIXED_AFTER_SPEECH_START) },
+            descriptionMaxLines = 2,
         )
         StyledListItem(
             name = stringResource(R.string.conversation_mode_return_manual),
@@ -205,6 +208,7 @@ private fun ConversationReturnSettings(
             selected = behavior == ConversationReturnBehavior.MANUAL,
             onClick = { onBehaviorSelected(ConversationReturnBehavior.MANUAL) },
             trailingContent = { ConversationReturnRadio(behavior == ConversationReturnBehavior.MANUAL) },
+            descriptionMaxLines = 2,
         )
     }
 

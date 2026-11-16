@@ -340,7 +340,17 @@ class AirPodsViewModel(
                 if (!isDemoMode) when (action) {
                     AirPodsNotifications.AIRPODS_L2CAP_CONNECTED -> {
                         _uiState.update {
-                            it.copy(isLocallyConnected = true, heartRateWorkoutActive = false)
+                            it.copy(
+                                isLocallyConnected = true,
+                                heartRateWorkoutActive = false,
+                                headTrackingActive = service.isHeadTrackingActive,
+                            )
+                        }
+                    }
+
+                    AirPodsNotifications.AIRPODS_HEAD_TRACKING_STATE -> {
+                        _uiState.update {
+                            it.copy(headTrackingActive = intent.getBooleanExtra("active", false))
                         }
                     }
 
@@ -350,6 +360,7 @@ class AirPodsViewModel(
                                 isLocallyConnected = false,
                                 controlStates = emptyMap(),
                                 ancMode = 0,
+                                headTrackingActive = false,
                                 heartRateStream = HeartRateStreamState(),
                                 heartRateWorkoutActive = false,
                             )
@@ -385,6 +396,7 @@ class AirPodsViewModel(
         val filter = IntentFilter().apply {
             addAction(AirPodsNotifications.AIRPODS_CONNECTED)
             addAction(AirPodsNotifications.AIRPODS_L2CAP_CONNECTED)
+            addAction(AirPodsNotifications.AIRPODS_HEAD_TRACKING_STATE)
             addAction(AirPodsNotifications.AIRPODS_DISCONNECTED)
             addAction(AirPodsNotifications.AIRPODS_AUDIO_ROUTE_STATE)
             addAction(AirPodsNotifications.BATTERY_DATA)
@@ -735,7 +747,9 @@ class AirPodsViewModel(
     fun startHeadTracking(): Boolean {
         val started = service.startHeadTracking()
         _uiState.update { it.copy(headTrackingActive = started) }
-        if (!started) service.sendToast(service.getString(R.string.head_tracking_start_unavailable))
+        if (!started && !service.headTrackingStartPending) {
+            service.sendToast(service.getString(R.string.head_tracking_start_unavailable))
+        }
         return started
     }
 

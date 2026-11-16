@@ -1859,7 +1859,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }
         val style = ConnectionPopupStyle.fromPreferences(
             storedValue = sharedPreferences.getString("connection_popup_style", null),
-            legacyBottomSheetEnabled = sharedPreferences.getBoolean("show_bottom_sheet_popup", true),
+            legacyBottomSheetEnabled = sharedPreferences.getBoolean("show_bottom_sheet_popup", false),
             legacyIslandEnabled = sharedPreferences.getBoolean("show_island_popup", true)
         )
         if (style == ConnectionPopupStyle.DISABLED) return
@@ -1947,7 +1947,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         Log.d(TAG, "Showing island window")
         val popupStyle = ConnectionPopupStyle.fromPreferences(
             storedValue = sharedPreferences.getString("connection_popup_style", null),
-            legacyBottomSheetEnabled = sharedPreferences.getBoolean("show_bottom_sheet_popup", true),
+            legacyBottomSheetEnabled = sharedPreferences.getBoolean("show_bottom_sheet_popup", false),
             legacyIslandEnabled = sharedPreferences.getBoolean("show_island_popup", true),
         )
         if (popupStyle == ConnectionPopupStyle.DISABLED) return
@@ -2592,7 +2592,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     private fun stopCallGestureRecognition(reason: String) {
         handleIncomingCallOnceConnected = false
         gestureDetector?.stopDetection()
-        if (isHeadTrackingActive) stopHeadTracking()
+        if (isHeadTrackingActive || headTrackingStartPending) stopHeadTracking()
         Log.d(TAG, "Stopped call head-gesture recognition: $reason")
     }
 
@@ -3146,7 +3146,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     } else if (startHeadTrackingAgain) {
                         Log.d(TAG, "Starting head tracking again after taking control")
                         Handler(Looper.getMainLooper()).postDelayed({
-                            startHeadTracking()
+                            if (isHeadTrackingActive || headTrackingStartPending) {
+                                startHeadTracking(forceRestart = true)
+                            }
                         }, 500)
                     }
                     delay(1000) // should ideally have a callback when it's taken over because for some reason android doesn't dispatch when it's paused
@@ -3605,6 +3607,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     fun disconnectAirPods() {
+        stopHeadTracking()
         if (BluetoothConnectionManager.aacpSocket == null) return
         try {
             BluetoothConnectionManager.aacpSocket?.close()
@@ -4262,25 +4265,52 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     @Volatile var isHeadTrackingActive = false
+        private set
+    @Volatile var headTrackingStartPending = false
+        private set
+    @Volatile private var headTrackingRetryCount = 0
 
-    fun startHeadTracking(): Boolean {
+    private fun publishHeadTrackingState() {
+        sendBroadcast(
+            Intent(AirPodsNotifications.AIRPODS_HEAD_TRACKING_STATE)
+                .setPackage(packageName)
+                .putExtra("active", isHeadTrackingActive)
+                .putExtra("pending", headTrackingStartPending)
+        )
+    }
+
+    private fun scheduleHeadTrackingRetry() {
+        if (headTrackingRetryCount >= 4) return
+        headTrackingRetryCount += 1
+        Handler(mainLooper).postDelayed({
+            if (headTrackingStartPending && !isHeadTrackingActive) startHeadTracking()
+        }, 350L * headTrackingRetryCount)
+    }
+
+    fun startHeadTracking(forceRestart: Boolean = false): Boolean {
         if (isInCall || phoneCallPhase == PhoneCallPhase.ACTIVE || callGestureDecisionRequested) {
             Log.d(TAG, "Refusing to start head tracking after call answer")
+            headTrackingStartPending = false
             isHeadTrackingActive = false
+            publishHeadTrackingState()
             gestureDetector?.stopDetection()
             return false
         }
+        if (isHeadTrackingActive && !forceRestart) return true
         if (!::aacpManager.isInitialized || BluetoothConnectionManager.aacpSocket?.isConnected != true) {
-            Log.w(TAG, "Head tracking unavailable: AirPods control socket is disconnected")
+            Log.w(TAG, "Head tracking start queued until the AirPods control socket is ready")
+            headTrackingStartPending = true
             isHeadTrackingActive = false
+            publishHeadTrackingState()
+            scheduleHeadTrackingRetry()
             return false
         }
         val useAlternatePackets =
             sharedPreferences.getBoolean("use_alternate_head_tracking_packets", true)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && aacpManager.getControlCommandStatus(
-                AACPManager.Companion.ControlCommandIdentifiers.OWNS_CONNECTION
-            )?.value?.get(0)?.toInt() != 1
-        ) {
+        val ownsConnection = aacpManager.getControlCommandStatus(
+            AACPManager.Companion.ControlCommandIdentifiers.OWNS_CONNECTION
+        )?.value?.firstOrNull()?.toInt()?.and(0xff)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && ownsConnection != 1) {
             takeOver("call", startHeadTrackingAgain = true)
             Log.d(TAG, "Taking over for head tracking")
         } else {
@@ -4292,12 +4322,21 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             aacpManager.sendStartHeadTracking()
         }
         isHeadTrackingActive = sent
-        if (sent) HeadTracking.reset()
-        else Log.w(TAG, "AirPods rejected or lost the head tracking start packet")
+        headTrackingStartPending = !sent
+        if (sent) {
+            headTrackingRetryCount = 0
+            HeadTracking.reset()
+        } else {
+            Log.w(TAG, "Head tracking start packet was not written; scheduling a retry")
+            scheduleHeadTrackingRetry()
+        }
+        publishHeadTrackingState()
         return sent
     }
 
     fun stopHeadTracking() {
+        headTrackingStartPending = false
+        headTrackingRetryCount = 0
         val useAlternatePackets =
             sharedPreferences.getBoolean("use_alternate_head_tracking_packets", true)
         if (::aacpManager.isInitialized && BluetoothConnectionManager.aacpSocket?.isConnected == true) {
@@ -4308,6 +4347,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
         }
         isHeadTrackingActive = false
+        publishHeadTrackingState()
         gestureDetector?.stopDetection()
     }
 

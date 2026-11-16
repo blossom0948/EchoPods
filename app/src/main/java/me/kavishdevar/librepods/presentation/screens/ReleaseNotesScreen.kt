@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -373,6 +374,16 @@ private fun FeaturePhoneReveal(item: UpdateItem, isActive: Boolean) {
     }
     val archShape = MaterialShapes.Arch.toShape()
     val detailScreenshotRes = item.detailScreenshotRes ?: return
+    val sourcePainter = painterResource(item.screenshotRes)
+    val detailPainter = painterResource(detailScreenshotRes)
+    val sourceIntrinsic = sourcePainter.intrinsicSize
+    val detailIntrinsic = detailPainter.intrinsicSize
+    val sourceAspect = if (sourceIntrinsic.width.isFinite() && sourceIntrinsic.height.isFinite() &&
+        sourceIntrinsic.width > 0f && sourceIntrinsic.height > 0f
+    ) sourceIntrinsic.width / sourceIntrinsic.height else 0.49f
+    val detailAspect = if (detailIntrinsic.width.isFinite() && detailIntrinsic.height.isFinite() &&
+        detailIntrinsic.width > 0f && detailIntrinsic.height > 0f
+    ) detailIntrinsic.width / detailIntrinsic.height else 1f
 
     LaunchedEffect(isActive, item.screenshotRes) {
         if (!isActive) {
@@ -392,6 +403,15 @@ private fun FeaturePhoneReveal(item: UpdateItem, isActive: Boolean) {
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
+        val focusHeightLimit = item.highlightHeightFraction
+            .coerceAtMost((1f - item.highlightTopFraction).coerceAtLeast(0.02f))
+            .coerceAtLeast(0.02f)
+        val focusWidth = (detailAspect * focusHeightLimit / sourceAspect).coerceAtMost(0.89f)
+        val focusHeight = (focusWidth * sourceAspect / detailAspect).coerceAtMost(focusHeightLimit)
+        val focusLeft = (1f - focusWidth) / 2f
+        val detailWidth = minOf(maxWidth * 0.92f, maxHeight * 0.42f * detailAspect)
+        val detailHeight = detailWidth / detailAspect
+
         // Keep the handset fully inside its rounded page while the camera settles.
         val deviceScale = if (animationsEnabled) 0.82f + 0.18f * progress.value else 0.82f
         val handsetHeightFraction = if (designSystem == DesignSystem.Apple) 0.56f else 0.82f
@@ -442,12 +462,12 @@ private fun FeaturePhoneReveal(item: UpdateItem, isActive: Boolean) {
                                     drawRoundRect(
                                         color = primary.copy(alpha = 0.76f * visibleAlpha),
                                         topLeft = Offset(
-                                            size.width * 0.055f,
+                                            size.width * focusLeft,
                                             size.height * item.highlightTopFraction,
                                         ),
                                         size = Size(
-                                            size.width * 0.89f,
-                                            size.height * item.highlightHeightFraction,
+                                            size.width * focusWidth,
+                                            size.height * focusHeight,
                                         ),
                                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(22.dp.toPx()),
                                         style = Stroke(width = 2.dp.toPx()),
@@ -495,12 +515,12 @@ private fun FeaturePhoneReveal(item: UpdateItem, isActive: Boolean) {
                                 drawRoundRect(
                                     color = primary.copy(alpha = 0.76f * visibleAlpha),
                                     topLeft = Offset(
-                                        size.width * 0.055f,
+                                        size.width * focusLeft,
                                         size.height * item.highlightTopFraction,
                                     ),
                                     size = Size(
-                                        size.width * 0.89f,
-                                        size.height * item.highlightHeightFraction,
+                                        size.width * focusWidth,
+                                        size.height * focusHeight,
                                     ),
                                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(22.dp.toPx()),
                                     style = Stroke(width = 2.dp.toPx()),
@@ -514,8 +534,8 @@ private fun FeaturePhoneReveal(item: UpdateItem, isActive: Boolean) {
         val detailShape = RoundedCornerShape(24.dp)
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.78f)
-                .aspectRatio(1.04f)
+                .width(detailWidth)
+                .height(detailHeight)
                 .align(Alignment.Center)
                 .offset(y = -maxHeight * 0.1f)
                 .graphicsLayer {
@@ -531,9 +551,9 @@ private fun FeaturePhoneReveal(item: UpdateItem, isActive: Boolean) {
                 .border(1.dp, primary.copy(alpha = 0.42f), detailShape),
         ) {
             Image(
-                painter = painterResource(detailScreenshotRes),
+                painter = detailPainter,
                 contentDescription = stringResource(item.titleRes),
-                contentScale = ContentScale.Crop,
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(detailShape),

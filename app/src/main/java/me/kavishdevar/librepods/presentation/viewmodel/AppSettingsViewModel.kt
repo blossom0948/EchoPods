@@ -40,7 +40,7 @@ data class AppSettingsUiState(
     val vendorIdHook: Boolean = false,
     val isPremium: Boolean = true,
     val connectionSuccessful: Boolean = false,
-    val connectionPopupStyle: ConnectionPopupStyle = ConnectionPopupStyle.BOTTOM_SHEET,
+    val connectionPopupStyle: ConnectionPopupStyle = ConnectionPopupStyle.DYNAMIC_ISLAND,
     val islandPopupSize: IslandPopupSize = IslandPopupSize.SMALL,
     val popupOnWearChange: Boolean = true,
     val automaticEarDetectionEnabled: Boolean = true,
@@ -90,7 +90,7 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
     private fun loadSettings() {
         val popupStyle = ConnectionPopupStyle.fromPreferences(
             storedValue = sharedPreferences.getString("connection_popup_style", null),
-            legacyBottomSheetEnabled = sharedPreferences.getBoolean("show_bottom_sheet_popup", true),
+            legacyBottomSheetEnabled = sharedPreferences.getBoolean("show_bottom_sheet_popup", false),
             legacyIslandEnabled = sharedPreferences.getBoolean("show_island_popup", true)
         )
         if (!sharedPreferences.contains("connection_popup_style")) {

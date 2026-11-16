@@ -20,7 +20,17 @@
 
 package me.kavishdevar.librepods.presentation.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import me.kavishdevar.librepods.R
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -49,6 +59,10 @@ fun AudioSettings(
     vendorIdHook: Boolean,
     isPremium: Boolean
 ) {
+    var conversationEnabled by remember(conversationalAwarenessChecked) {
+        mutableStateOf(conversationalAwarenessChecked)
+    }
+
     if (adaptiveVolumeCapability || conversationalAwarenessCapability || loudSoundReductionCapability || adaptiveAudioCapability) {
         StyledList(title = stringResource(R.string.audio)) {
             if (adaptiveVolumeCapability) {
@@ -65,10 +79,19 @@ fun AudioSettings(
                 StyledToggle(
                     label = stringResource(R.string.conversational_awareness),
                     description = stringResource(R.string.conversational_awareness_description),
-                    checked = conversationalAwarenessChecked,
-                    onCheckedChange = onConversationalAwarenessCheckedChange,
+                    checked = conversationEnabled,
+                    onCheckedChange = { enabled ->
+                        // Reflect the user's tap in this composition immediately; device
+                        // control notifications may arrive later over Bluetooth.
+                        conversationEnabled = enabled
+                        onConversationalAwarenessCheckedChange(enabled)
+                    },
                 )
-                if (conversationalAwarenessChecked) {
+                AnimatedVisibility(
+                    visible = conversationEnabled,
+                    enter = expandVertically(animationSpec = tween(150)) + fadeIn(tween(120)),
+                    exit = shrinkVertically(animationSpec = tween(120)) + fadeOut(tween(90)),
+                ) {
                     StyledListItem(
                         name = stringResource(R.string.conversation_mode_return_open),
                         description = stringResource(R.string.conversation_mode_return_open_description),

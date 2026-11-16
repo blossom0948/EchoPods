@@ -109,6 +109,7 @@ class AirPodsNotifications {
         const val DISCONNECT_RECEIVERS = "me.kavishdevar.librepods.DISCONNECT_RECEIVERS"
         const val EQ_DATA = "me.kavishdevar.librepods.HEADPHONE_ACCOMMODATION"
         const val AIRPODS_INFORMATION_UPDATED = "me.kavishdevar.librepods.AIRPODS_INFORMATION_UPDATED"
+        const val AIRPODS_HEAD_TRACKING_STATE = "me.kavishdevar.librepods.AIRPODS_HEAD_TRACKING_STATE"
     }
 
     class EarDetection {
