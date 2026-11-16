@@ -23,9 +23,29 @@ val gettingStartedGuide = listOf(
 
 val updates = listOf(
     UpdateItem(
-        titleRes = R.string.guide_page_wear_control_update_title,
-        descriptionRes = R.string.guide_page_wear_control_update_description,
-        screenshotRes = R.drawable.guide_wear_control,
-        detailScreenshotRes = R.drawable.guide_wear_control_detail,
+        titleRes = R.string.guide_page_island_size_update_title,
+        descriptionRes = R.string.guide_page_island_size_update_description,
+        screenshotRes = R.drawable.guide_island_size,
+        detailScreenshotRes = R.drawable.guide_island_size_detail,
+        highlightTopFraction = 0.015f,
+        highlightHeightFraction = 0.15f,
+    ),
+    UpdateItem(
+        titleRes = R.string.guide_page_slider_fix_update_title,
+        descriptionRes = R.string.guide_page_slider_fix_update_description,
+        screenshotRes = R.drawable.guide_slider_fix,
+        detailScreenshotRes = R.drawable.guide_slider_fix_detail,
+        labelRes = R.string.guide_bug_fix_label,
+        highlightTopFraction = 0.7f,
+        highlightHeightFraction = 0.28f,
+    ),
+    UpdateItem(
+        titleRes = R.string.guide_page_labs_fix_update_title,
+        descriptionRes = R.string.guide_page_labs_fix_update_description,
+        screenshotRes = R.drawable.guide_labs_fix,
+        detailScreenshotRes = R.drawable.guide_labs_fix_detail,
+        labelRes = R.string.guide_bug_fix_label,
+        highlightTopFraction = 0.08f,
+        highlightHeightFraction = 0.26f,
     ),
 )

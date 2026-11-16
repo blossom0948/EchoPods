@@ -3660,6 +3660,57 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         return batteryNotification.getBattery()
     }
 
+    fun latestEarWearState(): Pair<Boolean, Boolean>? {
+        if (!::bleManager.isInitialized) return null
+        return bleManager.getMostRecentStatus()?.let { status ->
+            status.isLeftInEar to status.isRightInEar
+        }
+    }
+
+    fun previewIslandPopupSize(size: IslandPopupSize) {
+        if (!::sharedPreferences.isInitialized || !Settings.canDrawOverlays(this)) return
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { previewIslandPopupSize(size) }
+            return
+        }
+
+        val current = islandWindow
+        if (current?.isPreview == true && current.isVisible) {
+            current.updatePopupSize(size)
+            return
+        }
+        if (islandOpen || current?.isVisible == true) return
+
+        val window = IslandWindow(applicationContext)
+        islandWindow = window
+        val activeAddress = device?.address
+        val modelAddress = sharedPreferences.getString("airpods_model_address", null)
+        val model = if (activeAddress != null && activeAddress == modelAddress) {
+            AirPodsModels.getModelByModelNumber(
+                sharedPreferences.getString("airpods_model_number", "") ?: "",
+            )
+        } else {
+            null
+        }
+        window.show(
+            name = sharedPreferences.getString("name", "AirPods Pro") ?: "AirPods Pro",
+            batteryPercentage = -1,
+            context = this,
+            model = model,
+            popupSize = size,
+            isPreview = true,
+        )
+    }
+
+    fun closeIslandPopupPreview() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { closeIslandPopupPreview() }
+            return
+        }
+        val current = islandWindow ?: return
+        if (current.isPreview) current.forceClose()
+    }
+
     fun getANC(): Int {
 //        if (!isConnectedLocally && CrossDevice.isAvailable) {
 //            ancNotification.setStatus(CrossDevice.ancBytes)

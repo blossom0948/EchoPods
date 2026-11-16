@@ -38,8 +38,6 @@ import me.kavishdevar.librepods.presentation.screens.TroubleshootingScreen
 import me.kavishdevar.librepods.presentation.screens.UpdateHearingTestRoute
 import me.kavishdevar.librepods.presentation.screens.VersionScreen
 import me.kavishdevar.librepods.presentation.screens.onboarding.OnboardingScreen
-import me.kavishdevar.librepods.presentation.theme.DesignSystem
-import me.kavishdevar.librepods.presentation.theme.LocalDesignSystem
 import me.kavishdevar.librepods.presentation.viewmodel.AirPodsViewModel
 import me.kavishdevar.librepods.presentation.viewmodel.AppSettingsViewModel
 import me.kavishdevar.librepods.presentation.viewmodel.PurchaseViewModel
@@ -62,8 +60,6 @@ fun AppNavGraph(
     fun navigateToPurchase() {
         navigate(Screen.Purchase)
     }
-
-    val m3eEnabled = LocalDesignSystem.current == DesignSystem.Material
 
     NavDisplay(
         backStack = backStack,
@@ -279,41 +275,41 @@ fun AppNavGraph(
             }
         },
         transitionSpec = {
-            val navigationDuration = if (m3eEnabled) 300 else 320
+            val navigationDuration = 240
             val navigationEasing = FastOutSlowInEasing
             slideInHorizontally(
-                initialOffsetX = { it },
+                initialOffsetX = { it / 24 },
                 animationSpec = tween(navigationDuration, easing = navigationEasing),
             ) togetherWith slideOutHorizontally(
-                targetOffsetX = { -it / 4 },
+                targetOffsetX = { -it / 48 },
                 animationSpec = tween(navigationDuration, easing = navigationEasing),
             )
         },
         popTransitionSpec = {
-            val navigationDuration = if (m3eEnabled) 300 else 320
+            val navigationDuration = 240
             val navigationEasing = FastOutSlowInEasing
             slideInHorizontally(
-                initialOffsetX = { -it / 4 },
+                initialOffsetX = { -it / 48 },
                 animationSpec = tween(navigationDuration, easing = navigationEasing),
             ) togetherWith slideOutHorizontally(
-                targetOffsetX = { it },
+                targetOffsetX = { it / 24 },
                 animationSpec = tween(navigationDuration, easing = navigationEasing),
             )
         },
         predictivePopTransitionSpec = { swipeEdge ->
             val enterOffset: (Int) -> Int =
                 if (swipeEdge == EDGE_LEFT) {
-                    { -it / 4 }
+                    { -it / 48 }
                 } else {
-                    { it / 4 }
+                    { it / 48 }
                 }
             val exitOffset: (Int) -> Int =
                 if (swipeEdge == EDGE_LEFT) {
-                    { it }
+                    { it / 24 }
                 } else {
-                    { -it }
+                    { -it / 24 }
                 }
-            val predictiveDuration = if (m3eEnabled) 240 else 280
+            val predictiveDuration = 240
             val predictiveEasing = FastOutSlowInEasing
             slideInHorizontally(
                 initialOffsetX = enterOffset,

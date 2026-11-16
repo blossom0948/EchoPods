@@ -224,6 +224,8 @@
     <string name="island_popup_size_medium">Medium</string>
     <string name="island_popup_size_large">Large</string>
     <string name="island_popup_preview">Preview</string>
+    <string name="island_preview_status">Preview</string>
+    <string name="island_popup_live_preview_note">Move the slider to show the actual popup at the selected size. The preview closes when you leave this screen.</string>
     <string name="labs">Labs</string>
     <string name="echo_health_name">ECHO HEALTH</string>
     <string name="echo_health_labs_description">A companion health and workout app for AirPods users, including experimental heart-rate support for AirPods Pro 3.</string>
@@ -403,7 +405,7 @@
     <string name="manual_update_check">Check for updates manually</string>
     <string name="store_managed_updates">%1$s manages app updates for this version.</string>
     <string name="guide_title">Getting started</string>
-    <string name="whats_new_version">What’s new in v%1$s</string>
+    <string name="whats_new_version">v%1$s Update</string>
     <string name="guide_page_battery_title">Battery status</string>
     <string name="guide_page_battery_description">See left and right levels separately on Home. The case appears only when its battery has actually been read; an unknown value is never shown as 0%.</string>
     <string name="guide_page_controls_title">AirPods controls</string>
@@ -418,6 +420,13 @@
     <string name="guide_page_updates_update_description">New installs get a focused getting-started guide. Updates use the same visual guide to show version-specific changes with real app screenshots.</string>
     <string name="guide_page_wear_control_update_title">More precise listening controls</string>
     <string name="guide_page_wear_control_update_description">Choose what media does when you remove one earbud, and when listening mode returns after Conversation Awareness. Support depends on the model and connection state.</string>
+    <string name="guide_page_island_size_update_title">Island layouts by size</string>
+    <string name="guide_page_island_size_update_description">Compact sizes show the device name and connection state, matching artwork for the worn earbud, and left/right battery levels. Move the size slider to preview the actual top pop-up.</string>
+    <string name="guide_page_slider_fix_update_title">Settings slider and menu fixes</string>
+    <string name="guide_page_slider_fix_update_description">Fixed descriptions and controls shifting when choosing a conversation-return option, and improved sticky dragging. Island size now follows your finger smoothly.</string>
+    <string name="guide_page_labs_fix_update_title">Labs navigation display fix</string>
+    <string name="guide_page_labs_fix_update_description">Fixed Labs guidance overlapping its menu row and text showing through the top header. The live preview pop-up now closes when leaving Settings.</string>
+    <string name="guide_bug_fix_label">Bug fixes</string>
     <string name="guide_new_feature_label">NEW</string>
     <string name="guide_next">Next</string>
     <string name="guide_previous">Back</string>

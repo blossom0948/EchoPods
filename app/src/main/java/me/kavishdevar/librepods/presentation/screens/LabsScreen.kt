@@ -5,11 +5,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.net.Uri
-import android.os.Build
 import android.os.Environment
 import android.provider.Settings
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -48,6 +48,11 @@ private const val ECHO_HEALTH_APK_URL =
 fun LabsScreen() {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val downloadFailedText = stringResource(R.string.echo_health_download_failed)
+    val installFailedText = stringResource(R.string.echo_health_install_failed)
+    val allowInstallText = stringResource(R.string.echo_health_allow_install)
+    val healthName = stringResource(R.string.echo_health_name)
+    val downloadingText = stringResource(R.string.echo_health_downloading)
     var installed by remember { mutableStateOf(isEchoHealthInstalled(context)) }
     var downloading by remember { mutableStateOf(false) }
     var activeDownloadId by remember { mutableLongStateOf(-1L) }
@@ -63,7 +68,12 @@ fun LabsScreen() {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    DisposableEffect(context, downloadManager) {
+    DisposableEffect(
+        context,
+        downloadManager,
+        downloadFailedText,
+        installFailedText,
+    ) {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(receiverContext: Context?, intent: Intent?) {
                 if (intent?.action != DownloadManager.ACTION_DOWNLOAD_COMPLETE) return
@@ -75,13 +85,13 @@ fun LabsScreen() {
                     if (!cursor.moveToFirst()) return
                     val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
                     if (status != DownloadManager.STATUS_SUCCESSFUL) {
-                        Toast.makeText(context, context.getString(R.string.echo_health_download_failed), Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, downloadFailedText, Toast.LENGTH_LONG).show()
                         return
                     }
                 }
                 val apkUri = downloadManager.getUriForDownloadedFile(completedId)
                 if (apkUri == null) {
-                    Toast.makeText(context, context.getString(R.string.echo_health_download_failed), Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, downloadFailedText, Toast.LENGTH_LONG).show()
                     return
                 }
                 val installIntent = Intent(Intent.ACTION_VIEW).apply {
@@ -90,17 +100,17 @@ fun LabsScreen() {
                 }
                 runCatching { context.startActivity(installIntent) }
                     .onFailure {
-                        Toast.makeText(context, context.getString(R.string.echo_health_install_failed), Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, installFailedText, Toast.LENGTH_LONG).show()
                     }
             }
         }
         val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            @Suppress("DEPRECATION")
-            context.registerReceiver(receiver, filter)
-        }
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
         onDispose { runCatching { context.unregisterReceiver(receiver) } }
     }
 
@@ -111,19 +121,19 @@ fun LabsScreen() {
             return
         }
         if (downloading) return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
+        if (!context.packageManager.canRequestPackageInstalls()) {
             val settingsIntent = Intent(
                 Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                Uri.parse("package:${context.packageName}"),
+                "package:${context.packageName}".toUri(),
             ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(settingsIntent)
-            Toast.makeText(context, context.getString(R.string.echo_health_allow_install), Toast.LENGTH_LONG).show()
+            Toast.makeText(context, allowInstallText, Toast.LENGTH_LONG).show()
             return
         }
         runCatching {
             val request = DownloadManager.Request(ECHO_HEALTH_APK_URL.toUri())
-                .setTitle(context.getString(R.string.echo_health_name))
-                .setDescription(context.getString(R.string.echo_health_downloading))
+                .setTitle(healthName)
+                .setDescription(downloadingText)
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 .setAllowedOverMetered(true)
                 .setAllowedOverRoaming(false)
@@ -135,13 +145,14 @@ fun LabsScreen() {
             activeDownloadId = downloadManager.enqueue(request)
             downloading = true
         }.onFailure {
-            Toast.makeText(context, context.getString(R.string.echo_health_download_failed), Toast.LENGTH_LONG).show()
+            Toast.makeText(context, downloadFailedText, Toast.LENGTH_LONG).show()
         }
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
@@ -157,7 +168,7 @@ fun LabsScreen() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(20.dp))
-        StyledList(title = stringResource(R.string.echo_health_name)) {
+        StyledList {
             StyledListItem(
                 name = stringResource(R.string.echo_health_labs_subtitle),
                 description = stringResource(R.string.echo_health_labs_details),
@@ -176,6 +187,7 @@ fun LabsScreen() {
                     if (installed) R.string.echo_health_installed
                     else R.string.echo_health_install_description,
                 ),
+                orientation = ListItemOrientation.Vertical,
                 onClick = ::installOrOpenEchoHealth,
                 enabled = !downloading,
             )

@@ -25,9 +25,8 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -50,10 +49,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -101,7 +102,6 @@ import me.kavishdevar.librepods.presentation.theme.LibrePodsTheme
 import me.kavishdevar.librepods.presentation.theme.LocalDesignSystem
 import me.kavishdevar.librepods.utils.inspectDragGestures
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 @Composable
 fun rememberMomentumAnimation(
@@ -280,6 +280,7 @@ fun StyledSlider(
     independent: Boolean = false,
     description: String? = null,
     enabled: Boolean = true,
+    onValueChangeFinished: () -> Unit = {},
     index: Int = 0,
     count: Int = 1
 ) {
@@ -390,7 +391,8 @@ fun StyledSlider(
                                         onValueChange(snapped)
                                     },
                                     valueRange = valueRange,
-                                    enabled = enabled
+                                    enabled = enabled,
+                                    onValueChangeFinished = onValueChangeFinished,
                                 )
 
                                 endIcon?.let {
@@ -424,6 +426,9 @@ fun StyledSlider(
                 ((value - valueRange.start) / (valueRange.endInclusive - valueRange.start))
                     .fastCoerceIn(0f, 1f)
             }
+            var dragFraction by remember { mutableFloatStateOf(fraction) }
+            var isTrackDragging by remember { mutableStateOf(false) }
+            val visibleFraction = if (isTrackDragging) dragFraction else fraction
 
             val sliderBackdrop = rememberLayerBackdrop()
             val trackWidthState = remember { mutableFloatStateOf(0f) }
@@ -433,8 +438,37 @@ fun StyledSlider(
             val density = LocalDensity.current
             val haptics = LocalHapticFeedback.current
             var lastDragValue by remember { mutableFloatStateOf(value) }
+            val latestValue by rememberUpdatedState(value)
+            val latestOnValueChange by rememberUpdatedState(onValueChange)
+            val latestOnValueChangeFinished by rememberUpdatedState(onValueChangeFinished)
 
-            val momentumAnimation = rememberMomentumAnimation(maxScale = 1.5f)
+            LaunchedEffect(fraction, isTrackDragging) {
+                if (!isTrackDragging) {
+                    dragFraction = fraction
+                    lastDragValue = value
+                }
+            }
+
+            val momentumAnimation = rememberMomentumAnimation(maxScale = 1.16f)
+
+            fun emitSliderFraction(rawFraction: Float) {
+                val targetFraction = rawFraction.fastCoerceIn(0f, 1f)
+                val targetValue = lerp(valueRange.start, valueRange.endInclusive, targetFraction)
+                snapPoints.forEach { snap ->
+                    if ((lastDragValue < snap && targetValue >= snap) ||
+                        (snap in targetValue..<lastDragValue)
+                    ) {
+                        haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                    }
+                }
+                lastDragValue = targetValue
+                val snappedValue = if (snapPoints.isNotEmpty()) {
+                    snapIfClose(targetValue, snapPoints, snapThreshold)
+                } else {
+                    targetValue
+                }
+                latestOnValueChange(snappedValue)
+            }
 
             val content = @Composable {
                 Box(
@@ -515,6 +549,7 @@ fun StyledSlider(
                                     Box(
                                         Modifier
                                             .weight(1f)
+                                            .heightIn(min = 44.dp)
                                             .onSizeChanged {
                                                 trackWidthState.floatValue = it.width.toFloat()
                                             }
@@ -522,6 +557,59 @@ fun StyledSlider(
                                                 trackPositionState.floatValue =
                                                     it.positionInParent().y + it.size.height / 2f
                                             }
+                                            .pointerInput(enabled, valueRange, snapPoints) {
+                                                if (enabled) {
+                                                    detectTapGestures { offset ->
+                                                        val width = size.width.toFloat()
+                                                        if (width > 0f) {
+                                                            val targetFraction = (offset.x / width)
+                                                                .fastCoerceIn(0f, 1f)
+                                                            dragFraction = targetFraction
+                                                            lastDragValue = latestValue
+                                                            emitSliderFraction(targetFraction)
+                                                            momentumAnimation.startPressingAnimation()
+                                                            momentumAnimation.endPressingAnimation()
+                                                            latestOnValueChangeFinished()
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            .pointerInput(enabled, valueRange, snapPoints) {
+                                                if (enabled) {
+                                                    detectDragGestures(
+                                                        onDragStart = { offset ->
+                                                            isTrackDragging = true
+                                                            val width = size.width.toFloat()
+                                                            if (width > 0f) {
+                                                                dragFraction = (offset.x / width)
+                                                                    .fastCoerceIn(0f, 1f)
+                                                                lastDragValue = latestValue
+                                                                emitSliderFraction(dragFraction)
+                                                            }
+                                                            momentumAnimation.startPressingAnimation()
+                                                        },
+                                                        onDragEnd = {
+                                                            isTrackDragging = false
+                                                            momentumAnimation.endPressingAnimation()
+                                                            latestOnValueChangeFinished()
+                                                        },
+                                                        onDragCancel = {
+                                                            isTrackDragging = false
+                                                            momentumAnimation.endPressingAnimation()
+                                                            latestOnValueChangeFinished()
+                                                        },
+                                                    ) { change, dragAmount ->
+                                                        change.consume()
+                                                        val width = trackWidthState.floatValue
+                                                        if (width > 0f) {
+                                                            dragFraction = (dragFraction + dragAmount.x / width)
+                                                                .fastCoerceIn(0f, 1f)
+                                                            emitSliderFraction(dragFraction)
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                        contentAlignment = Alignment.Center,
                                     ) {
                                         Box(
                                             Modifier
@@ -538,9 +626,8 @@ fun StyledSlider(
                                                 .height(6f.dp)
                                                 .layout { measurable, constraints ->
                                                     val placeable = measurable.measure(constraints)
-                                                    val fraction = fraction
                                                     val width =
-                                                        (fraction * constraints.maxWidth).fastRoundToInt()
+                                                        (visibleFraction * constraints.maxWidth).fastRoundToInt()
                                                     layout(width, placeable.height) {
                                                         placeable.place(0, 0)
                                                     }
@@ -622,7 +709,7 @@ fun StyledSlider(
                                         with(density) { 8.dp.toPx() }
 
                                 translationX =
-                                    (startOffset + fraction * trackWidthState.floatValue - size.width / 2f)
+                                    (startOffset + visibleFraction * trackWidthState.floatValue - size.width / 2f)
                                         .fastCoerceIn(
                                             startOffset - size.width / 4f,
                                             startOffset + trackWidthState.floatValue - size.width * 3f / 4f
@@ -636,53 +723,7 @@ fun StyledSlider(
                             }
                             .then(
                                 if (enabled) {
-                                    Modifier
-                                        .draggable(
-                                            rememberDraggableState { delta ->
-                                                val trackWidth = trackWidthState.floatValue
-                                                if (trackWidth > 0f) {
-                                                    val targetFraction =
-                                                        fraction + delta / trackWidth
-                                                    val targetValue =
-                                                        lerp(
-                                                            valueRange.start,
-                                                            valueRange.endInclusive,
-                                                            targetFraction
-                                                        )
-                                                            .fastCoerceIn(
-                                                                valueRange.start,
-                                                                valueRange.endInclusive
-                                                            )
-                                                    snapPoints.forEach { snap ->
-                                                        if ((lastDragValue < snap && targetValue >= snap) ||
-                                                            (snap in targetValue..<lastDragValue)
-                                                        ) {
-                                                            haptics.performHapticFeedback(
-                                                                HapticFeedbackType.SegmentTick
-                                                            )
-                                                        }
-                                                    }
-                                                    lastDragValue = targetValue
-                                                    val snappedValue =
-                                                        if (snapPoints.isNotEmpty()) snapIfClose(
-                                                            targetValue,
-                                                            snapPoints,
-                                                            snapThreshold,
-                                                        ) else targetValue
-                                                    onValueChange(snappedValue)
-                                                }
-                                            },
-                                            Orientation.Horizontal,
-                                            startDragImmediately = true,
-                                            onDragStarted = {
-                                                lastDragValue = value
-                                            },
-                                            onDragStopped = {
-                                                onValueChange((value * 100).roundToInt() / 100f)
-                                            }
-                                        )
-                                        .then(momentumAnimation.modifier)
-                                        .liquidGlassSliderThumb(
+                                    Modifier.liquidGlassSliderThumb(
                                             backdrop = rememberCombinedBackdrop(backdrop, sliderBackdrop),
                                             momentumAnimation = momentumAnimation,
                                             shape = RoundedCornerShape(28.dp),

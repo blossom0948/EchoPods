@@ -222,12 +222,12 @@ fun StyledScaffold(
                                 backgroundColor = bgColor
                                 tints = listOf(
                                     HazeTint(
-                                        if (isDarkTheme) Color.Black.copy(0.55f) else Color(
+                                        if (isDarkTheme) Color.Black.copy(0.92f) else Color(
                                             0xFFF2F2F7
-                                        ).copy(alpha = 0.85f)
+                                        ).copy(alpha = 0.94f)
                                     )
                                 )
-                                blurRadius = 6.dp
+                                blurRadius = 12.dp
                             }
                         ) {
 

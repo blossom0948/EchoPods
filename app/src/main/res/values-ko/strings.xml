@@ -223,6 +223,8 @@
     <string name="island_popup_size_medium">중간</string>
     <string name="island_popup_size_large">크게</string>
     <string name="island_popup_preview">미리보기</string>
+    <string name="island_preview_status">미리보기</string>
+    <string name="island_popup_live_preview_note">슬라이더를 움직이면 상단에 실제 크기의 팝업이 표시됩니다. 화면을 벗어나면 미리보기는 닫힙니다.</string>
     <string name="labs">실험실</string>
     <string name="echo_health_name">ECHO HEALTH</string>
     <string name="echo_health_labs_description">AirPods 사용자를 위한 건강·운동 앱입니다. AirPods Pro 3 심박수 지원은 실험 기능입니다.</string>
@@ -397,7 +399,7 @@
     <string name="manual_update_check">수동으로 업데이트 확인</string>
     <string name="store_managed_updates">이 버전의 앱 업데이트는 %1$s에서 관리합니다.</string>
     <string name="guide_title">시작 가이드</string>
-    <string name="whats_new_version">v%1$s 신기능</string>
+    <string name="whats_new_version">v%1$s 업데이트</string>
     <string name="guide_page_battery_title">배터리 상태</string>
     <string name="guide_page_battery_description">홈에서 왼쪽·오른쪽 유닛 잔량을 따로 확인하세요. 케이스 잔량은 실제로 읽은 값만 표시하며, 아직 못 읽은 값은 0%로 꾸며내지 않습니다.</string>
     <string name="guide_page_controls_title">AirPods 기능 제어</string>
@@ -412,7 +414,14 @@
     <string name="guide_page_updates_update_description">새 설치에는 필요한 기능만 담은 시작 가이드를 표시하고, 이후에는 버전별 변경점과 실제 앱 화면을 같은 안내 디자인으로 보여줍니다.</string>
     <string name="guide_page_wear_control_update_title">청취 제어를 세밀하게</string>
     <string name="guide_page_wear_control_update_description">한쪽 유닛을 뺄 때 미디어 동작을 설정하고, 대화 인식 뒤 청취 모드가 돌아오는 시간을 조절할 수 있습니다. 지원 범위는 모델과 연결 상태에 따라 달라집니다.</string>
-    <string name="guide_new_feature_label">새 기능</string>
+    <string name="guide_page_island_size_update_title">아일랜드 크기별 표시</string>
+    <string name="guide_page_island_size_update_description">작은 크기에서는 기기 이름과 연결 상태, 착용 중인 유닛의 모델 이미지와 좌·우 배터리를 간결하게 보여줍니다. 크기 슬라이더를 움직이면 상단 팝업에서 실제 표시를 미리 볼 수 있습니다.</string>
+    <string name="guide_page_slider_fix_update_title">설정 슬라이더와 메뉴 오류 수정</string>
+    <string name="guide_page_slider_fix_update_description">대화 인지 복귀 시간을 고를 때 설명과 버튼 배열이 바뀌던 문제, 드래그가 뻑뻑하던 문제를 수정했습니다. 아일랜드 크기 조절도 손가락을 따라 부드럽게 움직입니다.</string>
+    <string name="guide_page_labs_fix_update_title">실험실 진입 화면 오류 수정</string>
+    <string name="guide_page_labs_fix_update_description">실험실 안내가 메뉴 행과 겹치고 상단 헤더 뒤로 글자가 비치던 현상을 수정했습니다. 설정에서 이동할 때 미리보기 팝업도 닫히도록 정리했습니다.</string>
+    <string name="guide_bug_fix_label">오류 수정</string>
+    <string name="guide_new_feature_label">신기능 소개</string>
     <string name="guide_next">다음</string>
     <string name="guide_previous">이전</string>
     <string name="guide_start">시작하기</string>

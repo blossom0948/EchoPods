@@ -441,8 +441,14 @@ private fun FeaturePhoneReveal(item: UpdateItem, isActive: Boolean) {
                                 if (visibleAlpha > 0f) {
                                     drawRoundRect(
                                         color = primary.copy(alpha = 0.76f * visibleAlpha),
-                                        topLeft = Offset(size.width * 0.055f, size.height * 0.58f),
-                                        size = Size(size.width * 0.89f, size.height * 0.38f),
+                                        topLeft = Offset(
+                                            size.width * 0.055f,
+                                            size.height * item.highlightTopFraction,
+                                        ),
+                                        size = Size(
+                                            size.width * 0.89f,
+                                            size.height * item.highlightHeightFraction,
+                                        ),
                                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(22.dp.toPx()),
                                         style = Stroke(width = 2.dp.toPx()),
                                     )
@@ -488,8 +494,14 @@ private fun FeaturePhoneReveal(item: UpdateItem, isActive: Boolean) {
                             if (visibleAlpha > 0f) {
                                 drawRoundRect(
                                     color = primary.copy(alpha = 0.76f * visibleAlpha),
-                                    topLeft = Offset(size.width * 0.055f, size.height * 0.58f),
-                                    size = Size(size.width * 0.89f, size.height * 0.38f),
+                                    topLeft = Offset(
+                                        size.width * 0.055f,
+                                        size.height * item.highlightTopFraction,
+                                    ),
+                                    size = Size(
+                                        size.width * 0.89f,
+                                        size.height * item.highlightHeightFraction,
+                                    ),
                                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(22.dp.toPx()),
                                     style = Stroke(width = 2.dp.toPx()),
                                 )
@@ -558,7 +570,7 @@ private fun FeaturePhoneReveal(item: UpdateItem, isActive: Boolean) {
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = stringResource(R.string.guide_new_feature_label),
+                    text = stringResource(item.labelRes),
                     style = MaterialTheme.typography.labelLarge,
                     color = primary,
                 )

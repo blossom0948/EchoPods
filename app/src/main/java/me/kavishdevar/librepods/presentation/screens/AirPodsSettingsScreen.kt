@@ -310,6 +310,7 @@ fun AirPodsSettingsScreen(
                             }
                         )
                     }
+                    val workoutAppMissingText = stringResource(R.string.heart_rate_workout_app_missing)
                     StyledList(title = stringResource(R.string.heart_rate_sensor)) {
                         StyledListItemInGroup(
                             name = stringResource(R.string.heart_rate_workout_open),
@@ -326,7 +327,7 @@ fun AirPodsSettingsScreen(
                                 } else {
                                     Toast.makeText(
                                         context,
-                                        context.getString(R.string.heart_rate_workout_app_missing),
+                                        workoutAppMissingText,
                                         Toast.LENGTH_LONG,
                                     ).show()
                                 }

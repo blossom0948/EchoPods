@@ -25,9 +25,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -46,7 +43,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
@@ -73,7 +69,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -108,6 +103,7 @@ import me.kavishdevar.librepods.presentation.components.ListItemOrientation
 import me.kavishdevar.librepods.presentation.components.StyledSlider
 import me.kavishdevar.librepods.presentation.components.StyledToggle
 import me.kavishdevar.librepods.services.MediaSessionResolver
+import me.kavishdevar.librepods.services.ServiceManager
 import me.kavishdevar.librepods.presentation.theme.DesignSystem
 import me.kavishdevar.librepods.presentation.theme.LocalDesignSystem
 import me.kavishdevar.librepods.presentation.theme.MaterialTypography
@@ -156,11 +152,7 @@ private fun ConversationReturnSettings(
         )
         StyledListItem(
             name = stringResource(R.string.conversation_mode_return_after_speech),
-            description = if (behavior == ConversationReturnBehavior.AFTER_SPEECH_ENDS) {
-                stringResource(R.string.conversation_mode_return_after_speech_selected, delayText)
-            } else {
-                stringResource(R.string.conversation_mode_return_after_speech_description)
-            },
+            description = stringResource(R.string.conversation_mode_return_after_speech_description),
             orientation = ListItemOrientation.Vertical,
             selected = behavior == ConversationReturnBehavior.AFTER_SPEECH_ENDS,
             onClick = {
@@ -179,11 +171,7 @@ private fun ConversationReturnSettings(
         )
         StyledListItem(
             name = stringResource(R.string.conversation_mode_return_fixed),
-            description = if (behavior == ConversationReturnBehavior.FIXED_AFTER_SPEECH_START) {
-                stringResource(R.string.conversation_mode_return_fixed_selected, delayText)
-            } else {
-                stringResource(R.string.conversation_mode_return_fixed_description)
-            },
+            description = stringResource(R.string.conversation_mode_return_fixed_description),
             orientation = ListItemOrientation.Vertical,
             selected = behavior == ConversationReturnBehavior.FIXED_AFTER_SPEECH_START,
             onClick = {
@@ -279,6 +267,12 @@ fun AppSettingsScreen(
     val m3eEnabled = LocalDesignSystem.current == DesignSystem.Material
     val topPadding = if (m3eEnabled) 16.dp else WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 84.dp
     val bottomPadding = if (m3eEnabled) 0.dp else WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 12.dp
+
+    DisposableEffect(Unit) {
+        onDispose {
+            ServiceManager.getService()?.closeIslandPopupPreview()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -384,10 +378,19 @@ fun AppSettingsScreen(
             snapThreshold = 0.18f,
             startLabel = stringResource(R.string.island_popup_size_small),
             endLabel = stringResource(R.string.island_popup_size_large),
-            onValueChange = { viewModel.setIslandPopupSize(IslandPopupSize.fromSliderPosition(it)) },
+            onValueChange = {
+                val selectedSize = IslandPopupSize.fromSliderPosition(it)
+                viewModel.setIslandPopupSize(selectedSize)
+                ServiceManager.getService()?.previewIslandPopupSize(selectedSize)
+            },
             independent = true,
         )
-        IslandPopupSizePreview(size = state.islandPopupSize)
+        Text(
+            text = stringResource(R.string.island_popup_live_preview_note),
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Spacer(modifier = Modifier.height(16.dp))
 
         StyledList(title = stringResource(R.string.wear_detection_settings)) {
@@ -676,7 +679,10 @@ fun AppSettingsScreen(
                 name = stringResource(R.string.echo_health_name),
                 description = stringResource(R.string.echo_health_labs_description),
                 orientation = ListItemOrientation.Vertical,
-                onClick = navigateToLabs,
+                onClick = {
+                    ServiceManager.getService()?.closeIslandPopupPreview()
+                    navigateToLabs()
+                },
             )
         }
 
@@ -912,70 +918,5 @@ private fun UpdateCard(
             onClick = onCheck,
             enabled = !busy,
         )
-    }
-}
-
-@Composable
-private fun IslandPopupSizePreview(size: IslandPopupSize) {
-    val widthFraction by animateFloatAsState(
-        targetValue = when (size) {
-            IslandPopupSize.SMALL -> 0.60f
-            IslandPopupSize.MEDIUM -> 0.82f
-            IslandPopupSize.LARGE -> 0.95f
-        },
-        animationSpec = spring(dampingRatio = 0.82f, stiffness = 520f),
-        label = "islandSizePreview",
-    )
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp),
-    ) {
-        Text(
-            text = stringResource(R.string.island_popup_preview),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(6.dp))
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(76.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerLow),
-            contentAlignment = Alignment.TopCenter,
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(widthFraction)
-                    .padding(top = 12.dp)
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(28.dp))
-                    .background(Color.Black)
-                    .padding(horizontal = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.airpods),
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp),
-                )
-                Text(
-                    text = "AirPods Pro",
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 8.dp),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color.White,
-                    maxLines = 1,
-                )
-                Image(
-                    painter = painterResource(R.drawable.ic_battery_outline),
-                    contentDescription = null,
-                    modifier = Modifier.size(width = 28.dp, height = 14.dp),
-                )
-            }
-        }
     }
 }
