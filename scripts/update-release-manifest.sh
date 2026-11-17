@@ -47,13 +47,17 @@ candidate="$(jq -n \
   '{versionCode: $versionCode, versionName: $versionName, apkUrl: $apkUrl, sha256: $sha256}')"
 
 if (( 10#$version_code == current_code )); then
+  current_name="$(jq -er '.versionName | strings' "$manifest_file")"
+  current_url="$(jq -er '.apkUrl | strings' "$manifest_file")"
+  if [[ "$current_name" != "$version_name" || "$current_url" != "$apk_url" ]]; then
+    echo "Refusing to replace versionCode $current_code with different release identity" >&2
+    exit 1
+  fi
   if [[ "$(jq -cS . "$manifest_file")" == "$(jq -cS . <<<"$candidate")" ]]; then
     echo "Manifest already matches $tag"
     printf '%s\n' "$candidate"
     exit 0
   fi
-  echo "Refusing to replace existing versionCode $current_code with different release metadata" >&2
-  exit 1
 fi
 
 if [[ "$dry_run" == "--dry-run" ]]; then
