@@ -436,6 +436,8 @@
     <string name="guide_page_conversation_v064_description">The settings row appears or disappears as soon as Conversation Awareness changes. Radio choices align, and descriptions stay within two lines.</string>
     <string name="guide_page_gesture_v064_title">Head tracking start restored</string>
     <string name="guide_page_gesture_v064_description">If the control connection is late, head tracking waits and retries. Its active state now follows the connection. Support still depends on model and firmware.</string>
+    <string name="guide_page_head_tracking_retry_v0651_title">Head tracking retry fixed</string>
+    <string name="guide_page_head_tracking_retry_v0651_description">Tapping Test now resends the start packet even when tracking already appears active. It can recover when sensor replies stopped after a request.</string>
     <string name="guide_page_navigation_v065_title">Navigation and Labs display fixes</string>
     <string name="guide_page_navigation_v065_description">Cleaned up screen transitions and fixed Labs guidance overlapping its menu or showing through the top header.</string>
     <string name="guide_page_health_v064_title">Echo Health workouts and heart rate</string>

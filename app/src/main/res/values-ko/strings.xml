@@ -430,6 +430,8 @@
     <string name="guide_page_conversation_v064_description">대화 인지를 켜거나 끄면 설정 행이 바로 나타나거나 사라집니다. 선택 원형을 정렬하고 설명을 두 줄 안에 표시합니다.</string>
     <string name="guide_page_gesture_v064_title">머리 추적 시작 복구</string>
     <string name="guide_page_gesture_v064_description">제어 연결이 늦으면 머리 추적 시작을 보류하고 다시 시도합니다. 시작 상태도 연결에 맞춰 갱신합니다. 모델과 펌웨어에 따라 지원 범위가 다릅니다.</string>
+    <string name="guide_page_head_tracking_retry_v0651_title">머리 추적 재요청 오류 수정</string>
+    <string name="guide_page_head_tracking_retry_v0651_description">추적 상태가 켜져 있어도 테스트를 누르면 시작 패킷을 다시 보냅니다. 요청이 전송된 뒤 센서 응답이 멈춘 경우에도 재시도합니다.</string>
     <string name="guide_page_navigation_v065_title">화면 이동과 실험실 오류 수정</string>
     <string name="guide_page_navigation_v065_description">화면 전환 흐름을 정리하고 실험실 안내가 메뉴와 겹치거나 상단 헤더 뒤로 비치던 문제를 수정했습니다.</string>
     <string name="guide_page_health_v064_title">Echo Health 운동과 심박</string>

@@ -3147,7 +3147,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         Log.d(TAG, "Starting head tracking again after taking control")
                         Handler(Looper.getMainLooper()).postDelayed({
                             if (isHeadTrackingActive || headTrackingStartPending) {
-                                startHeadTracking(forceRestart = true)
+                                startHeadTracking()
                             }
                         }, 500)
                     }
@@ -4287,7 +4287,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         }, 350L * headTrackingRetryCount)
     }
 
-    fun startHeadTracking(forceRestart: Boolean = false): Boolean {
+    fun startHeadTracking(): Boolean {
         if (isInCall || phoneCallPhase == PhoneCallPhase.ACTIVE || callGestureDecisionRequested) {
             Log.d(TAG, "Refusing to start head tracking after call answer")
             headTrackingStartPending = false
@@ -4296,7 +4296,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             gestureDetector?.stopDetection()
             return false
         }
-        if (isHeadTrackingActive && !forceRestart) return true
         if (!::aacpManager.isInitialized || BluetoothConnectionManager.aacpSocket?.isConnected != true) {
             Log.w(TAG, "Head tracking start queued until the AirPods control socket is ready")
             headTrackingStartPending = true

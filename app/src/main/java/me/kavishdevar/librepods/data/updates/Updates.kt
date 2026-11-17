@@ -49,6 +49,15 @@ val updates = listOf(
         highlightHeightFraction = 0.28f,
     ),
     UpdateItem(
+        titleRes = R.string.guide_page_head_tracking_retry_v0651_title,
+        descriptionRes = R.string.guide_page_head_tracking_retry_v0651_description,
+        screenshotRes = R.drawable.guide_head_gesture_fix,
+        detailScreenshotRes = R.drawable.guide_head_gesture_fix_detail,
+        labelRes = R.string.guide_bug_fix_label,
+        highlightTopFraction = 0.12f,
+        highlightHeightFraction = 0.28f,
+    ),
+    UpdateItem(
         titleRes = R.string.guide_page_navigation_v065_title,
         descriptionRes = R.string.guide_page_navigation_v065_description,
         screenshotRes = R.drawable.guide_labs_fix,
