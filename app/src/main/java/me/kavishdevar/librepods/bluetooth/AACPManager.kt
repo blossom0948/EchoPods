@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import me.kavishdevar.librepods.data.Capability
 import me.kavishdevar.librepods.data.CustomEq
+import me.kavishdevar.librepods.data.isHeadTrackingData
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -388,9 +389,16 @@ class AACPManager {
 
     @OptIn(ExperimentalStdlibApi::class)
     fun receivePacket(packet: ByteArray) {
-        val sensorFrames = heartRateFrames.feed(packet)
-        sensorFrames.forEach { frame -> heartRateSession?.receive(frame) }
-        if (isSensorFrameChunk(packet)) return
+        // Head-tracking and RTBuddy SensorDataWX frames share the same AACP
+        // service descriptor (00 00 10 00). Head-tracking uses 0x44/0x45 at
+        // byte 10 as its message kind, while SensorDataWX uses bytes 10..11
+        // as a length. Do not let the heart-rate reassembler consume motion
+        // packets before the normal HEADTRACKING callback sees them.
+        val isHeadTrackingPacket = isHeadTrackingData(packet)
+        if (!isHeadTrackingPacket) {
+            heartRateFrames.feed(packet).forEach { frame -> heartRateSession?.receive(frame) }
+            if (isSensorFrameChunk(packet)) return
+        }
         if (!packet.toHexString().startsWith("04000400")) {
             Log.w(TAG, "Received packet with invalid header (${packet.size} bytes)")
             return
@@ -618,7 +626,8 @@ class AACPManager {
     fun isHeartRateWorkoutActive(): Boolean = heartRateSession?.isWorkoutActive() == true
 
     private fun isSensorFrameChunk(packet: ByteArray): Boolean =
-        packet.size >= 10 && packet[0] == 4.toByte() && packet[1] == 0.toByte() &&
+        !isHeadTrackingData(packet) && packet.size >= 10 &&
+            packet[0] == 4.toByte() && packet[1] == 0.toByte() &&
             packet[2] == 4.toByte() && packet[3] == 0.toByte() && packet[4] == 0x17.toByte() &&
             packet[5] == 0.toByte() &&
             (packet[6].toInt() and 255) == 0 && (packet[7].toInt() and 255) == 0 &&
