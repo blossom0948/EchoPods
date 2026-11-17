@@ -97,24 +97,52 @@ internal class HeartRateSession(
     private val socket: BluetoothSocket,
     private val sendPacket: (ByteArray) -> Boolean,
     private val state: MutableStateFlow<HeartRateStreamState>,
+    private val pauseHeadTracking: () -> Boolean = { false },
+    private val resumeHeadTracking: () -> Unit = {},
 ) : AutoCloseable {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val reports = HeartRateSensorReports()
     private val workoutRecorder = HeartRateWorkoutRecorder()
     private val sequence = AtomicInteger(0)
-    private var descriptorRequested = false
+    private var descriptorRequestAttempts = 0
+    private var descriptorRequestJob: Job? = null
+    private var activeHeartRateServices = emptyList<Int>()
     private var wanted = false
     private var closed = false
     private var lastSampleElapsed = 0L
     private var job: Job? = null
+    private var headTrackingPauseAttempted = false
+    private var resumeHeadTrackingAfterWorkout = false
+    private var headTrackingResumeJob: Job? = null
     private var epoch = 0L
 
     private fun isCurrent() = !closed && socket.isConnected && BluetoothConnectionManager.aacpSocket === socket
 
     @Synchronized
     fun requestDescriptors() {
-        if (closed || descriptorRequested || !isCurrent()) return
-        descriptorRequested = sendRtBuddy(SensorDataWxCodec.requestAllDescriptors(nextSequence()))
+        if (closed || !isCurrent() || reports.heartRateService != null || descriptorRequestJob?.isActive == true) return
+        requestDescriptorOnce()
+        descriptorRequestJob = scope.launch {
+            repeat(DESCRIPTOR_RETRIES) {
+                delay(DESCRIPTOR_RETRY_DELAY_MS)
+                val keepRetrying = synchronized(this@HeartRateSession) {
+                    if (closed || !isCurrent() || reports.heartRateService != null) false
+                    else {
+                        requestDescriptorOnce()
+                        true
+                    }
+                }
+                if (!keepRetrying) return@launch
+            }
+        }
+    }
+
+    /** Repeat metadata discovery because some firmware ignores an early request during AACP init. */
+    private fun requestDescriptorOnce(): Boolean {
+        descriptorRequestAttempts++
+        val sent = sendRtBuddy(SensorDataWxCodec.requestAllDescriptors(nextSequence()))
+        Log.i(TAG, "RTBuddy descriptor request #$descriptorRequestAttempts sent=$sent")
+        return sent
     }
 
     @Synchronized
@@ -131,9 +159,17 @@ internal class HeartRateSession(
             return
         }
         val batch = reports.receive(data)
+        if (batch.mappingChanged) {
+            Log.i(TAG, "RTBuddy descriptors mapped: motion=${reports.motionService}, heartRate=${reports.heartRateService}")
+        }
+        if (reports.heartRateService != null) {
+            descriptorRequestJob?.cancel()
+            descriptorRequestJob = null
+        }
         if (batch.mappingChanged && wanted) {
             lastSampleElapsed = 0
             publishState(HeartRateStreamStatus.WAITING)
+            stopWire()
             startCampaign()
         }
         val sample = batch.sample ?: return
@@ -154,6 +190,8 @@ internal class HeartRateSession(
         wanted = true
         workoutStartedAt = System.currentTimeMillis()
         workoutRecorder.start(workoutStartedAt!!, workoutType)
+        headTrackingResumeJob?.cancel()
+        headTrackingResumeJob = null
         job?.cancel()
         job = null
         publishState(HeartRateStreamStatus.WAITING)
@@ -168,7 +206,10 @@ internal class HeartRateSession(
         epoch++
         job?.cancel()
         job = null
-        if (!forceAfterDisconnect) stopWire()
+        if (!forceAfterDisconnect) {
+            stopWire()
+            scheduleHeadTrackingResume()
+        }
         workoutStartedAt = null
         val summary = workoutRecorder.finish(System.currentTimeMillis())
         state.value = HeartRateStreamState(HeartRateStreamStatus.OFF)
@@ -194,8 +235,8 @@ internal class HeartRateSession(
         )
     }
 
-    private fun services(): List<Int> = reports.heartRateService?.let(::listOf)
-        ?: listOf(HEARTRATE_COMMAND, HEARTRATE)
+    private fun heartRateServices(attempt: Int = 0): List<Int> =
+        listOf(HEARTRATE_COMMAND, reports.heartRateService ?: legacyHeartRateService(attempt)).distinct()
 
     private fun startCampaign() {
         val currentEpoch = ++epoch
@@ -205,15 +246,46 @@ internal class HeartRateSession(
                 currentEpoch == epoch && !closed && wanted && isCurrent()
             }
             try {
-                repeat(ATTEMPTS) {
+                val shouldPauseHeadTracking = synchronized(this@HeartRateSession) {
+                    if (headTrackingPauseAttempted) false else {
+                        headTrackingPauseAttempted = true
+                        true
+                    }
+                }
+                if (shouldPauseHeadTracking) {
+                    val paused = runCatching(pauseHeadTracking).getOrElse {
+                        Log.w(TAG, "Couldn't pause head tracking before heart-rate start", it)
+                        false
+                    }
+                    synchronized(this@HeartRateSession) {
+                        resumeHeadTrackingAfterWorkout = paused
+                    }
+                    if (paused) {
+                        if (active()) delay(HEAD_TRACKING_SWITCH_DELAY_MS)
+                        else {
+                            scheduleHeadTrackingResume()
+                            return@launch
+                        }
+                    }
+                }
+                repeat(ATTEMPTS) { attempt ->
                     if (!active()) return@launch
+                    if (synchronized(this@HeartRateSession) { reports.heartRateService == null }) {
+                        // Keep asking while the workout is active; some firmware delays
+                        // descriptor announcements until the RTBuddy channel is warm.
+                        requestDescriptors()
+                    }
                     synchronized(this@HeartRateSession) { lastSampleElapsed = 0 }
                     for ((packet, pauseMs) in OPEN_SERVICES) {
                         if (!active() || !sendPacket(packet)) return@launch
                         delay(pauseMs)
                     }
                     if (!active() || !sendPacket(HRM_ON)) return@launch
-                    for (service in synchronized(this@HeartRateSession) { services() }) {
+                    val services = synchronized(this@HeartRateSession) {
+                        heartRateServices(attempt).also { activeHeartRateServices = it }
+                    }
+                    Log.i(TAG, "Requesting heart-rate stream from RTBuddy services ${services.joinToString()}")
+                    for (service in services) {
                         delay(120)
                         if (!active() || !sendRtBuddy(
                                 SensorDataWxCodec.serviceSetting(
@@ -233,7 +305,12 @@ internal class HeartRateSession(
                         delay(250)
                     }
                     if (!active()) return@launch
-                    Log.w(TAG, "No valid sensor sample; retrying the heart-rate stream once")
+                    val attemptResult = if (attempt + 1 < ATTEMPTS) {
+                        "retrying heart-rate stream (${attempt + 2}/$ATTEMPTS)"
+                    } else {
+                        "no further retry available"
+                    }
+                    Log.w(TAG, "No valid sensor sample on attempt ${attempt + 1}/$ATTEMPTS; $attemptResult")
                     synchronized(this@HeartRateSession) {
                         lastSampleElapsed = 0
                         publishState(HeartRateStreamStatus.WAITING)
@@ -241,21 +318,47 @@ internal class HeartRateSession(
                     }
                 }
             } finally {
-                synchronized(this@HeartRateSession) {
+                val shouldRestoreHeadTracking = synchronized(this@HeartRateSession) {
                     if (currentEpoch == epoch && !closed && wanted && isCurrent()) {
                         stopWire()
                         wanted = false
                         workoutStartedAt = null
                         publishState(HeartRateStreamStatus.NO_DATA)
-                    }
+                        true
+                    } else false
                 }
+                if (shouldRestoreHeadTracking) scheduleHeadTrackingResume()
+            }
+        }
+    }
+
+    private fun scheduleHeadTrackingResume() {
+        val shouldSchedule = synchronized(this) {
+            resumeHeadTrackingAfterWorkout && !closed && isCurrent()
+        }
+        if (!shouldSchedule) return
+        headTrackingResumeJob?.cancel()
+        headTrackingResumeJob = scope.launch {
+            delay(HEAD_TRACKING_SWITCH_DELAY_MS)
+            val shouldResume = synchronized(this@HeartRateSession) {
+                if (closed || wanted || !isCurrent() || !resumeHeadTrackingAfterWorkout) {
+                    false
+                } else {
+                    resumeHeadTrackingAfterWorkout = false
+                    headTrackingPauseAttempted = false
+                    true
+                }
+            }
+            if (shouldResume) runCatching(resumeHeadTracking).onFailure {
+                Log.w(TAG, "Couldn't resume head tracking after heart-rate workout", it)
             }
         }
     }
 
     private fun stopWire() {
         if (closed || !isCurrent()) return
-        for (service in services()) {
+        val services = activeHeartRateServices.ifEmpty { heartRateServices() }
+        for (service in services) {
             sendRtBuddy(
                 SensorDataWxCodec.serviceSetting(
                     sequence = nextSequence(),
@@ -267,6 +370,7 @@ internal class HeartRateSession(
             )
         }
         sendPacket(HRM_OFF)
+        activeHeartRateServices = emptyList()
         lastSampleElapsed = 0
     }
 
@@ -279,20 +383,31 @@ internal class HeartRateSession(
         closed = true
         epoch++
         job?.cancel()
+        headTrackingResumeJob?.cancel()
+        descriptorRequestJob?.cancel()
         scope.cancel()
         wanted = false
+        resumeHeadTrackingAfterWorkout = false
+        headTrackingPauseAttempted = false
         workoutStartedAt = null
         state.value = HeartRateStreamState(HeartRateStreamStatus.DISCONNECTED)
     }
 
     companion object {
         private const val TAG = "EchoPodsHeartRate"
-        private const val ATTEMPTS = 2
+        // A freshly opened RTBuddy channel can ignore commands for about 30 seconds.
+        // Three bounded attempts cover that cold-start window without leaving the sensor
+        // running indefinitely when a device/firmware does not provide samples.
+        private const val ATTEMPTS = 3
         private const val WATCHDOG_MS = 12_000L
+        private const val DESCRIPTOR_RETRIES = 2
+        private const val DESCRIPTOR_RETRY_DELAY_MS = 1_500L
+        private const val HEAD_TRACKING_SWITCH_DELAY_MS = 220L
         private const val HEART_LOG_TYPE = 2
         private const val HEARTRATE = 19
         private const val HEARTRATE_COMMAND = 84
         private const val HEART_RATE_INTERVAL_US = 1_000_000
+        private val LEGACY_HEART_RATE_SERVICES = listOf(19, 20)
         private val HRM_ON = byteArrayOf(4, 0, 4, 0, 9, 0, 0x30, 1, 0, 0, 0)
         private val HRM_OFF = byteArrayOf(4, 0, 4, 0, 9, 0, 0x30, 2, 0, 0, 0)
         private val OPEN_SERVICES = listOf(
@@ -301,6 +416,9 @@ internal class HeartRateSession(
             byteArrayOf(0, 0, 4, 0, 1, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0) to 180L,
             byteArrayOf(4, 0, 4, 0, 1, 0, 0) to 220L,
         )
+        internal fun legacyHeartRateService(attempt: Int): Int =
+            LEGACY_HEART_RATE_SERVICES[Math.floorMod(attempt, LEGACY_HEART_RATE_SERVICES.size)]
+
         private fun nowElapsed() = System.nanoTime() / 1_000_000
     }
 }

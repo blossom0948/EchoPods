@@ -46,6 +46,11 @@ class HeartRateProtocolTest {
     }
 
     @Test
+    fun unknownHeartRateServiceFallbackCoversBothObservedPro3Ids() {
+        assertEquals(listOf(19, 20, 19), (0..2).map(HeartRateSession::legacyHeartRateService))
+    }
+
+    @Test
     fun heartRateReportRequiresFreshProtocolShapeAndPlausibleValues() {
         val parser = HeartRateSensorReports()
         val valid = SensorDataWxCodec.decode(sensorCommand(19, heartRatePayload()))

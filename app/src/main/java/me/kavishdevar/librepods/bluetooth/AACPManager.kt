@@ -21,11 +21,6 @@
 package me.kavishdevar.librepods.bluetooth
 
 import android.util.Log
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,13 +38,14 @@ import kotlin.io.encoding.ExperimentalEncodingApi
  */
 class AACPManager {
     private val TAG = "AACPManager[${System.identityHashCode(this)}]"
-    private val heartRateScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutableHeartRateState = MutableStateFlow(HeartRateStreamState())
     val heartRateState = mutableHeartRateState.asStateFlow()
     private val mutableFinishedHeartRateWorkouts = MutableSharedFlow<HeartRateWorkoutSummary>(extraBufferCapacity = 1)
     val finishedHeartRateWorkouts = mutableFinishedHeartRateWorkouts.asSharedFlow()
     private val heartRateFrames = HeartRateSensorFrames()
     @Volatile private var heartRateSession: HeartRateSession? = null
+    @Volatile private var pauseHeadTrackingForHeartRate: (() -> Boolean)? = null
+    @Volatile private var resumeHeadTrackingAfterHeartRate: (() -> Unit)? = null
     companion object {
         @Suppress("unused")
         object Opcodes {
@@ -593,13 +589,24 @@ class AACPManager {
                 else false
             },
             state = mutableHeartRateState,
+            pauseHeadTracking = { pauseHeadTrackingForHeartRate?.invoke() == true },
+            resumeHeadTracking = { resumeHeadTrackingAfterHeartRate?.invoke() },
         )
         heartRateSession = session
         mutableHeartRateState.value = HeartRateStreamState(HeartRateStreamStatus.OFF)
-        heartRateScope.launch {
-            delay(1_000)
-            if (heartRateSession === session) session.requestDescriptors()
-        }
+    }
+
+    fun setHeartRateHeadTrackingCallbacks(
+        pause: () -> Boolean,
+        resume: () -> Unit,
+    ) {
+        pauseHeadTrackingForHeartRate = pause
+        resumeHeadTrackingAfterHeartRate = resume
+    }
+
+    /** Query large RTBuddy descriptors after the regular AACP startup handshake. */
+    fun requestHeartRateDescriptors() {
+        heartRateSession?.requestDescriptors()
     }
 
     fun startHeartRateWorkout(workoutType: String = "OTHER"): Boolean =

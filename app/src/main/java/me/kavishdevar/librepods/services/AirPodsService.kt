@@ -323,6 +323,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     lateinit var bleManager: BLEManager
 
     companion object {
+        // Pro 3's heart-rate descriptor is roughly 920 bytes including its metadata envelope.
+        private const val HEART_RATE_DESCRIPTOR_MIN_MTU = 1_024
         private const val WEAR_RESUME_ROUTE_RETRY_MS = 250L
         private const val MAX_WEAR_RESUME_ROUTE_ATTEMPTS = 32
         private const val LISTENING_MODE_TRANSPARENCY = ConversationModeReturnPolicy.TRANSPARENCY_MODE
@@ -448,6 +450,18 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         initializeConfig()
 
         aacpManager = AACPManager()
+        aacpManager.setHeartRateHeadTrackingCallbacks(
+            pause = {
+                val wasActive = isHeadTrackingActive || headTrackingStartPending
+                if (wasActive) stopHeadTracking()
+                wasActive
+            },
+            resume = {
+                Handler(mainLooper).post {
+                    if (!isHeadTrackingActive && !headTrackingStartPending) startHeadTracking()
+                }
+            },
+        )
         initializeAACPManagerCallback()
         observeHeartRateCompanion()
 
@@ -3346,6 +3360,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     closeSocket = { socket.close() },
                     connectSocket = { socket.connect() },
                 )
+                        val receiveMtu = socket.maxReceivePacketSize
+                        val transmitMtu = socket.maxTransmitPacketSize
+                        Log.i(TAG, "AACP L2CAP connected: receive MTU=$receiveMtu, transmit MTU=$transmitMtu")
+                        if (receiveMtu in 1 until HEART_RATE_DESCRIPTOR_MIN_MTU) {
+                            Log.w(
+                                TAG,
+                                "AACP receive MTU ($receiveMtu) is below the Pro 3 heart-rate descriptor size; firmware may hide its service mapping",
+                            )
+                        }
                         this@AirPodsService.device = device
                         val xposedRemotePref = XposedRemotePrefProvider.create()
                         val attSocket = if (xposedRemotePref.getBoolean("vendor_id_hook", false)) {
@@ -3483,6 +3506,9 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         !handleIncomingCallOnceConnected -> startHeadTracking()
                         else -> handleIncomingCall()
                     }
+                    // The descriptor announcement can exceed 1 KiB. Query it only after
+                    // the normal handshake burst so Pro 3 service 19/20 is discovered.
+                    aacpManager.requestHeartRateDescriptors()
                     Handler(Looper.getMainLooper()).postDelayed({
                         aacpManager.sendPacket(aacpManager.createHandshakePacket())
                         aacpManager.sendSetFeatureFlagsPacket()
@@ -3509,9 +3535,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
                     setupStemActions()
 
+                    // Reuse one large buffer: RTBuddy's Pro 3 service descriptors are
+                    // larger than the previous 1 KiB read buffer.
+                    val buffer = ByteArray(65_535)
                     while (socket.isConnected) {
                         try {
-                            val buffer = ByteArray(1024)
                             val bytesRead = it.inputStream.read(buffer)
                             var data: ByteArray
                             if (bytesRead > 0) {

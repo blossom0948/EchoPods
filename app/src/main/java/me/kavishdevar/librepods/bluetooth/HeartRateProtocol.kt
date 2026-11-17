@@ -179,7 +179,7 @@ internal class HeartRateSensorFrames {
 
     @Synchronized
     fun feed(chunk: ByteArray): List<ByteArray> {
-        if (chunk.size > MAX_RECORD || carry.size + chunk.size > MAX_RECORD * 2) {
+        if (chunk.size > MAX_READ_CHUNK || carry.size + chunk.size > MAX_READ_CHUNK + MAX_RECORD) {
             carry = byteArrayOf()
             return emptyList()
         }
@@ -210,6 +210,7 @@ internal class HeartRateSensorFrames {
 
     companion object {
         const val MAX_RECORD = 16_384
+        private const val MAX_READ_CHUNK = 65_535
         const val HEADER_SIZE = 12
         const val SENSOR_DATA_WX_DESCRIPTOR = 0x00100000
         private val PREFIX = byteArrayOf(4, 0, 4, 0, 0x17, 0)

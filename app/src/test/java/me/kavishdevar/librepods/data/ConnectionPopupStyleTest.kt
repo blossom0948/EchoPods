@@ -31,11 +31,11 @@ class ConnectionPopupStyleTest {
     @Test
     fun ambiguousOrInvalidLegacyPreferenceDefaultsToOnePopup() {
         assertEquals(
-            ConnectionPopupStyle.BOTTOM_SHEET,
+            ConnectionPopupStyle.DYNAMIC_ISLAND,
             ConnectionPopupStyle.fromPreferences(null, legacyBottomSheetEnabled = true, legacyIslandEnabled = true)
         )
         assertEquals(
-            ConnectionPopupStyle.BOTTOM_SHEET,
+            ConnectionPopupStyle.DYNAMIC_ISLAND,
             ConnectionPopupStyle.fromPreferences("unknown", legacyBottomSheetEnabled = false, legacyIslandEnabled = false)
         )
     }

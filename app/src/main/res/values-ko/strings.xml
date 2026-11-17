@@ -438,6 +438,8 @@
     <string name="guide_page_health_v064_description">운동 화면은 실제로 수신한 최신 심박값만 표시합니다. Pro 3 센서 데이터는 호환 펌웨어와 실기기 확인이 필요하며, 아직 동작을 보장할 수 없습니다.</string>
     <string name="guide_page_update_zoom_v065_title">업데이트 화면 확대 개선</string>
     <string name="guide_page_update_zoom_v065_description">확대 화면을 정사각형으로 자르지 않고 캡처 원래 비율에 맞춰 표시합니다. 가로로 긴 내용도 잘리지 않게 프레임 안에 담습니다.</string>
+    <string name="guide_page_hr_retry_v0652_title">Pro 3 심박 수신 시작 오류 수정</string>
+    <string name="guide_page_hr_retry_v0652_description">연결 직후 AirPods 응답이 늦으면 센서 서비스 탐색과 심박 수신 시작을 다시 시도합니다. 실제 심박 측정은 지원되는 Pro 3 펌웨어와 Bluetooth 연결 상태에 따라 달라집니다.</string>
     <string name="guide_bug_fix_label">오류 수정</string>
     <string name="guide_new_feature_label">신기능 소개</string>
     <string name="guide_next">다음</string>

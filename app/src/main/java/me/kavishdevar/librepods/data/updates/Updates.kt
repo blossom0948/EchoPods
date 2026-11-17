@@ -83,4 +83,13 @@ val updates = listOf(
         highlightTopFraction = 0.48f,
         highlightHeightFraction = 0.28f,
     ),
+    UpdateItem(
+        titleRes = R.string.guide_page_hr_retry_v0652_title,
+        descriptionRes = R.string.guide_page_hr_retry_v0652_description,
+        screenshotRes = R.drawable.guide_health_workout,
+        detailScreenshotRes = R.drawable.guide_health_workout_detail,
+        labelRes = R.string.guide_bug_fix_label,
+        highlightTopFraction = 0.48f,
+        highlightHeightFraction = 0.28f,
+    ),
 )
