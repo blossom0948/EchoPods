@@ -94,6 +94,9 @@ data class AirPodsUiState(
     val headGesturesEnabled: Boolean = true,
 
     val eqData: FloatArray = floatArrayOf(),
+    val eqProfileAvailable: Boolean = false,
+    val eqOnPhone: Boolean = false,
+    val eqOnMedia: Boolean = false,
 
     val automaticEarDetectionEnabled: Boolean = true,
     val automaticConnectionEnabled: Boolean = true,
@@ -258,20 +261,22 @@ class AirPodsViewModel(
     private lateinit var broadcastReceiver: BroadcastReceiver
     private var heartRateCollectionJob: Job? = null
     private var finishedHeartRateWorkoutJob: Job? = null
+    private val _cameraAction = MutableStateFlow<AACPManager.Companion.StemPressType?>(null)
+    val cameraAction: StateFlow<AACPManager.Companion.StemPressType?> = _cameraAction
 
-//    private val _cameraAction = MutableStateFlow(
-//        sharedPreferences.getString("camera_action", null)
-//            ?.let { value -> AACPManager.Companion.StemPressType.entries.find { it.name == value } })
-//
-//    val cameraAction: StateFlow<AACPManager.Companion.StemPressType?> = _cameraAction
-//
-//    fun setCameraAction(action: AACPManager.Companion.StemPressType?) {
-//        sharedPreferences.edit {
-//            if (action == null) remove("camera_action")
-//            else putString("camera_action", action.name)
-//        }
-//        _cameraAction.value = action
-//    }
+    fun setCameraAction(action: AACPManager.Companion.StemPressType?) {
+        if (!this::sharedPreferences.isInitialized) return
+        sharedPreferences.edit {
+            if (action == null) remove("camera_action") else putString("camera_action", action.name)
+        }
+        _cameraAction.value = action
+    }
+
+    fun setCameraRemoteActive(active: Boolean) {
+        serviceReference?.get()?.let { service ->
+            if (active) service.cameraOpened() else service.cameraClosed()
+        }
+    }
 
     fun setCustomEq(low: Int, mid: Int, high: Int) {
         require(low in 0..100)
@@ -293,6 +298,20 @@ class AirPodsViewModel(
                 customEq = it.customEq.copy(state = if (enabled) 2 else 1)
             )
         }
+    }
+
+    fun setPhoneMediaEq(phoneEnabled: Boolean, mediaEnabled: Boolean): Boolean {
+        val manager = serviceReference?.get()?.aacpManager ?: return false
+        if (!manager.eqProfileReceived) return false
+        val sent = manager.sendPhoneMediaEQ(
+            manager.eqData.copyOf(),
+            phone = if (phoneEnabled) 0x01.toByte() else 0x02.toByte(),
+            media = if (mediaEnabled) 0x01.toByte() else 0x02.toByte(),
+        )
+        if (sent) {
+            _uiState.update { it.copy(eqOnPhone = phoneEnabled, eqOnMedia = mediaEnabled) }
+        }
+        return sent
     }
 
     override fun onCleared() {
@@ -380,9 +399,17 @@ class AirPodsViewModel(
 
                     AirPodsNotifications.EQ_DATA -> {
                         val data = intent.getFloatArrayExtra("eqData") ?: floatArrayOf()
+                        val eqProfileAvailable = intent.getBooleanExtra("eqProfileAvailable", false)
+                        val eqOnPhone = intent.getBooleanExtra("eqOnPhone", false)
+                        val eqOnMedia = intent.getBooleanExtra("eqOnMedia", false)
 
                         _uiState.update {
-                            it.copy(eqData = data)
+                            it.copy(
+                                eqData = data,
+                                eqProfileAvailable = eqProfileAvailable,
+                                eqOnPhone = eqOnPhone,
+                                eqOnMedia = eqOnMedia,
+                            )
                         }
                     }
 
@@ -625,6 +652,9 @@ class AirPodsViewModel(
         )
         val vendorIdHook = xposedRemotePref.getBoolean("vendor_id_hook", false)
         val dynamicEndOfCharge = sharedPreferences.getBoolean("dynamic_end_of_charge", false)
+        val cameraAction = sharedPreferences.getString("camera_action", null)
+            ?.let { value -> runCatching { AACPManager.Companion.StemPressType.valueOf(value) }.getOrNull() }
+        _cameraAction.value = cameraAction
         _uiState.update {
             it.copy(
                 offListeningMode = offListeningModeEnabled,
@@ -693,9 +723,14 @@ class AirPodsViewModel(
     }
 
     private fun loadEq() {
+        val manager = service.aacpManager
         _uiState.update {
             it.copy(
-                customEq = service.aacpManager.customEq
+                customEq = manager.customEq,
+                eqData = manager.eqData.copyOf(),
+                eqProfileAvailable = manager.eqProfileReceived,
+                eqOnPhone = manager.eqOnPhone,
+                eqOnMedia = manager.eqOnMedia,
             )
         }
     }

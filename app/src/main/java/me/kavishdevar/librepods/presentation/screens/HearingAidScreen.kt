@@ -108,10 +108,6 @@ fun HearingAidScreen(viewModel: AirPodsViewModel, onNavigateHearingAidAdjustment
     ) {
         Spacer(modifier = Modifier.height(topPadding))
 
-//            val mediaAssistEnabled = remember { mutableStateOf(false) }
-//            val adjustMediaEnabled = remember { mutableStateOf(false) }
-//            val adjustPhoneEnabled = remember { mutableStateOf(false) }
-
         LaunchedEffect(hearingAidEnabled.value) {
             if (hearingAidEnabled.value && !initialLoad.value) {
                 showDialog.value = true
@@ -122,14 +118,6 @@ fun HearingAidScreen(viewModel: AirPodsViewModel, onNavigateHearingAidAdjustment
             }
             initialLoad.value = false
         }
-
-//            fun onAdjustPhoneChange(value: Boolean) {
-//                // TODO
-//            }
-
-//            fun onAdjustMediaChange(value: Boolean) {
-//                // TODO
-//            }
 
         StyledList (title = stringResource(R.string.hearing_aid)) {
             StyledToggle(
@@ -160,43 +148,42 @@ fun HearingAidScreen(viewModel: AirPodsViewModel, onNavigateHearingAidAdjustment
             onClick = onNavigateHearingTest,
         )
 
-        // not implemented yet
+        Spacer(modifier = Modifier.height(8.dp))
 
-        // StyledToggle(
-        //     titleRes = stringResource(R.string.media_assist),
-        //     label = stringResource(R.string.media_assist),
-        //     checkedState = mediaAssistEnabled,
-        //     independent = true,
-        //     descriptionRes = stringResource(R.string.media_assist_description)
-        // )
-
-        // Spacer(modifier = Modifier.height(8.dp))
-
-        // Column (
-        //     modifier = Modifier
-        //         .fillMaxWidth()
-        //         .background(backgroundColor, RoundedCornerShape(28.dp))
-        // ) {
-        //     StyledToggle(
-        //         label = stringResource(R.string.adjust_media),
-        //         checkedState = adjustMediaEnabled,
-        //         onCheckedChange = { onAdjustMediaChange(it) },
-        //         independent = false
-        //     )
-        //     HorizontalDivider(
-        //         thickness = 1.dp,
-        //         color = Color(0x40888888),
-        //         modifier = Modifier
-        //             .padding(horizontal = 12.dp)
-        //     )
-
-        //     StyledToggle(
-        //         label = stringResource(R.string.adjust_calls),
-        //         checkedState = adjustPhoneEnabled,
-        //         onCheckedChange = { onAdjustPhoneChange(it) },
-        //         independent = false
-        //     )
-        // }
+        StyledList(title = stringResource(R.string.media_assist)) {
+            StyledToggle(
+                label = stringResource(R.string.media_assist),
+                description = stringResource(R.string.media_assist_description),
+                checked = state.eqOnPhone || state.eqOnMedia,
+                enabled = state.eqProfileAvailable,
+                onCheckedChange = { enabled ->
+                    viewModel.setPhoneMediaEq(phoneEnabled = enabled, mediaEnabled = enabled)
+                },
+            )
+            if (state.eqProfileAvailable) {
+                StyledToggle(
+                    label = stringResource(R.string.adjust_media),
+                    checked = state.eqOnMedia,
+                    onCheckedChange = { enabled ->
+                        viewModel.setPhoneMediaEq(phoneEnabled = state.eqOnPhone, mediaEnabled = enabled)
+                    },
+                )
+                StyledToggle(
+                    label = stringResource(R.string.adjust_calls),
+                    checked = state.eqOnPhone,
+                    onCheckedChange = { enabled ->
+                        viewModel.setPhoneMediaEq(phoneEnabled = enabled, mediaEnabled = state.eqOnMedia)
+                    },
+                )
+            } else {
+                StyledListItem(
+                    name = stringResource(R.string.hearing_eq_waiting),
+                    description = stringResource(R.string.hearing_eq_waiting_description),
+                    onClick = null,
+                    enabled = false,
+                )
+            }
+        }
         Spacer(modifier = Modifier.height(bottomPadding))
     }
 

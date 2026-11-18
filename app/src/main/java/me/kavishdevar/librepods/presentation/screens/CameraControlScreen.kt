@@ -1,81 +1,99 @@
 /*
-    LibrePods - AirPods liberated from Apple’s ecosystem
-    Copyright (C) 2025 LibrePods contributors
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+    EchoPods - AirPods controls for Android
+    Based on LibrePods (GPL-3.0-or-later).
 */
 
 package me.kavishdevar.librepods.presentation.screens
 
-//@Composable
-//fun CameraControlScreen(viewModel: AirPodsViewModel) {
-//    val context = LocalContext.current
-//    val currentCameraAction by viewModel.cameraAction.collectAsState()
-//
-//    fun isAppListenerServiceEnabled(context: Context): Boolean {
-//        val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
-//        val enabledServices =
-//            am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
-//        val serviceComponent = ComponentName(context, AppListenerService::class.java)
-//        return enabledServices.any {
-//            it.resolveInfo.serviceInfo.packageName == serviceComponent.packageName &&
-//                it.resolveInfo.serviceInfo.name == serviceComponent.className
-//        }
-//    }
-//
-//    fun handleSelection(action: StemPressType?) {
-//        if (action != null && !isAppListenerServiceEnabled(context)) {
-//            context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-//        } else {
-//            viewModel.setCameraAction(action)
-//        }
-//    }
-//
-//    val cameraOptions = remember(currentCameraAction) {
-//        listOf(
-//            SelectItem(
-//                name = "Off",
-//                selected = currentCameraAction == null,
-//                onClick = { handleSelection(null) }
-//            ),
-//            SelectItem(
-//                name = "Press once",
-//                selected = currentCameraAction == StemPressType.SINGLE_PRESS,
-//                onClick = { handleSelection(StemPressType.SINGLE_PRESS) }
-//            ),
-//            SelectItem(
-//                name = "Press and hold AirPods",
-//                selected = currentCameraAction == StemPressType.LONG_PRESS,
-//                onClick = { handleSelection(StemPressType.LONG_PRESS) }
-//            )
-//        )
-//    }
-//
-//    val backdrop = rememberLayerBackdrop()
-//
-//    StyledScaffold(
-//        titleRes = stringResource(R.string.camera_control)
-//    ) { spacerHeight ->
-//        Column(
-//            modifier = Modifier
-//                .fillMaxSize()
-//                .layerBackdrop(backdrop)
-//                .padding(horizontal = 16.dp),
-//            verticalArrangement = Arrangement.spacedBy(16.dp)
-//        ) {
-//            Spacer(modifier = Modifier.height(spacerHeight))
-//            StyledSelectList(items = cameraOptions)
-//        }
-//    }
-//}
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import me.kavishdevar.librepods.R
+import me.kavishdevar.librepods.bluetooth.AACPManager.Companion.StemPressType
+import me.kavishdevar.librepods.presentation.components.ListItemOrientation
+import me.kavishdevar.librepods.presentation.components.StyledList
+import me.kavishdevar.librepods.presentation.components.StyledListItem
+import me.kavishdevar.librepods.presentation.viewmodel.AirPodsViewModel
+
+@Composable
+fun CameraControlScreen(
+    viewModel: AirPodsViewModel,
+    onOpenCamera: () -> Unit,
+) {
+    val action by viewModel.cameraAction.collectAsState()
+    val backdrop = rememberLayerBackdrop()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .layerBackdrop(backdrop)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = stringResource(R.string.camera_control_description),
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 12.dp),
+        )
+        StyledList(title = stringResource(R.string.camera_remote_action)) {
+            StyledListItem(
+                name = stringResource(R.string.camera_remote_off),
+                description = stringResource(R.string.camera_remote_off_description),
+                onClick = { viewModel.setCameraAction(null) },
+                orientation = ListItemOrientation.Vertical,
+                selected = action == null,
+                trailingContent = { RadioButton(selected = action == null, onClick = null) },
+            )
+            StyledListItem(
+                name = stringResource(R.string.camera_remote_single_press),
+                description = stringResource(R.string.camera_remote_single_press_description),
+                onClick = { viewModel.setCameraAction(StemPressType.SINGLE_PRESS) },
+                orientation = ListItemOrientation.Vertical,
+                selected = action == StemPressType.SINGLE_PRESS,
+                trailingContent = {
+                    RadioButton(selected = action == StemPressType.SINGLE_PRESS, onClick = null)
+                },
+            )
+            StyledListItem(
+                name = stringResource(R.string.camera_remote_long_press),
+                description = stringResource(R.string.camera_remote_long_press_description),
+                onClick = { viewModel.setCameraAction(StemPressType.LONG_PRESS) },
+                orientation = ListItemOrientation.Vertical,
+                selected = action == StemPressType.LONG_PRESS,
+                trailingContent = {
+                    RadioButton(selected = action == StemPressType.LONG_PRESS, onClick = null)
+                },
+            )
+        }
+        StyledList {
+            StyledListItem(
+                modifier = Modifier.fillMaxWidth(),
+                name = stringResource(R.string.camera_remote_open),
+                description = stringResource(R.string.camera_remote_open_description),
+                onClick = onOpenCamera,
+                orientation = ListItemOrientation.Vertical,
+            )
+        }
+        Spacer(Modifier.height(16.dp))
+    }
+}

@@ -215,6 +215,9 @@ class AACPManager {
     var eqOnMedia: Boolean = false
         private set
 
+    var eqProfileReceived: Boolean = false
+        private set
+
     var customEq: CustomEq = CustomEq(state = 1, low = 50, mid = 50, high = 50)
         private set
 
@@ -544,6 +547,7 @@ class AACPManager {
 
                 eqOnMedia = (packet[10] == 0x01.toByte())
                 eqOnPhone = (packet[11] == 0x01.toByte())
+                eqProfileReceived = true
                 // there are 4 eqs. i am not sure what those are for, maybe all 4 listening modes, or maybe phone+media left+right, but then there shouldn't be another flag for phone/media visible. just directly the EQ... weird.
                 // the EQs are little endian floats
                 val eq1 =
@@ -586,6 +590,8 @@ class AACPManager {
     /** Called by AirPodsService immediately after installing the newly connected socket. */
     fun onSocketConnected() {
         val socket = BluetoothConnectionManager.aacpSocket ?: return
+        eqProfileReceived = false
+        eqData = floatArrayOf()
         heartRateSession?.finishWorkout(forceAfterDisconnect = true)
             ?.let(mutableFinishedHeartRateWorkouts::tryEmit)
         heartRateSession?.close()
@@ -1182,7 +1188,11 @@ class AACPManager {
         }
     }
 
-    fun sendPhoneMediaEQ(eq: FloatArray, phone: Byte = 0x02.toByte(), media: Byte = 0x02.toByte()) {
+    fun sendPhoneMediaEQ(
+        eq: FloatArray,
+        phone: Byte = 0x02.toByte(),
+        media: Byte = 0x02.toByte(),
+    ): Boolean {
         if (eq.size != 8) throw IllegalArgumentException("EQ must be 8 floats")
         val header = byteArrayOf(
             0x04.toByte(),
@@ -1206,10 +1216,13 @@ class AACPManager {
         }
         val payload = buffer.array()
         val packet = header + payload
-        sendPacket(packet)
-        this.eqData = eq.copyOf()
-        this.eqOnPhone = phone == 0x01.toByte()
-        this.eqOnMedia = media == 0x01.toByte()
+        val sent = sendPacket(packet)
+        if (sent) {
+            this.eqData = eq.copyOf()
+            this.eqOnPhone = phone == 0x01.toByte()
+            this.eqOnMedia = media == 0x01.toByte()
+        }
+        return sent
     }
 
     fun parseAudioSourceResponse(data: ByteArray): Pair<String, AudioSourceType> {
@@ -1275,6 +1288,10 @@ class AACPManager {
 
     fun disconnected() {
         Log.d(TAG, "Disconnected, clearing state")
+        eqProfileReceived = false
+        eqData = floatArrayOf()
+        eqOnPhone = false
+        eqOnMedia = false
         heartRateSession?.finishWorkout(forceAfterDisconnect = true)
             ?.let(mutableFinishedHeartRateWorkouts::tryEmit)
         heartRateSession?.close()

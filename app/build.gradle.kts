@@ -1,7 +1,7 @@
 import java.util.Properties
 import java.io.File
 
-val appVersionName = "0.6.5.3"
+val appVersionName = "0.6.5.4"
 
 plugins {
     alias(libs.plugins.android.application)
@@ -78,7 +78,7 @@ android {
         applicationId = "com.galaxyairpods"
         minSdk = 31
         targetSdk = 37
-        versionCode = 61
+        versionCode = 62
         versionName = appVersionName
         buildConfigField("Boolean", "PLAY_BUILD", "false")
         buildConfigField("Boolean", "STORE_BUILD", "false")
@@ -192,6 +192,11 @@ dependencies {
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.lifecycle.viewmodel.navigation3)
     implementation(libs.androidx.navigationevent)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+    implementation(libs.androidx.camera.video)
+    implementation(libs.google.mlkit.translate)
 }
 
 aboutLibraries {

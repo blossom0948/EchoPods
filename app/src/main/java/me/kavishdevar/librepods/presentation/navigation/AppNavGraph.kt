@@ -22,6 +22,8 @@ import me.kavishdevar.librepods.presentation.screens.AdaptiveStrengthScreen
 import me.kavishdevar.librepods.presentation.screens.AirPodsSettingsRoute
 import me.kavishdevar.librepods.presentation.screens.AppSettingsScreen
 import me.kavishdevar.librepods.presentation.screens.CallControlScreen
+import me.kavishdevar.librepods.presentation.screens.CameraControlScreen
+import me.kavishdevar.librepods.presentation.screens.CameraRemoteScreen
 import me.kavishdevar.librepods.presentation.screens.ConversationReturnSettingsScreen
 import me.kavishdevar.librepods.presentation.screens.EqualizerRoute
 import me.kavishdevar.librepods.presentation.screens.HeadTrackingScreen
@@ -29,6 +31,8 @@ import me.kavishdevar.librepods.presentation.screens.HearingAidAdjustmentsScreen
 import me.kavishdevar.librepods.presentation.screens.HearingAidScreen
 import me.kavishdevar.librepods.presentation.screens.HearingProtectionScreen
 import me.kavishdevar.librepods.presentation.screens.LoadingScreen
+import me.kavishdevar.librepods.presentation.screens.LiveListenScreen
+import me.kavishdevar.librepods.presentation.screens.LiveTranslationScreen
 import me.kavishdevar.librepods.presentation.screens.LabsScreen
 import me.kavishdevar.librepods.presentation.screens.LongPress
 import me.kavishdevar.librepods.presentation.screens.MicrophoneSettingsRoute
@@ -109,6 +113,9 @@ fun AppNavGraph(
                             navigateToCallControlScreen = { navigate(Screen.CallControl(it)) },
                             navigateToMicrophoneSettings = { navigate(Screen.MicrophoneSettings) },
                             navigateToConversationSettings = { navigate(Screen.ConversationSettings) },
+                            navigateToCameraControl = { navigate(Screen.CameraControl) },
+                            navigateToLiveListen = { navigate(Screen.LiveListen) },
+                            navigateToLiveTranslation = { navigate(Screen.LiveTranslation) },
                         )
                     }
 
@@ -191,10 +198,22 @@ fun AppNavGraph(
                         AdaptiveStrengthScreen(airPodsViewModel, ::navigateToPurchase)
                     }
 
-//                Screen.CameraControl ->
-//                    NavEntry(screen) {
-//                        CameraControlScreen(airPodsViewModel)
-//                    }
+                Screen.CameraControl ->
+                    NavEntry(screen) {
+                        CameraControlScreen(
+                            viewModel = airPodsViewModel,
+                            onOpenCamera = { navigate(Screen.CameraRemote) },
+                        )
+                    }
+
+                Screen.CameraRemote ->
+                    NavEntry(screen) { CameraRemoteScreen(viewModel = airPodsViewModel) }
+
+                Screen.LiveListen ->
+                    NavEntry(screen) { LiveListenScreen() }
+
+                Screen.LiveTranslation ->
+                    NavEntry(screen) { LiveTranslationScreen() }
 
                 Screen.OpenSourceLicenses ->
                     NavEntry(screen) {

@@ -58,7 +58,7 @@ fun NavigationRoot(
         Screen.AdaptiveStrength -> stringResource(R.string.customize_adaptive_audio)
         Screen.AppSettings -> stringResource(R.string.settings)
         Screen.ConversationSettings -> stringResource(R.string.conversation_mode_return_open)
-//        Screen.CameraControl -> stringResource(R.string.camera_control)
+        Screen.CameraControl -> stringResource(R.string.camera_control)
         Screen.Equalizer -> stringResource(R.string.equalizer)
         Screen.HeadTracking -> stringResource(R.string.head_tracking)
         Screen.Labs -> stringResource(R.string.labs)
@@ -74,6 +74,9 @@ fun NavigationRoot(
         Screen.UpdateHearingTest -> stringResource(R.string.update_hearing_test)
         Screen.VersionInfo -> stringResource(R.string.version)
         is Screen.CallControl -> currentScreen.action
+        Screen.CameraRemote -> stringResource(R.string.camera_remote_title)
+        Screen.LiveListen -> stringResource(R.string.live_listen_title)
+        Screen.LiveTranslation -> stringResource(R.string.live_translation_title)
         Screen.MicrophoneSettings -> stringResource(R.string.microphone_mode)
         Screen.ReleaseNotes -> ""
     }

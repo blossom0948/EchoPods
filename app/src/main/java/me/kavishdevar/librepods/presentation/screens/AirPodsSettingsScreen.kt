@@ -153,6 +153,9 @@ fun AirPodsSettingsRoute(
     navigateToCallControlScreen: (action: String) -> Unit,
     navigateToMicrophoneSettings: () -> Unit,
     navigateToConversationSettings: () -> Unit,
+    navigateToCameraControl: () -> Unit,
+    navigateToLiveListen: () -> Unit,
+    navigateToLiveTranslation: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsState()
 
@@ -199,6 +202,9 @@ fun AirPodsSettingsRoute(
             navigateToCallControlScreen = navigateToCallControlScreen,
             navigateToMicrophoneSettings = navigateToMicrophoneSettings,
             navigateToConversationSettings = navigateToConversationSettings,
+            navigateToCameraControl = navigateToCameraControl,
+            navigateToLiveListen = navigateToLiveListen,
+            navigateToLiveTranslation = navigateToLiveTranslation,
 
             reconnectFromSavedMac = viewModel::reconnectFromSavedMac
         )
@@ -243,6 +249,9 @@ fun AirPodsSettingsScreen(
 
         reconnectFromSavedMac: () -> Unit,
         navigateToConversationSettings: () -> Unit = {},
+        navigateToCameraControl: () -> Unit = {},
+        navigateToLiveListen: () -> Unit = {},
+        navigateToLiveTranslation: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val sharedPreferences = context.getSharedPreferences("settings", MODE_PRIVATE)
@@ -447,18 +456,33 @@ fun AirPodsSettingsScreen(
                 )
             }
 
-//                if (capabilities.contains(Capability.STEM_CONFIG) && !BuildConfig.PLAY_BUILD) {
-//                    item(key = "spacer_camera") { Spacer(modifier = Modifier.height(16.dp)) }
-//                    item(key = "camera_control") {
-//                        StyledListItem(
-//                            to = "camera_control",
-//                            name = stringResource(R.string.camera_remote),
-//                            descriptionRes = stringResource(R.string.camera_control_description),
-//                            titleRes = stringResource(R.string.camera_control),
-//                            navController = navController
-//                        )
-//                    }
-//                }
+            item(key = "spacer_device_features") {
+                Spacer(modifier = Modifier.height(20.dp))
+            }
+            item(key = "device_features") {
+                StyledList(title = stringResource(R.string.airpods_extras)) {
+                    if (capabilities.contains(Capability.STEM_CONFIG)) {
+                        StyledListItemInGroup(
+                            name = stringResource(R.string.camera_remote_title),
+                            description = stringResource(R.string.camera_remote_description),
+                            onClick = navigateToCameraControl,
+                            orientation = ListItemOrientation.Vertical,
+                        )
+                    }
+                    StyledListItemInGroup(
+                        name = stringResource(R.string.live_listen_title),
+                        description = stringResource(R.string.live_listen_description),
+                        onClick = navigateToLiveListen,
+                        orientation = ListItemOrientation.Vertical,
+                    )
+                    StyledListItemInGroup(
+                        name = stringResource(R.string.live_translation_title),
+                        description = stringResource(R.string.live_translation_description),
+                        onClick = navigateToLiveTranslation,
+                        orientation = ListItemOrientation.Vertical,
+                    )
+                }
+            }
 
             item(key = "upgrade_button") {
                 if (!state.isPremium) {

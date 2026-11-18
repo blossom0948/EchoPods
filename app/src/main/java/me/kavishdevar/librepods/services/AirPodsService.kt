@@ -196,6 +196,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     lateinit var aacpManager: AACPManager
     lateinit var attManager: ATTManagerv2
     var airpodsInstance: AirPodsInstance? = null
+    @Volatile
     var cameraActive = false
     private var disconnectedBecauseReversed = false
     private var otherDeviceTookOver = false
@@ -323,6 +324,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     lateinit var bleManager: BLEManager
 
     companion object {
+        const val ACTION_CAMERA_SHUTTER = "me.kavishdevar.librepods.action.CAMERA_SHUTTER"
         // Pro 3's heart-rate descriptor is roughly 920 bytes including its metadata envelope.
         private const val HEART_RATE_DESCRIPTOR_MIN_MTU = 1_024
         private const val WEAR_RESUME_ROUTE_RETRY_MS = 250L
@@ -935,13 +937,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     fun cameraOpened() {
         Log.d(TAG, "Camera opened, gonna handle stem presses and take action if visible")
         cameraActive = true
-        setupStemActions()
+        if (this::aacpManager.isInitialized) setupStemActions()
     }
 
     @Suppress("unused")
     fun cameraClosed() {
         cameraActive = false
-        setupStemActions()
+        if (this::aacpManager.isInitialized) setupStemActions()
     }
 
     fun isCustomAction(
@@ -1236,7 +1238,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     "Stem press received: $stemPressType on $bud, cameraActive: $cameraActive, cameraAction: ${config.cameraAction}"
                 )
                 if (cameraActive && config.cameraAction != null && stemPressType == config.cameraAction) {
-                        Runtime.getRuntime().exec(arrayOf("su", "-c", "input keyevent 27"))
+                    sendBroadcast(
+                        Intent(ACTION_CAMERA_SHUTTER)
+                            .setPackage(packageName)
+                            .putExtra("press_type", stemPressType.name)
+                            .putExtra("bud", bud.name)
+                    )
                 } else {
                     val action = getActionFor(bud, stemPressType)
                     Log.d("AirPodsParser", "$bud $stemPressType action: $action")
@@ -1299,7 +1306,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
             override fun onHeadphoneAccommodationReceived(eqData: FloatArray) {
                 sendBroadcast(
-                    Intent(AirPodsNotifications.EQ_DATA).putExtra("eqData", eqData).apply {
+                    Intent(AirPodsNotifications.EQ_DATA)
+                        .putExtra("eqData", eqData)
+                        .putExtra("eqProfileAvailable", aacpManager.eqProfileReceived)
+                        .putExtra("eqOnPhone", aacpManager.eqOnPhone)
+                        .putExtra("eqOnMedia", aacpManager.eqOnMedia)
+                        .apply {
                         setPackage(packageName)
                     })
             }
@@ -1722,8 +1734,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 setupStemActions()
             }
 
-            "camera_action" -> config.cameraAction =
-                preferences.getString(key, null)?.let { StemPressType.valueOf(it) }
+            "camera_action" -> {
+                config.cameraAction = preferences.getString(key, null)
+                    ?.let { runCatching { StemPressType.valueOf(it) }.getOrNull() }
+                if (this::aacpManager.isInitialized) setupStemActions()
+            }
 
             // AirPods device information
             "airpods_name" -> config.airpodsName = preferences.getString(key, "") ?: ""

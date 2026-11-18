@@ -11,6 +11,9 @@ EchoPods brings AirPods battery status and supported device controls to Android.
 - Separate left, right, and case battery status when the connected Bluetooth stack reports it.
 - Connection and case popups, low-battery alerts, and home-screen widgets.
 - Listening-mode controls, press-and-hold actions, and Quick Settings controls on supported combinations.
+- Camera remote with an in-app camera, photo/video capture, and optional AirPods stem shutter while the camera is open.
+- Live Listen streams the phone microphone to the current Bluetooth audio route while the screen is open; Live Translation uses on-device speech recognition, downloadable translation models, and speech playback.
+- Hearing-aid media adjustments are enabled only after a compatible AirPods control session reports the required profile data.
 - Optional wear detection and media pause/resume, with support varying by AirPods firmware and Android media-session behavior.
 - Model-aware settings and product artwork where the model can be identified.
 - **Echo Health** companion for user-started workouts, active-energy/step/sleep summaries from Health Connect, and experimental Pro 3 heart-rate data when the AirPods firmware and Android Bluetooth stack expose the sensor. Health Connect read and workout export permissions are optional and separate.
