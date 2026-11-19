@@ -24,13 +24,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -42,14 +40,13 @@ import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import me.kavishdevar.librepods.R
 import me.kavishdevar.librepods.bluetooth.AACPManager
 import me.kavishdevar.librepods.bluetooth.ATTHandles
-import me.kavishdevar.librepods.presentation.components.StyledButton
 import me.kavishdevar.librepods.presentation.components.StyledToggle
 import me.kavishdevar.librepods.presentation.theme.DesignSystem
 import me.kavishdevar.librepods.presentation.theme.LocalDesignSystem
 import me.kavishdevar.librepods.presentation.viewmodel.AirPodsViewModel
 
 @Composable
-fun HearingProtectionScreen(viewModel: AirPodsViewModel, navigateToPurchase: () -> Unit) {
+fun HearingProtectionScreen(viewModel: AirPodsViewModel) {
     val backdrop = rememberLayerBackdrop()
     val state by viewModel.uiState.collectAsState()
 
@@ -65,22 +62,6 @@ fun HearingProtectionScreen(viewModel: AirPodsViewModel, navigateToPurchase: () 
             .padding(horizontal = 16.dp)
     ) {
         Spacer(modifier = Modifier.height(topPadding))
-        if (!state.isPremium) {
-            StyledButton(
-                onClick = navigateToPurchase,
-                backdrop = rememberLayerBackdrop(),
-                modifier = Modifier.fillMaxWidth(),
-                maxScale = 0.05f,
-                surfaceColor = MaterialTheme.colorScheme.primary
-            ) {
-                Text(
-                    stringResource(R.string.unlock_advanced_features),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-        }
 
         if (state.vendorIdHook) {
             StyledToggle(
@@ -94,7 +75,6 @@ fun HearingProtectionScreen(viewModel: AirPodsViewModel, navigateToPurchase: () 
                         byteArrayOf(if (it) 1.toByte() else 0.toByte())
                     )
                 },
-                enabled = state.isPremium
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -111,7 +91,6 @@ fun HearingProtectionScreen(viewModel: AirPodsViewModel, navigateToPurchase: () 
                     AACPManager.Companion.ControlCommandIdentifiers.PPE_TOGGLE_CONFIG, it
                 )
             },
-            enabled = state.isPremium
         )
         Spacer(modifier = Modifier.height(bottomPadding))
     }

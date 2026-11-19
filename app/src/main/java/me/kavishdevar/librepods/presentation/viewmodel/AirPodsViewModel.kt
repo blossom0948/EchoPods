@@ -18,12 +18,15 @@
 
 package me.kavishdevar.librepods.presentation.viewmodel
 
+import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
 import android.os.Build
 import android.widget.Toast
 import androidx.compose.runtime.getValue
@@ -50,6 +53,7 @@ import me.kavishdevar.librepods.bluetooth.HeartRateWorkoutSummary
 import me.kavishdevar.librepods.bluetooth.ATTCCCDHandles
 import me.kavishdevar.librepods.bluetooth.ATTHandles
 import me.kavishdevar.librepods.bluetooth.BluetoothConnectionManager
+import me.kavishdevar.librepods.bluetooth.BLEManager
 import me.kavishdevar.librepods.data.AirPodsInstance
 import me.kavishdevar.librepods.data.AirPodsModels
 import me.kavishdevar.librepods.data.AirPodsNotifications
@@ -63,6 +67,7 @@ import me.kavishdevar.librepods.data.StemAction
 import me.kavishdevar.librepods.data.XposedRemotePrefProvider
 import me.kavishdevar.librepods.services.AirPodsService
 import me.kavishdevar.librepods.services.ServiceManager
+import me.kavishdevar.librepods.presentation.widgets.ConnectAirPodsWidget
 
 @Suppress("ArrayInDataClass")
 data class AirPodsUiState(
@@ -112,6 +117,7 @@ data class AirPodsUiState(
     val vendorIdHook: Boolean = false,
 
     val dynamicEndOfCharge: Boolean = false,
+    val chargingNotificationsEnabled: Boolean = true,
 
     val connectionSuccessful: Boolean = false,
     val timeUntilFOSSPremiumExpiry: Long = 0L,
@@ -278,6 +284,9 @@ class AirPodsViewModel(
         }
     }
 
+    fun getNearbyAirPodsSignal(): BLEManager.SignalReading? =
+        runCatching { serviceReference?.get()?.getNearbyAirPodsSignal() }.getOrNull()
+
     fun setCustomEq(low: Int, mid: Int, high: Int) {
         require(low in 0..100)
         require(mid in 0..100)
@@ -346,7 +355,8 @@ class AirPodsViewModel(
                 "name" -> loadName()
                 "off_listening_mode", "automatic_ear_detection", "automatic_connection_ctrl_cmd",
                 "head_gestures", "left_long_press_action", "right_long_press_action",
-                "dynamic_end_of_charge", "foss_upgraded", "premium_expiry_time" -> loadSharedPreferences()
+                "dynamic_end_of_charge", "charging_notifications_enabled", "foss_upgraded",
+                "premium_expiry_time" -> loadSharedPreferences()
             }
         }
         sharedPreferences.registerOnSharedPreferenceChangeListener(listener)
@@ -652,6 +662,7 @@ class AirPodsViewModel(
         )
         val vendorIdHook = xposedRemotePref.getBoolean("vendor_id_hook", false)
         val dynamicEndOfCharge = sharedPreferences.getBoolean("dynamic_end_of_charge", false)
+        val chargingNotificationsEnabled = sharedPreferences.getBoolean("charging_notifications_enabled", true)
         val cameraAction = sharedPreferences.getString("camera_action", null)
             ?.let { value -> runCatching { AACPManager.Companion.StemPressType.valueOf(value) }.getOrNull() }
         _cameraAction.value = cameraAction
@@ -665,6 +676,7 @@ class AirPodsViewModel(
                 rightAction = rightAction,
                 vendorIdHook = vendorIdHook,
                 dynamicEndOfCharge = dynamicEndOfCharge,
+                chargingNotificationsEnabled = chargingNotificationsEnabled,
                 // Never restore a prior process's AACP socket state from disk.
                 connectionSuccessful = false,
             )
@@ -722,6 +734,11 @@ class AirPodsViewModel(
         }
     }
 
+    fun setChargingNotificationsEnabled(enabled: Boolean) {
+        sharedPreferences.edit { putBoolean("charging_notifications_enabled", enabled) }
+        _uiState.update { it.copy(chargingNotificationsEnabled = enabled) }
+    }
+
     private fun loadEq() {
         val manager = service.aacpManager
         _uiState.update {
@@ -773,6 +790,29 @@ class AirPodsViewModel(
 
     fun reconnectFromSavedMac() {
         service.reconnectFromSavedMac()
+    }
+
+    fun selectPreferredAirPods(address: String, displayName: String): Boolean {
+        if (!this::sharedPreferences.isInitialized || !this::appContext.isInitialized ||
+            !BluetoothAdapter.checkBluetoothAddress(address)
+        ) return false
+
+        @SuppressLint("MissingPermission")
+        fun findPairedDevice(): Boolean = runCatching {
+            appContext.getSystemService(BluetoothManager::class.java)?.adapter?.bondedDevices
+                ?.any { it.address.equals(address, ignoreCase = true) } == true
+        }.getOrDefault(false)
+
+        if (!findPairedDevice()) return false
+
+        runCatching { serviceReference?.get()?.selectPreferredAirPods(address, displayName) }
+        sharedPreferences.edit {
+            putString("mac_address", address)
+            putString("preferred_airpods_address", address)
+            putString("preferred_airpods_name", displayName.ifBlank { "AirPods" })
+        }
+        ConnectAirPodsWidget.refresh(appContext)
+        return true
     }
 
     fun setName(name: String) {

@@ -61,6 +61,7 @@ fun NavigationRoot(
         Screen.CameraControl -> stringResource(R.string.camera_control)
         Screen.Equalizer -> stringResource(R.string.equalizer)
         Screen.HeadTracking -> stringResource(R.string.head_tracking)
+        Screen.AirPodsFinder -> stringResource(R.string.airpods_finder_title)
         Screen.Labs -> stringResource(R.string.labs)
         Screen.HearingAid -> stringResource(R.string.hearing_aid)
         Screen.HearingAidAdjustments -> stringResource(R.string.adjustments)
@@ -73,6 +74,8 @@ fun NavigationRoot(
         Screen.Troubleshooting -> stringResource(R.string.troubleshooting)
         Screen.UpdateHearingTest -> stringResource(R.string.update_hearing_test)
         Screen.VersionInfo -> stringResource(R.string.version)
+        Screen.ReleaseHistory -> stringResource(R.string.release_history_title)
+        is Screen.ReleaseHistoryDetail -> currentScreen.tag.removePrefix("v")
         is Screen.CallControl -> currentScreen.action
         Screen.CameraRemote -> stringResource(R.string.camera_remote_title)
         Screen.LiveListen -> stringResource(R.string.live_listen_title)

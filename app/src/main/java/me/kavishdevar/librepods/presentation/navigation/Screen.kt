@@ -35,6 +35,9 @@ sealed interface Screen: NavKey {
     data object HeadTracking: Screen
 
     @Serializable
+    data object AirPodsFinder: Screen
+
+    @Serializable
     data object Accessibility: Screen
 
     @Serializable
@@ -60,6 +63,12 @@ sealed interface Screen: NavKey {
 
     @Serializable
     data object VersionInfo: Screen
+
+    @Serializable
+    data object ReleaseHistory: Screen
+
+    @Serializable
+    data class ReleaseHistoryDetail(val tag: String): Screen
 
     @Serializable
     data object HearingProtection: Screen

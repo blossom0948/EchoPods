@@ -20,20 +20,70 @@
 
 package me.kavishdevar.librepods.presentation.components
 
+import android.content.Context
+import android.media.AudioManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import me.kavishdevar.librepods.R
+import kotlin.math.roundToInt
 import kotlin.io.encoding.ExperimentalEncodingApi
+
+@Composable
+fun MediaVolumeSlider() {
+    val context = LocalContext.current
+    val audioManager = remember(context) {
+        context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    }
+    val maxVolume = remember(audioManager) {
+        audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+    }
+    var volume by remember(audioManager) {
+        mutableFloatStateOf(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat())
+    }
+
+    LaunchedEffect(audioManager) {
+        while (true) {
+            val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()
+            if (volume != currentVolume) volume = currentVolume
+            delay(400L)
+        }
+    }
+
+    val percent = (volume / maxVolume * 100f).roundToInt().coerceIn(0, 100)
+    StyledSlider(
+        label = stringResource(R.string.media_volume),
+        description = stringResource(R.string.media_volume_description),
+        value = volume,
+        onValueChange = { newVolume ->
+            val streamVolume = newVolume.roundToInt().coerceIn(0, maxVolume)
+            volume = streamVolume.toFloat()
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, streamVolume, 0)
+        },
+        valueRange = 0f..maxVolume.toFloat(),
+        startLabel = stringResource(R.string.media_volume_min),
+        endLabel = stringResource(R.string.media_volume_percent, percent),
+        independent = true,
+    )
+    Spacer(Modifier.height(8.dp))
+}
 
 @Composable
 fun AudioSettings(
@@ -57,21 +107,19 @@ fun AudioSettings(
     navigateToConversationSettings: () -> Unit,
 
     vendorIdHook: Boolean,
-    isPremium: Boolean
 ) {
     var conversationEnabled by remember(conversationalAwarenessChecked) {
         mutableStateOf(conversationalAwarenessChecked)
     }
 
     if (adaptiveVolumeCapability || conversationalAwarenessCapability || loudSoundReductionCapability || adaptiveAudioCapability) {
-        StyledList(title = stringResource(R.string.audio)) {
+        StyledList(title = stringResource(R.string.audio_routing)) {
             if (adaptiveVolumeCapability) {
                 StyledToggle(
                     label = stringResource(R.string.personalized_volume),
                     description = stringResource(R.string.personalized_volume_description),
                     checked = adaptiveVolumeChecked,
                     onCheckedChange = onAdaptiveVolumeCheckedChange,
-                    enabled = isPremium,
                 )
             }
 
@@ -107,7 +155,6 @@ fun AudioSettings(
                     description = stringResource(R.string.loud_sound_reduction_description),
                     checked = loudSoundReductionChecked,
                     onCheckedChange = onLoudSoundReductionCheckedChange,
-                    enabled = isPremium,
                 )
             }
 

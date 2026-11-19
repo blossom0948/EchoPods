@@ -22,9 +22,13 @@ package me.kavishdevar.librepods.presentation.screens
 
 // import me.kavishdevar.librepods.utils.RadareOffsetFinder
 import android.annotation.SuppressLint
+import android.bluetooth.BluetoothClass
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothManager
 import android.content.Context.MODE_PRIVATE
 import android.content.Intent
 import android.content.SharedPreferences
+import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -50,7 +54,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Surface
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -91,6 +99,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.core.net.toUri
 import androidx.graphics.shapes.Morph
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -112,6 +121,7 @@ import me.kavishdevar.librepods.presentation.components.CallControlSettings
 import me.kavishdevar.librepods.presentation.components.ConnectionSettings
 import me.kavishdevar.librepods.presentation.components.HearingHealthSettings
 import me.kavishdevar.librepods.presentation.components.ListItemOrientation
+import me.kavishdevar.librepods.presentation.components.MediaVolumeSlider
 import me.kavishdevar.librepods.presentation.components.MaterialButtonStyle
 import me.kavishdevar.librepods.presentation.components.NoiseControlSettings
 import me.kavishdevar.librepods.presentation.components.PressAndHoldSettings
@@ -154,6 +164,7 @@ fun AirPodsSettingsRoute(
     navigateToCameraControl: () -> Unit,
     navigateToLiveListen: () -> Unit,
     navigateToLiveTranslation: () -> Unit,
+    navigateToAirPodsFinder: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsState()
 
@@ -182,6 +193,7 @@ fun AirPodsSettingsRoute(
             onAutomaticEarDetectionChanged = viewModel::setAutomaticEarDetectionEnabled,
             onAutomaticConnectionChanged = viewModel::setAutomaticConnectionEnabled,
             setDynamicEndOfCharge = viewModel::setDynamicEndOfCharge,
+            setChargingNotificationsEnabled = viewModel::setChargingNotificationsEnabled,
             setOffListeningMode = viewModel::setOffListeningMode,
             disconnect = viewModel::disconnect,
 
@@ -203,8 +215,10 @@ fun AirPodsSettingsRoute(
             navigateToCameraControl = navigateToCameraControl,
             navigateToLiveListen = navigateToLiveListen,
             navigateToLiveTranslation = navigateToLiveTranslation,
+            navigateToAirPodsFinder = navigateToAirPodsFinder,
 
-            reconnectFromSavedMac = viewModel::reconnectFromSavedMac
+            reconnectFromSavedMac = viewModel::reconnectFromSavedMac,
+            selectPreferredAirPods = viewModel::selectPreferredAirPods,
         )
     }
 }
@@ -227,6 +241,7 @@ fun AirPodsSettingsScreen(
         onAutomaticEarDetectionChanged: (Boolean) -> Unit,
         onAutomaticConnectionChanged: (Boolean) -> Unit,
         setDynamicEndOfCharge: (Boolean) -> Unit,
+        setChargingNotificationsEnabled: (Boolean) -> Unit,
         setOffListeningMode: (Boolean) -> Unit,
         disconnect: () -> Unit,
 
@@ -250,6 +265,8 @@ fun AirPodsSettingsScreen(
         navigateToCameraControl: () -> Unit = {},
         navigateToLiveListen: () -> Unit = {},
         navigateToLiveTranslation: () -> Unit = {},
+        navigateToAirPodsFinder: () -> Unit = {},
+        selectPreferredAirPods: (String, String) -> Boolean = { _, _ -> false },
 ) {
     val context = LocalContext.current
     val sharedPreferences = context.getSharedPreferences("settings", MODE_PRIVATE)
@@ -421,6 +438,10 @@ fun AirPodsSettingsScreen(
                 }
             }
 
+            item(key = "media_volume") {
+                MediaVolumeSlider()
+            }
+
             if (capabilities.contains(Capability.STEM_CONFIG)) {
                 item(key = "spacer_press_hold") {
                     Spacer(modifier = Modifier.height(16.dp))
@@ -459,6 +480,12 @@ fun AirPodsSettingsScreen(
             }
             item(key = "device_features") {
                 StyledList(title = stringResource(R.string.airpods_extras)) {
+                    StyledListItemInGroup(
+                        name = stringResource(R.string.airpods_finder_title),
+                        description = stringResource(R.string.airpods_finder_summary),
+                        onClick = navigateToAirPodsFinder,
+                        orientation = ListItemOrientation.Vertical,
+                    )
                     if (capabilities.contains(Capability.STEM_CONFIG)) {
                         StyledListItemInGroup(
                             name = stringResource(R.string.camera_remote_title),
@@ -479,26 +506,6 @@ fun AirPodsSettingsScreen(
                         onClick = navigateToLiveTranslation,
                         orientation = ListItemOrientation.Vertical,
                     )
-                }
-            }
-
-            item(key = "upgrade_button") {
-                if (!state.isPremium) {
-                    Spacer(modifier = Modifier.height(28.dp))
-                    StyledButton(
-                        onClick = navigateToPurchase,
-                        backdrop = rememberLayerBackdrop(),
-                        modifier = Modifier.fillMaxWidth(),
-                        maxScale = 0.05f,
-                        surfaceColor = MaterialTheme.colorScheme.primary
-                    ) {
-                        Text(
-                            stringResource(R.string.unlock_advanced_features),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
                 }
             }
 
@@ -554,7 +561,6 @@ fun AirPodsSettingsScreen(
                     navigateToEqualizer = navigateToEqualizer,
                     navigateToConversationSettings = navigateToConversationSettings,
                     vendorIdHook = state.vendorIdHook,
-                    isPremium = state.isPremium
                 )
             }
 
@@ -590,7 +596,7 @@ fun AirPodsSettingsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
             item(key = "general_controls") {
-                StyledList {
+                StyledList(title = stringResource(R.string.controls_and_gestures)) {
                     if (capabilities.contains(Capability.SLEEP_DETECTION)) {
                         val id = AACPManager.Companion.ControlCommandIdentifiers.SLEEP_DETECTION_CONFIG
                         StyledToggleInGroup(
@@ -612,13 +618,6 @@ fun AirPodsSettingsScreen(
                         )
                     }
 
-                    StyledToggleInGroup(
-                        label = stringResource(R.string.optimized_charging),
-                        description = stringResource(R.string.optimized_charging_description),
-                        checked = state.dynamicEndOfCharge,
-                        onCheckedChange = setDynamicEndOfCharge
-                    )
-
                     StyledListItemInGroup(
                         name = stringResource(R.string.accessibility),
                         onClick = navigateToAccessibility
@@ -633,6 +632,26 @@ fun AirPodsSettingsScreen(
                             onCheckedChange = setOffListeningMode
                         )
                     }
+                }
+            }
+
+            item(key = "spacer_battery_settings") {
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            item(key = "battery_settings") {
+                StyledList(title = stringResource(R.string.battery)) {
+                    StyledToggleInGroup(
+                        label = stringResource(R.string.optimized_charging),
+                        description = stringResource(R.string.optimized_charging_description),
+                        checked = state.dynamicEndOfCharge,
+                        onCheckedChange = setDynamicEndOfCharge,
+                    )
+                    StyledToggleInGroup(
+                        label = stringResource(R.string.charging_notifications),
+                        description = stringResource(R.string.charging_notifications_description),
+                        checked = state.chargingNotificationsEnabled,
+                        onCheckedChange = setChargingNotificationsEnabled,
+                    )
                 }
             }
 
@@ -687,12 +706,33 @@ fun AirPodsSettingsScreen(
                     .layerBackdrop(backdrop)
             )
             var reconnecting by remember { mutableStateOf(false) }
+            var showBluetoothFallback by remember { mutableStateOf(false) }
 
             LaunchedEffect(reconnecting) {
                 if (reconnecting) {
                     delay(5.seconds)
                     reconnecting = false
+                    if (!state.connectionSuccessful && !state.isAndroidAudioProfileConnected) {
+                        showBluetoothFallback = true
+                    }
                 }
+            }
+            LaunchedEffect(state.connectionSuccessful, state.isAndroidAudioProfileConnected) {
+                if (state.connectionSuccessful || state.isAndroidAudioProfileConnected) {
+                    reconnecting = false
+                    showBluetoothFallback = false
+                }
+            }
+
+            if (showBluetoothFallback) {
+                BluetoothConnectionFallbackDialog(
+                    backdrop = backdrop,
+                    onDismiss = { showBluetoothFallback = false },
+                    onOpenBluetoothSettings = {
+                        showBluetoothFallback = false
+                        openBluetoothSettings(context)
+                    },
+                )
             }
 
             when (LocalDesignSystem.current) {
@@ -757,7 +797,8 @@ fun AirPodsSettingsScreen(
                         Column(
                             modifier = Modifier
                                 .align(Alignment.Center)
-                                .padding(horizontal = 32.dp),
+                                .padding(horizontal = 32.dp)
+                                .verticalScroll(rememberScrollState()),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             val primaryContainerColor = MaterialTheme.colorScheme.tertiaryContainer
@@ -865,8 +906,10 @@ fun AirPodsSettingsScreen(
                                         if (state.isAndroidAudioProfileConnected) R.string.android_audio_connected_control_unavailable
                                         else R.string.airpods_not_connected
                                     ),
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    color = MaterialTheme.colorScheme.primary
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                                 )
                                 if (!hasRootlessBluetoothSupport() && !XposedState.bluetoothScopeEnabled) {
                                     Spacer(modifier = Modifier.height(16.dp))
@@ -884,6 +927,21 @@ fun AirPodsSettingsScreen(
                                         textAlign = TextAlign.Center
                                     )
                                 }
+                            }
+                            if (!state.connectionSuccessful && !state.isAndroidAudioProfileConnected) {
+                                Spacer(Modifier.height(16.dp))
+                                DisconnectedAirPodsConnectControls(
+                                    backdrop = backdrop,
+                                    sharedPreferences = sharedPreferences,
+                                    onSelectPreferredAirPods = selectPreferredAirPods,
+                                    onConnect = {
+                                        reconnectFromSavedMac()
+                                        reconnecting = true
+                                        showBluetoothFallback = false
+                                    },
+                                )
+                                Spacer(Modifier.height(24.dp))
+                                AirPodsFinderButton(backdrop, navigateToAirPodsFinder)
                             }
                         }
 
@@ -907,7 +965,10 @@ fun AirPodsSettingsScreen(
 
                 DesignSystem.Apple -> {
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.Center)
+                            .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.Center
                     ) {
                         Column(
@@ -951,6 +1012,22 @@ fun AirPodsSettingsScreen(
                                 )
                             }
                         }
+
+                        if (!state.connectionSuccessful && !state.isAndroidAudioProfileConnected) {
+                            Spacer(Modifier.height(18.dp))
+                            DisconnectedAirPodsConnectControls(
+                                backdrop = backdrop,
+                                sharedPreferences = sharedPreferences,
+                                onSelectPreferredAirPods = selectPreferredAirPods,
+                                onConnect = {
+                                    reconnectFromSavedMac()
+                                    reconnecting = true
+                                    showBluetoothFallback = false
+                                },
+                            )
+                        }
+                        Spacer(Modifier.height(24.dp))
+                        AirPodsFinderButton(backdrop, navigateToAirPodsFinder)
 
                         if ((state.connectionSuccessful || state.isAndroidAudioProfileConnected) && aacpControlSupported) {
                             StyledButton(
@@ -996,6 +1073,269 @@ fun AirPodsSettingsScreen(
     }
 }
 
+@Composable
+private fun DisconnectedAirPodsConnectControls(
+    backdrop: com.kyant.backdrop.backdrops.LayerBackdrop,
+    sharedPreferences: SharedPreferences,
+    onSelectPreferredAirPods: (String, String) -> Boolean,
+    onConnect: () -> Unit,
+) {
+    val context = LocalContext.current
+    var preferredAddress by remember(sharedPreferences) {
+        mutableStateOf(
+            sharedPreferences.getString("preferred_airpods_address", null)
+                ?: sharedPreferences.getString("mac_address", "").orEmpty(),
+        )
+    }
+    var preferredName by remember(sharedPreferences) {
+        mutableStateOf(
+            sharedPreferences.getString("preferred_airpods_name", null)
+                ?: sharedPreferences.getString("name", "").orEmpty(),
+        )
+    }
+    var pairedDevices by remember { mutableStateOf(emptyList<PairedAudioDeviceOption>()) }
+    var showPicker by remember { mutableStateOf(false) }
+    var connecting by remember { mutableStateOf(false) }
+    val chooseAirPodsLabel = stringResource(R.string.choose_airpods)
+    val pairedDeviceLabel = stringResource(R.string.paired_audio_device)
+
+    LaunchedEffect(connecting) {
+        if (connecting) {
+            delay(5.seconds)
+            connecting = false
+        }
+    }
+
+    StyledList(title = stringResource(R.string.preferred_airpods_section)) {
+        StyledListItemInGroup(
+            name = preferredName.ifBlank { chooseAirPodsLabel },
+            description = stringResource(
+                if (preferredAddress.isBlank()) R.string.choose_airpods_description
+                else R.string.preferred_airpods_description
+            ),
+            orientation = ListItemOrientation.Vertical,
+            onClick = {
+                pairedDevices = readPairedAudioDevices(context)
+                showPicker = true
+            },
+            descriptionMaxLines = 2,
+            leadingContent = {
+                Icon(
+                    imageVector = MaterialIcons.bluetooth,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            },
+        )
+    }
+    Spacer(Modifier.height(10.dp))
+    StyledButton(
+        onClick = {
+            if (preferredAddress.isBlank()) {
+                pairedDevices = readPairedAudioDevices(context)
+                showPicker = true
+            } else {
+                connecting = true
+                onConnect()
+            }
+        },
+        backdrop = backdrop,
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !connecting,
+        materialButtonStyle = MaterialButtonStyle.Filled,
+    ) {
+        Text(
+            text = stringResource(if (connecting) R.string.connecting_airpods else R.string.connect_airpods),
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+
+    if (showPicker) {
+        Dialog(onDismissRequest = { showPicker = false }) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = RoundedCornerShape(28.dp),
+                modifier = Modifier.widthIn(max = 440.dp),
+            ) {
+                Column(Modifier.fillMaxWidth().padding(20.dp)) {
+                    Text(
+                        text = stringResource(R.string.choose_airpods),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = stringResource(R.string.choose_airpods_description),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    if (pairedDevices.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.no_paired_audio_devices),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 10.dp),
+                        )
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .heightIn(max = 340.dp)
+                                .verticalScroll(rememberScrollState()),
+                        ) {
+                            StyledList {
+                                pairedDevices.forEach { device ->
+                                    val deviceName = device.name.ifBlank { pairedDeviceLabel }
+                                    StyledListItemInGroup(
+                                        name = deviceName,
+                                        description = device.address,
+                                        onClick = {
+                                            if (onSelectPreferredAirPods(device.address, deviceName)) {
+                                                preferredAddress = device.address
+                                                preferredName = deviceName
+                                                showPicker = false
+                                            } else {
+                                                Toast.makeText(
+                                                    context,
+                                                    R.string.select_airpods_failed,
+                                                    Toast.LENGTH_LONG,
+                                                ).show()
+                                            }
+                                        },
+                                        selected = device.address.equals(preferredAddress, ignoreCase = true),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    androidx.compose.foundation.layout.Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        StyledButton(
+                            onClick = { openBluetoothSettings(context) },
+                            backdrop = backdrop,
+                            modifier = Modifier.weight(1f),
+                            materialButtonStyle = MaterialButtonStyle.Outlined,
+                        ) {
+                            Text(stringResource(R.string.open_bluetooth_settings))
+                        }
+                        StyledButton(
+                            onClick = { showPicker = false },
+                            backdrop = backdrop,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(stringResource(R.string.close))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BluetoothConnectionFallbackDialog(
+    backdrop: com.kyant.backdrop.backdrops.LayerBackdrop,
+    onDismiss: () -> Unit,
+    onOpenBluetoothSettings: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = RoundedCornerShape(28.dp),
+            modifier = Modifier.widthIn(max = 420.dp),
+        ) {
+            Column(Modifier.fillMaxWidth().padding(22.dp)) {
+                Text(
+                    text = stringResource(R.string.connection_request_pending_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.connection_request_pending_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(18.dp))
+                androidx.compose.foundation.layout.Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    StyledButton(
+                        onClick = onDismiss,
+                        backdrop = backdrop,
+                        modifier = Modifier.weight(1f),
+                        materialButtonStyle = MaterialButtonStyle.Outlined,
+                    ) {
+                        Text(stringResource(R.string.close))
+                    }
+                    StyledButton(
+                        onClick = onOpenBluetoothSettings,
+                        backdrop = backdrop,
+                        modifier = Modifier.weight(1f),
+                        materialButtonStyle = MaterialButtonStyle.Filled,
+                    ) {
+                        Text(stringResource(R.string.open_bluetooth_settings))
+                    }
+                }
+            }
+        }
+    }
+}
+
+private data class PairedAudioDeviceOption(val address: String, val name: String)
+
+@SuppressLint("MissingPermission")
+private fun readPairedAudioDevices(context: android.content.Context): List<PairedAudioDeviceOption> {
+    return try {
+        val adapter = context.getSystemService(BluetoothManager::class.java).adapter
+            ?: return emptyList()
+        adapter.bondedDevices.mapNotNull { device ->
+            val name = runCatching { device.name }.getOrNull().orEmpty()
+            val majorClass = runCatching { device.bluetoothClass?.majorDeviceClass }.getOrNull()
+            if (name.contains("AirPods", ignoreCase = true) ||
+                majorClass == BluetoothClass.Device.Major.AUDIO_VIDEO
+            ) {
+                PairedAudioDeviceOption(device.address, name)
+            } else null
+        }.sortedBy { it.name.lowercase() }
+    } catch (_: SecurityException) {
+        emptyList()
+    }
+}
+
+private fun openBluetoothSettings(context: android.content.Context) {
+    runCatching {
+        context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
+    }.onFailure {
+        Toast.makeText(context, R.string.bluetooth_settings_unavailable, Toast.LENGTH_LONG).show()
+    }
+}
+
+@Composable
+private fun AirPodsFinderButton(
+    backdrop: com.kyant.backdrop.backdrops.LayerBackdrop,
+    onClick: () -> Unit,
+) {
+    StyledButton(
+        onClick = onClick,
+        backdrop = backdrop,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp)
+            .widthIn(max = 320.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.airpods_finder_title),
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
 @Preview(name = "Apple")
 @Composable
 fun AirPodsSettingsScreenPreviewApple() {
@@ -1035,6 +1375,7 @@ fun AirPodsSettingsScreenPreviewApple() {
                 navigateToCallControlScreen = {},
                 navigateToMicrophoneSettings = {},
 
+                setChargingNotificationsEnabled = {},
                 reconnectFromSavedMac = {}
             )
         }
@@ -1081,6 +1422,7 @@ fun AirPodsSettingsScreenPreviewMaterial() {
                 navigateToCallControlScreen = {},
                 navigateToMicrophoneSettings = {},
 
+                setChargingNotificationsEnabled = {},
                 reconnectFromSavedMac = {}
             )
         }

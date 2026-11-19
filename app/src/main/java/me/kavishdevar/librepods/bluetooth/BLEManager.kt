@@ -47,6 +47,7 @@ class BLEManager(private val context: Context) {
     data class AirPodsStatus(
         val address: String,
         val lastSeen: Long = System.currentTimeMillis(),
+        val rssi: Int = Int.MIN_VALUE,
         val paired: Boolean = false,
         val model: String = "Unknown",
         val leftBattery: Int? = null,
@@ -62,9 +63,20 @@ class BLEManager(private val context: Context) {
         val connectionState: String = "Unknown"
     )
 
+    data class SignalReading(
+        val rssi: Int,
+        val lastSeen: Long,
+        val model: String,
+    )
+
+    @Volatile
+    private var latestSignalReading: SignalReading? = null
+
     fun getMostRecentStatus(): AirPodsStatus? {
         return deviceStatusMap.values.maxByOrNull { it.lastSeen }
     }
+
+    fun getLatestSignalReading(): SignalReading? = latestSignalReading
 
     interface AirPodsStatusListener {
         fun onDeviceStatusChanged(device: AirPodsStatus, previousStatus: AirPodsStatus?)
@@ -233,6 +245,7 @@ class BLEManager(private val context: Context) {
         if (mScanCallback == null) return
         Log.i(TAG, "Selected AirPods identity changed; refreshing the BLE scan filter")
         deviceStatusMap.clear()
+        latestSignalReading = null
         verifiedAddresses.clear()
         processedAddresses.clear()
         lastValidCaseBatteryMap.clear()
@@ -325,14 +338,19 @@ class BLEManager(private val context: Context) {
 
             val encryptionKey = getEncryptionKeyFromPreferences()
             val decryptedData = if (encryptionKey != null) decryptLastBytes(manufacturerData, encryptionKey) else null
-            val parsedStatus = if (decryptedData != null && decryptedData.size == 16) {
+            val parsedStatus = (if (decryptedData != null && decryptedData.size == 16) {
                 parseProximityMessageWithDecryption(address, manufacturerData, decryptedData)
             } else {
                 parseProximityMessage(address, manufacturerData)
-            }
+            }).copy(rssi = result.rssi)
 
             val previousStatus = deviceStatusMap[address]
             deviceStatusMap[address] = parsedStatus
+            latestSignalReading = SignalReading(
+                rssi = parsedStatus.rssi,
+                lastSeen = parsedStatus.lastSeen,
+                model = parsedStatus.model,
+            )
 
             airPodsStatusListener?.let { listener ->
                 if (previousStatus == null) {
@@ -348,7 +366,11 @@ class BLEManager(private val context: Context) {
                         Log.d(TAG, "Initial BLE lid state recorded without generating a case-open event")
                     }
                 } else {
-                    if (parsedStatus.copy(lastSeen = previousStatus.lastSeen) != previousStatus) {
+                    if (parsedStatus.copy(
+                            lastSeen = previousStatus.lastSeen,
+                            rssi = previousStatus.rssi,
+                        ) != previousStatus
+                    ) {
                         listener.onDeviceStatusChanged(parsedStatus, previousStatus)
                     }
 
@@ -471,7 +493,12 @@ class BLEManager(private val context: Context) {
         if (hadDevices && deviceStatusMap.isEmpty()) {
             currentGlobalLidState = null
             lastBroadcastTime = 0L
+            latestSignalReading = null
             airPodsStatusListener?.onDeviceDisappeared()
+        } else if (latestSignalReading?.let { now - it.lastSeen >= STALE_DEVICE_TIMEOUT_MS } == true) {
+            latestSignalReading = deviceStatusMap.values.maxByOrNull { it.lastSeen }?.let {
+                SignalReading(it.rssi, it.lastSeen, it.model)
+            }
         }
     }
 

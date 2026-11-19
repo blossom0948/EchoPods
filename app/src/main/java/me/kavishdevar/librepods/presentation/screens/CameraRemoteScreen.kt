@@ -26,15 +26,21 @@ import androidx.camera.view.video.AudioConfig
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -63,6 +69,8 @@ import me.kavishdevar.librepods.presentation.components.ListItemOrientation
 import me.kavishdevar.librepods.presentation.components.StyledButton
 import me.kavishdevar.librepods.presentation.components.StyledList
 import me.kavishdevar.librepods.presentation.components.StyledListItem
+import me.kavishdevar.librepods.presentation.theme.DesignSystem
+import me.kavishdevar.librepods.presentation.theme.LocalDesignSystem
 import me.kavishdevar.librepods.presentation.viewmodel.AirPodsViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -226,7 +234,12 @@ fun CameraRemoteScreen(viewModel: AirPodsViewModel) {
         onDispose { runCatching { context.unregisterReceiver(receiver) } }
     }
 
-    Box(Modifier.fillMaxSize()) {
+    val material = LocalDesignSystem.current == DesignSystem.Material
+    val topPadding = if (material) 8.dp else WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 84.dp
+    val bottomPadding = if (material) 16.dp else WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val previewHeight = minOf(maxHeight * 0.44f, maxWidth / 0.75f).coerceAtLeast(180.dp)
         Box(
             Modifier
                 .fillMaxSize()
@@ -236,16 +249,16 @@ fun CameraRemoteScreen(viewModel: AirPodsViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(topPadding))
             if (cameraGranted) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f, fill = true)
-                        .aspectRatio(0.75f)
+                        .height(previewHeight)
                         .clip(RoundedCornerShape(28.dp))
                         .background(MaterialTheme.colorScheme.surface),
                 ) {
@@ -258,6 +271,7 @@ fun CameraRemoteScreen(viewModel: AirPodsViewModel) {
                                     ViewGroup.LayoutParams.MATCH_PARENT,
                                 )
                                 scaleType = PreviewView.ScaleType.FILL_CENTER
+                                implementationMode = PreviewView.ImplementationMode.COMPATIBLE
                                 controller = previewController
                             }
                         },
@@ -359,7 +373,7 @@ fun CameraRemoteScreen(viewModel: AirPodsViewModel) {
                     )
                 }
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(bottomPadding))
         }
     }
 }

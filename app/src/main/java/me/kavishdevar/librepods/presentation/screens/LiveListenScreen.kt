@@ -26,10 +26,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,8 +43,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -51,9 +59,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.coroutineContext
@@ -63,6 +72,8 @@ import me.kavishdevar.librepods.presentation.components.StyledButton
 import me.kavishdevar.librepods.presentation.components.StyledList
 import me.kavishdevar.librepods.presentation.components.StyledListItem
 import me.kavishdevar.librepods.presentation.components.StyledSlider
+import me.kavishdevar.librepods.presentation.theme.DesignSystem
+import me.kavishdevar.librepods.presentation.theme.LocalDesignSystem
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.sqrt
@@ -73,7 +84,7 @@ private const val LIVE_LISTEN_SAMPLE_RATE = 48_000
 fun LiveListenScreen() {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val scope = remember { CoroutineScope(Dispatchers.Main.immediate + Job()) }
+    val scope = rememberCoroutineScope()
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     val backdrop = rememberLayerBackdrop()
     var hasPermission by remember {
@@ -86,6 +97,7 @@ fun LiveListenScreen() {
     var gain by remember { mutableFloatStateOf(1f) }
     var level by remember { mutableFloatStateOf(0f) }
     var outputName by remember { mutableStateOf(currentBluetoothOutput(audioManager)?.productName?.toString()) }
+    var feedback by remember { mutableIntStateOf(R.string.live_listen_inactive) }
     val gainRef = remember { AtomicReference(1f) }
     var listenJob by remember { mutableStateOf<Job?>(null) }
     var focusRequest by remember { mutableStateOf<AudioFocusRequest?>(null) }
@@ -115,10 +127,17 @@ fun LiveListenScreen() {
         }
         focusRequest = null
         level = 0f
+        feedback = R.string.live_listen_inactive
     }
 
     fun startListening() {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED || listening) return
+        val bluetoothOutput = currentBluetoothOutput(audioManager)
+        if (bluetoothOutput == null) {
+            outputName = null
+            feedback = R.string.live_listen_connect_headphones
+            return
+        }
         val inputMin = AudioRecord.getMinBufferSize(
             LIVE_LISTEN_SAMPLE_RATE,
             AudioFormat.CHANNEL_IN_MONO,
@@ -129,7 +148,10 @@ fun LiveListenScreen() {
             AudioFormat.CHANNEL_OUT_MONO,
             AudioFormat.ENCODING_PCM_16BIT,
         )
-        if (inputMin <= 0 || outputMin <= 0) return
+        if (inputMin <= 0 || outputMin <= 0) {
+            feedback = R.string.live_listen_audio_unsupported
+            return
+        }
 
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -142,6 +164,7 @@ fun LiveListenScreen() {
                 .build()
         } else null
         if (focus != null && audioManager.requestAudioFocus(focus) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+            feedback = R.string.live_listen_audio_focus_failed
             return
         }
         focusRequest = focus
@@ -179,14 +202,19 @@ fun LiveListenScreen() {
             runCatching { record?.release() }
             runCatching { track?.release() }
             stopListening()
+            feedback = R.string.live_listen_stream_failed
             return
         }
-        currentBluetoothOutput(audioManager)?.let { runCatching { track.setPreferredDevice(it) } }
-        outputName = currentBluetoothOutput(audioManager)?.productName?.toString()
+        val preferredRoute = runCatching { track.setPreferredDevice(bluetoothOutput) }.getOrDefault(false)
+        outputName = bluetoothOutput.productName?.toString()
         activeRecorder = record
         activeTrack = track
         monitoringRef.set(true)
         listening = true
+        feedback = when {
+            preferredRoute -> R.string.live_listen_active
+            else -> R.string.live_listen_route_fallback
+        }
         listenJob = scope.launch(Dispatchers.IO) {
             val thisJob = coroutineContext[Job]
             val input = ShortArray(recordBufferSize / 2)
@@ -195,9 +223,34 @@ fun LiveListenScreen() {
             try {
                 record.startRecording()
                 track.play()
+                delay(250)
+                val routedDevice = runCatching { track.routedDevice }.getOrNull()
+                withContext(Dispatchers.Main.immediate) {
+                    if (monitoringRef.get()) {
+                        val routedToBluetooth = routedDevice?.type in setOf(
+                            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+                            AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+                            AudioDeviceInfo.TYPE_BLE_HEADSET,
+                            AudioDeviceInfo.TYPE_BLE_SPEAKER,
+                        )
+                        outputName = routedDevice?.productName?.toString() ?: bluetoothOutput.productName?.toString()
+                        feedback = if (routedToBluetooth) {
+                            R.string.live_listen_active
+                        } else {
+                            R.string.live_listen_route_fallback
+                        }
+                    }
+                }
                 while (monitoringRef.get()) {
                     val read = record.read(input, 0, input.size, AudioRecord.READ_BLOCKING)
-                    if (read <= 0) break
+                    if (read <= 0) {
+                        if (monitoringRef.get()) {
+                            withContext(Dispatchers.Main.immediate) {
+                                feedback = R.string.live_listen_stream_ended
+                            }
+                        }
+                        break
+                    }
                     val volume = gainRef.get()
                     var sumSquares = 0.0
                     for (index in 0 until read) {
@@ -205,7 +258,13 @@ fun LiveListenScreen() {
                         sumSquares += sample.toDouble() * sample.toDouble()
                         output[index] = (sample * volume).toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
                     }
-                    track.write(output, 0, read, AudioTrack.WRITE_BLOCKING)
+                    val written = track.write(output, 0, read, AudioTrack.WRITE_BLOCKING)
+                    if (written < 0) {
+                        withContext(Dispatchers.Main.immediate) {
+                            feedback = R.string.live_listen_output_failed
+                        }
+                        break
+                    }
                     val now = SystemClock.elapsedRealtime()
                     if (now - lastLevelUpdate >= 160) {
                         lastLevelUpdate = now
@@ -216,9 +275,15 @@ fun LiveListenScreen() {
             } catch (_: CancellationException) {
                 throw CancellationException()
             } catch (_: SecurityException) {
-                withContext(Dispatchers.Main.immediate) { listening = false }
+                withContext(NonCancellable + Dispatchers.Main.immediate) {
+                    listening = false
+                    feedback = R.string.live_listen_mic_permission
+                }
             } catch (_: IllegalStateException) {
-                withContext(Dispatchers.Main.immediate) { listening = false }
+                withContext(Dispatchers.Main.immediate) {
+                    listening = false
+                    feedback = R.string.live_listen_stream_failed
+                }
             } finally {
                 runCatching { if (record.recordingState == AudioRecord.RECORDSTATE_RECORDING) record.stop() }
                 runCatching { if (track.playState == AudioTrack.PLAYSTATE_PLAYING) track.stop() }
@@ -231,6 +296,12 @@ fun LiveListenScreen() {
                         activeRecorder = null
                         activeTrack = null
                         listening = false
+                        if (feedback == R.string.live_listen_active ||
+                            feedback == R.string.live_listen_active_system_route ||
+                            feedback == R.string.live_listen_route_fallback
+                        ) {
+                            feedback = R.string.live_listen_stream_failed
+                        }
                         level = 0f
                         focusRequest?.let { request ->
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -246,7 +317,7 @@ fun LiveListenScreen() {
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         hasPermission = it
-        if (it) startListening()
+        if (it) startListening() else feedback = R.string.live_listen_mic_permission
     }
 
     DisposableEffect(lifecycleOwner) {
@@ -257,9 +328,12 @@ fun LiveListenScreen() {
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             stopListening()
-            scope.coroutineContext[Job]?.cancel()
         }
     }
+
+    val material = LocalDesignSystem.current == DesignSystem.Material
+    val topPadding = if (material) 8.dp else WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 84.dp
+    val bottomPadding = if (material) 16.dp else WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
 
     Box(Modifier.fillMaxSize()) {
         Box(
@@ -271,16 +345,15 @@ fun LiveListenScreen() {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(topPadding))
             StyledList {
                 StyledListItem(
                     name = stringResource(R.string.live_listen_status),
-                    description = stringResource(
-                        if (listening) R.string.live_listen_active else R.string.live_listen_inactive,
-                    ),
+                    description = stringResource(feedback),
                     onClick = null,
                     enabled = false,
                     orientation = ListItemOrientation.Vertical,
@@ -333,6 +406,7 @@ fun LiveListenScreen() {
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(horizontal = 12.dp),
             )
+            Spacer(Modifier.height(bottomPadding))
         }
     }
 }

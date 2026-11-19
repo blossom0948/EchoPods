@@ -1,6 +1,30 @@
 # LibrePods 기능 감사 및 EchoPods 이식 범위
 
-감사 기준일: 2026-10-16
+감사 기준일: 2026-11-20
+
+## iPhone AirPods 설정 화면 비교 (2026-11-19)
+
+사용자가 제공한 iPhone 설정 화면을 항목별 기준으로 삼았다. EchoPods의 화면 순서는 유지하면서 관련 기능을 다음처럼 묶는다.
+
+| iPhone 화면 묶음 | EchoPods 대응 | 상태와 범위 |
+|---|---|---|
+| 오디오 및 라우팅 | `Audio & Routing` | 미디어 출력 슬라이더는 Android의 현재 미디어 오디오 경로를 조절한다. 개인 맞춤형 음량, 대화 인지, 적응형 오디오, EQ는 기기 capability에 따라 노출한다. 자동 착용 감지와 이 기기 자동 연결은 기존 연결 설정에 둔다. |
+| 청력 건강 | 청력 보호 / 보청기 | 모델·펌웨어 capability에 따라 표시. 보청기·주변음 사용자 조정은 VendorID/ATT hook 조건이 있어 무조건 지원으로 표시하지 않는다. 검사 결과 입력/업데이트 화면은 있지만 iPhone의 자동 청력 검사를 재현하지는 않는다. |
+| 제어 항목 및 제스처 | `Controls & Gestures`, 통화 제어, 손쉬운 사용 | 왼쪽/오른쪽 누르기, 통화 동작, 머리 제스처, 카메라 리모컨, 누르기 속도·지속 시간, 한쪽 ANC, 톤 음량, 스와이프 음량은 기기 capability와 연결 상태에 따라 동작한다. |
+| 배터리 | `Battery` | AirPods의 최적화 충전과 하나의 충전 알림 스위치를 제공한다. 스위치는 기존 배터리 부족 경고와 완충 알림을 함께 제어한다. 완충 알림은 실제 충전 중에서 새로 100%/충전 완료로 바뀐 경우에만 보낸다. Android 알림 권한과 신선한 배터리 상태 패킷이 필요하다. |
+| 나의 찾기 | 근거리 BLE 탐색 | 선택된 AirPods의 최근 광고 RSSI를 이용한 근거리 추정만 제공한다. Apple 계정·Find My 군중 네트워크·UWB·정밀 방향 탐색은 제공하지 않으며, 위치가 끊긴 뒤의 지도 위치도 받을 수 없다. |
+| 공간 음향 모드 / “iPhone 따라가기” | 없음 | Android 앱의 머리 추적 화면은 전화 제스처/센서 확인 기능이며, Apple의 Off·Fixed·Head Tracked 오디오와 per-app audio anchor 제어가 아니다. Android spatializer 연결은 별도 구현·검증이 필요하다. |
+| 개인 맞춤형 공간 음향 | 없음 | Apple은 iPhone TrueDepth 카메라로 얼굴·귀 프로필을 설정한다. Android에서 해당 개인 프로필을 만들거나 Apple 기기 간 동기화를 제어할 경로가 없어 추가하지 않는다. |
+| 이어팁 밀착 테스트 / 청력 검사 | 미지원 | 현재 청력 보조 조정 화면은 주파수·좌우 보정값을 조절하는 화면이며, 이어팁 밀착 테스트나 임상 청력 검사 알고리즘은 아니다. 별도 측정 흐름과 보정된 입출력 경로 없이 동일한 결과를 주장하지 않는다. |
+| 기기 간 자동 전환 | 부분 지원 | EchoPods 자동 연결은 Android가 기억한 한 기기 연결 선호에 가깝다. Apple 계정으로 iPhone·iPad·Mac 간 오디오 전환을 하는 Continuity 동작과 Find My 통합은 제공하지 않는다. |
+
+근거리 찾기 화면은 저장된 AirPods 신원에서 확인한 최근 BLE 광고 RSSI와 신호의 상대적 변화를 보여준다. 현재 구현은 미터 거리나 방향을 계산하지 않으며, UWB 측정도 아니다. 벽·사람·케이스·휴대폰 안테나가 RSSI에 영향을 준다. AirPods의 Find My 케이스/이어버드 소리 명령은 공개·검증된 제어 경로가 없어 버튼을 제공하지 않는다. Google Find Hub 오프라인 네트워크도 앱만으로 AirPods를 액세서리로 등록할 수 없다. 공식 네트워크는 Fast Pair 액세서리 규격, 제조사 제안 승인, 펌웨어 구현 및 인증을 요구한다. [Google: Find Hub accessory specification](https://developers.google.com/nearby/fast-pair/specifications/extensions/fmdn), [Google: partner integration](https://developers.google.com/nearby/fast-pair/landing-page-find-hub). Apple Find My 네트워크와 지도 위치는 Apple 계정에 연결되고 분실 전에 Find My 설정이 켜져 있어야 한다. [Apple: Find your AirPods](https://support.apple.com/guide/airpods/find-your-airpods-dev8e8b93d71/27/web/27).
+
+Apple의 충전 안내는 지원 모델에서 배터리 부족 및 완충 알림을 제공한다고 설명한다. EchoPods 완충 알림은 Android에서 수신 가능한 AirPods 충전 상태/잔량의 전환만 사용하므로 Apple의 케이스 통합 동작과 동일하다고 주장하지 않는다. [Apple: Charge AirPods](https://support.apple.com/en-gb/guide/airpods/devde25a4bbe/web). Personalized Spatial Audio는 iPhone TrueDepth 설정을 요구한다. [Apple: Personalized Spatial Audio](https://support.apple.com/en-asia/102596).
+
+추가 비교: Apple Pro 모델에는 Ear Tip Fit/Acoustic Seal Test가 있고 Pro 2·3에는 iPhone/iPad 기반 Hearing Test가 있다. 현재 EchoPods에는 이 측정 기능이 없다. Apple의 공간 음향은 Off/Fixed/Head Tracked 선택과 기기 기준 추적을 제공하며, EchoPods의 머리 제스처/추적 화면은 이 기능의 대체물이 아니다. [Apple: Ear Tip Fit / Acoustic Seal](https://support.apple.com/en-gb/119849), [Apple: Hearing Health](https://support.apple.com/en-ie/guide/airpods/devd9aac5b42/27/web/27), [Apple: Spatial Audio and Head Tracking](https://support.apple.com/guide/airpods/control-spatial-audio-and-head-tracking-dev00eb7e0a3/27/web/27). Apple의 자동 전환도 Apple 계정에 로그인한 기기 사이의 오디오 라우팅과 연계되어 있어 Android의 자동 연결 설정과는 범위가 다르다. [Apple: Automatic switching](https://support.apple.com/en-au/104988).
+
+Conversation Awareness의 사용자 지정 복귀는 Android 호스트 측 최선 노력 기능이다. 대화 종료 때 Transparency를 다시 강제하지 않고, 기다리는 중 펌웨어가 이미 원래 모드로 복귀했으면 동일 모드 명령을 생략한다. AirPods가 선택된 시간보다 먼저 자체 복귀할 수 있으며, Android에는 이 펌웨어 타이머를 직접 설정하는 공개 제어가 없다.
 
 ## 조사한 공식 자료
 
@@ -53,7 +77,7 @@ LibrePods는 GPL-3.0 라이선스이므로 소스 코드와 Apple/LibrePods asse
 | Heart Rate Monitoring | 실험적 | rewrite branch와 특정 신형 AirPods 조건; 현재 기본 앱에서 차단 |
 | 고품질 양방향 audio | WIP/미지원 | Android audio route와 codec 경로를 별도 구현해야 함 |
 | Multi-device connectivity | 조건부 | Android Bluetooth ownership/Apple smart-routing protocol 미완성 |
-| Find My | 미지원 | 공식 구현 경로와 권한·네트워크 조건이 별도이며 아직 구현하지 않음 |
+| 근거리 BLE 찾기 | 이번 변경·실기기 미검증 | 저장된 AirPods identity의 최근 RSSI와 상대적 신호 변화를 표시. 거리·방향 계산, Apple/Google/Samsung 오프라인 네트워크, UWB, 원격 지도 위치, AirPods 소리 재생은 미지원 |
 | Root module의 시스템 widget/icon | 미지원 | root/Xposed 전용 확장 기능; 기본 앱의 권한 범위를 넘음 |
 | Quick Settings noise mode | 구현 | AAP READY와 실제 Galaxy audio route가 모두 확인될 때만 활성; OFF는 AirPods가 허용했다고 보고한 경우만 순환 |
 
@@ -88,7 +112,8 @@ Bluetooth frame 수신, 전화 응답/거절, stem firmware intercept Gate는 �
 
 아래는 여전히 구현하지 않았거나 별도 root/firmware/프로토콜 작업이 필요한 범위다.
 VendorID/Xposed가 필요한 Loud Sound Reduction·Hearing Aid·Transparency 세부 조정,
-Find My, Bluetooth multipoint, 시스템 spatializer/HRTF 연결, 신형 AirPods HRM,
+Find My의 원격 지도·군중 네트워크·UWB 및 기기 소리 재생, Bluetooth multipoint,
+시스템 spatializer/HRTF 연결, 신형 AirPods HRM,
 고품질 AACP 마이크 스트림이 이에 해당한다. 이들은 코드 빌드 성공만으로 지원한다고
 표시하지 않는다. 실제 AirPods가 명령을 수락하는지와 Samsung/Fold7 조합의 동작은
 실기기 adb/logcat raw evidence를 확보한 뒤에만 통과로 보고한다.

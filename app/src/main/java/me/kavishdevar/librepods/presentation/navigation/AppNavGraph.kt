@@ -20,6 +20,7 @@ import me.kavishdevar.librepods.data.updates.updates
 import me.kavishdevar.librepods.presentation.screens.AccessibilitySettingsScreen
 import me.kavishdevar.librepods.presentation.screens.AdaptiveStrengthScreen
 import me.kavishdevar.librepods.presentation.screens.AirPodsSettingsRoute
+import me.kavishdevar.librepods.presentation.screens.AirPodsFinderScreen
 import me.kavishdevar.librepods.presentation.screens.AppSettingsScreen
 import me.kavishdevar.librepods.presentation.screens.CallControlScreen
 import me.kavishdevar.librepods.presentation.screens.CameraControlScreen
@@ -39,6 +40,8 @@ import me.kavishdevar.librepods.presentation.screens.MicrophoneSettingsRoute
 import me.kavishdevar.librepods.presentation.screens.OpenSourceLicensesScreen
 import me.kavishdevar.librepods.presentation.screens.PurchaseScreen
 import me.kavishdevar.librepods.presentation.screens.ReleaseNotesScreen
+import me.kavishdevar.librepods.presentation.screens.ReleaseHistoryDetailScreen
+import me.kavishdevar.librepods.presentation.screens.ReleaseHistoryScreen
 import me.kavishdevar.librepods.presentation.screens.RenameScreen
 import me.kavishdevar.librepods.presentation.screens.TransparencySettingsScreen
 import me.kavishdevar.librepods.presentation.screens.TroubleshootingScreen
@@ -116,6 +119,7 @@ fun AppNavGraph(
                             navigateToCameraControl = { navigate(Screen.CameraControl) },
                             navigateToLiveListen = { navigate(Screen.LiveListen) },
                             navigateToLiveTranslation = { navigate(Screen.LiveTranslation) },
+                            navigateToAirPodsFinder = { navigate(Screen.AirPodsFinder) },
                         )
                     }
 
@@ -135,8 +139,19 @@ fun AppNavGraph(
                             navigateToOpenSourceLicenses = { navigate(Screen.OpenSourceLicenses) },
                             navigateToReleaseNotesScreen = { navigate(Screen.ReleaseNotes) },
                             navigateToLabs = { navigate(Screen.Labs) },
+                            navigateToReleaseHistory = { navigate(Screen.ReleaseHistory) },
                         )
                     }
+
+                Screen.ReleaseHistory ->
+                    NavEntry(screen) {
+                        ReleaseHistoryScreen(
+                            onOpenRelease = { tag -> navigate(Screen.ReleaseHistoryDetail(tag)) },
+                        )
+                    }
+
+                is Screen.ReleaseHistoryDetail ->
+                    NavEntry(screen) { ReleaseHistoryDetailScreen(tag = screen.tag) }
 
                 Screen.ConversationSettings ->
                     NavEntry(screen) {
@@ -158,6 +173,14 @@ fun AppNavGraph(
                     NavEntry(screen) {
                         if (!airPodsViewModel.isReady) LoadingScreen()
                         HeadTrackingScreen(airPodsViewModel)
+                    }
+
+                Screen.AirPodsFinder ->
+                    NavEntry(screen) {
+                        if (!airPodsViewModel.isReady) LoadingScreen()
+                        AirPodsFinderScreen(
+                            viewModel = airPodsViewModel,
+                        )
                     }
 
                 Screen.Accessibility ->
@@ -235,8 +258,7 @@ fun AppNavGraph(
                     NavEntry(screen) {
                         if (!airPodsViewModel.isReady) LoadingScreen()
                         HearingProtectionScreen(
-                            viewModel = airPodsViewModel,
-                            navigateToPurchase = ::navigateToPurchase
+                            viewModel = airPodsViewModel
                         )
                     }
 
@@ -257,8 +279,7 @@ fun AppNavGraph(
                         if (!airPodsViewModel.isReady) LoadingScreen()
                         LongPress(
                             viewModel = airPodsViewModel,
-                            name = screen.bud,
-                            navigateToPurchase = ::navigateToPurchase
+                            name = screen.bud
                         )
                     }
 

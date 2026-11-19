@@ -9,6 +9,7 @@ This is the persistent implementation memory for UI work in this repository. Rea
 - Theme and design selection: `presentation/theme/Theme.kt`, `Type.kt`, `LocalDesignSystem.kt`, and `presentation/viewmodel/AppSettingsViewModel.kt`.
 - Onboarding and update-guide structure: `presentation/screens/onboarding/OnboardingScreen.kt`, `presentation/screens/ReleaseNotesScreen.kt`, and `data/updates/Updates.kt`.
 - Fold7 visual checks and comparison captures were made on Samsung SM-F966N. Captures are task artifacts and may not stay in `/tmp`; use the actual code plus this document as the durable reference.
+- If a physical Fold/AirPods connection is unavailable, preserve the update-guide screenshot/video workflow using a debug-only demo state on Android emulators: render the real Compose screen with clearly synthetic device data, capture with `adb screencap`/`screenrecord`, and inspect the result at cover-sized and unfolded-sized profiles. Keep demo data out of release builds and label the evidence as visual-only; emulator captures do not verify Bluetooth, firmware, sensor values, or real transition sounds. Keep the guide's phone frame, feature zoom, and copy treatment consistent with device captures.
 
 ## Design modes and color
 
@@ -34,6 +35,9 @@ This is the persistent implementation memory for UI work in this repository. Rea
 - In iOS mode, a group is one rounded surface with thin inset separators. For an n-row group: first row rounds only the top corners, middle rows are square, and the final row rounds only the bottom corners. A single-row group rounds all corners. Pressed/selected states must clip to the row shape without changing the resting group silhouette.
 - Android mode uses the shared Material segmented-list behavior. Keep section titles, supporting text, row heights, and spacing consistent within a screen.
 - When adding/removing rows, test first/middle/last/single-row shapes; do not give every row independent rounded corners.
+- On the connected-device page, keep the established screen order, but group audio controls under “Audio & Routing”, gesture/accessibility links under “Controls & Gestures”, and optimized charging plus charge alerts under “Battery”. Keep controls in the shared grouped-list components; do not imitate iOS status-bar or device-only settings that Android cannot operate.
+- Supported settings are free. Do not add purchase-based disable states or upgrade banners to AirPods controls; hide or disable a row only when the active model, firmware, Android permission, or required system hook cannot operate it.
+- Keep the media-output volume control immediately after listening-mode controls, using the shared `StyledSlider`. It controls Android's current media stream and follows the active route; describe it as output volume rather than an AirPods firmware setting.
 
 ## Buttons and touch feedback
 
@@ -58,8 +62,17 @@ This is the persistent implementation memory for UI work in this repository. Rea
 - Low-battery alerts are independent per component and only use fresh measured samples. Queue component alerts rather than stacking windows, use notifications when the overlay cannot be shown, and clear the close-animation state if a new alert refreshes a fading window.
 - Use existing, licensed product artwork and the project's layered artwork/animation assets. Do not substitute a random AirPods drawing, stretch a flat case image into a 3D motion, or use Apple system screenshots as app assets. If a model-specific asset is unavailable, show the supported neutral artwork rather than inventing a model-specific silhouette.
 - Keep battery values, source/freshness, case state, and charging indicators tied to actual data; the visual design must not imply unavailable telemetry.
-- Conversation-awareness return choices are distinct: AirPods firmware default, user delay after a speech-end event, a fixed delay from the first speech event, and manual return. Keep the delay slider visible only for timed choices and animate its size/fade into the layout. The main device page shows a direct Conversation settings row only while conversation awareness is enabled; the toggle stays free of purchase gating.
+- Conversation-awareness return choices are distinct: AirPods firmware default, user delay after a speech-end event, a fixed delay from the first speech event, and manual return. Keep the delay slider visible only for timed choices and animate its size/fade into the layout. The main device page shows a direct Conversation settings row only while conversation awareness is enabled; the toggle stays free of purchase gating. For “after speech ends”, do not force or reapply Transparency while waiting: firmware can perform its native early return. At the selected deadline, compare the AirPods-reported mode and skip a duplicate command when it already matches. This avoids an ANC/Transparency command loop and duplicate transition chimes.
+- Full-charge notifications require a fresh observed charging state followed by a fresh 100% / not-charging sample. Never notify from a remembered percentage or from a device that was already full when first observed.
 - Head tracking must report active only after the AACP control socket accepts a start packet. If a call arrives before the socket is ready, retry detector setup after the session opens; do not leave a gesture-detection loop waiting forever when no orientation packets can arrive. Gesture-test actions must time out and release their detector state.
+
+## Nearby AirPods finder
+
+- Reuse the selected-device BLE advertisement scanner and display only recent RSSI readings from the verified paired AirPods identity. This is a short-range aid; it is not Apple Find My, Samsung Find, a crowd-sourced locator, or UWB ranging.
+- Show recent RSSI and its relative trend only. Do not show estimated meters or a direction arrow: the current implementation does not calculate either. Walls, body position, case state, antenna pattern, and radio multipath can change RSSI, so describe this only as a nearby signal aid.
+- Do not expose a “play sound” action until a supported AirPods command is implemented and verified. Chime-volume configuration alone does not trigger a locate sound. Do not collect background location or show a last-seen map without a separate opt-in and runtime permission flow.
+- Keep the screen useful without recent BLE packets: explain that the earbuds need power and must advertise nearby; connected, cased, sleeping, or out-of-range earbuds may not advertise. Use the shared `StyledButton`, theme colors, safe insets, and the selected iOS/Android appearance.
+- Keep the finder entry available from the disconnected home state; a lost earbud is often no longer connected. Only the previously selected/paired AirPods identity is eligible for RSSI readings.
 
 ## Battery widget iconography
 

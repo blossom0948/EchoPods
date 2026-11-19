@@ -115,6 +115,7 @@ import me.kavishdevar.librepods.presentation.overlays.LowBatteryAlertWindow
 import me.kavishdevar.librepods.presentation.overlays.PopupWindow
 import me.kavishdevar.librepods.presentation.widgets.BatteryWidget
 import me.kavishdevar.librepods.presentation.widgets.BatteryWidgetState
+import me.kavishdevar.librepods.presentation.widgets.ConnectAirPodsWidget
 import me.kavishdevar.librepods.presentation.widgets.WidgetBatteryComponent
 import me.kavishdevar.librepods.presentation.widgets.NoiseControlWidget
 import me.kavishdevar.librepods.utils.GestureDetector
@@ -323,8 +324,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     lateinit var bleManager: BLEManager
 
+    fun getNearbyAirPodsSignal(): BLEManager.SignalReading? =
+        if (this::bleManager.isInitialized) bleManager.getLatestSignalReading() else null
+
     companion object {
         const val ACTION_CAMERA_SHUTTER = "me.kavishdevar.librepods.action.CAMERA_SHUTTER"
+        const val ACTION_RECONNECT_SELECTED_AIRPODS =
+            "com.galaxyairpods.action.RECONNECT_SELECTED_AIRPODS"
         // Pro 3's heart-rate descriptor is roughly 920 bytes including its metadata envelope.
         private const val HEART_RATE_DESCRIPTOR_MIN_MTU = 1_024
         private const val WEAR_RESUME_ROUTE_RETRY_MS = 250L
@@ -332,6 +338,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         private const val LISTENING_MODE_TRANSPARENCY = ConversationModeReturnPolicy.TRANSPARENCY_MODE
         private const val LOW_BATTERY_CHANNEL_ID = "airpods_low_battery_alert_v1"
         private const val LOW_BATTERY_NOTIFICATION_ID = 7_200
+        private const val FULL_CHARGE_CHANNEL_ID = "airpods_full_charge_alert_v1"
+        private const val FULL_CHARGE_NOTIFICATION_ID = 7_300
         private const val LOW_BATTERY_QUEUE_LIMIT = 8
 
         init {
@@ -527,6 +535,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     "conversational_awareness_pause_music", false
                 )
                 if (!contains("personalized_volume")) putBoolean("personalized_volume", false)
+                if (!contains("charging_notifications_enabled")) putBoolean("charging_notifications_enabled", true)
                 if (!contains("automatic_ear_detection")) putBoolean(
                     "automatic_ear_detection", true
                 )
@@ -1632,6 +1641,16 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 updateBattery()
             }
 
+            "charging_notifications_enabled" -> {
+                if (!preferences.getBoolean(key, true)) {
+                    preferences.edit {
+                        preferences.all.keys
+                            .filter { it.startsWith("full_charge_pending_") }
+                            .forEach { remove(it) }
+                    }
+                }
+            }
+
             "relative_conversational_awareness_volume" -> config.relativeConversationalAwarenessVolume =
                 preferences.getBoolean(key, true)
 
@@ -2290,10 +2309,121 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         sendBatteryBroadcast()
         sendBatteryNotification()
         checkLowBatteryWarnings()
+        checkFullChargeNotifications()
+    }
+
+    private fun checkFullChargeNotifications() {
+        if (!::sharedPreferences.isInitialized) return
+        if (!sharedPreferences.getBoolean("charging_notifications_enabled", true)) return
+
+        val now = SystemClock.elapsedRealtime()
+        val components = listOf(BatteryComponent.LEFT, BatteryComponent.RIGHT, BatteryComponent.CASE)
+        val current = batteryNotification.getBattery().associateBy { it.component }
+        val newlyFull = mutableListOf<Battery>()
+        val deviceIdentity = sharedPreferences.getString("mac_address", "")
+            ?.takeIf { it.isNotBlank() }
+            ?: sharedPreferences.getString("airpods_model_number", "unknown")
+            ?: "unknown"
+        val deviceKey = deviceIdentity.hashCode()
+
+        sharedPreferences.edit {
+            components.forEach { component ->
+                val battery = current[component] ?: return@forEach
+                val statusAge = now - battery.chargingCapturedAtElapsedMs
+                val statusIsFresh = battery.chargingCapturedAtElapsedMs > 0L &&
+                    statusAge in 0..Battery.CHARGING_FRESHNESS_TTL_MS
+                if (!statusIsFresh) return@forEach
+
+                val pendingKey = "full_charge_pending_${deviceKey}_$component"
+                val levelAge = now - battery.levelCapturedAtElapsedMs
+                val levelIsFresh = battery.isLevelKnown && battery.level in 0..100 &&
+                    battery.levelCapturedAtElapsedMs > 0L &&
+                    levelAge in 0..Battery.LEVEL_FRESHNESS_TTL_MS
+
+                when (battery.status) {
+                    BatteryStatus.CHARGING, BatteryStatus.OPTIMIZED_CHARGING -> {
+                        // Arm only after observing a fresh charging state. A device that
+                        // is already full when connected must not produce a false alert.
+                        putBoolean(pendingKey, true)
+                    }
+
+                    BatteryStatus.NOT_CHARGING -> {
+                        if (sharedPreferences.getBoolean(pendingKey, false) && levelIsFresh && battery.level == 100) {
+                            newlyFull += battery
+                            putBoolean(pendingKey, false)
+                        } else if (levelIsFresh && battery.level < 100) {
+                            putBoolean(pendingKey, false)
+                        }
+                    }
+
+                    BatteryStatus.DISCONNECTED -> putBoolean(pendingKey, false)
+                    else -> Unit
+                }
+            }
+        }
+
+        newlyFull.forEach(::postFullChargeNotification)
+    }
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    private fun postFullChargeNotification(battery: Battery) {
+        val notificationManager = getSystemService(NotificationManager::class.java)
+        if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) ||
+            !notificationManager.areNotificationsEnabled()
+        ) {
+            Log.i(TAG, "Full-charge notification skipped because notifications are not allowed")
+            return
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            notificationManager.createNotificationChannel(
+                NotificationChannel(
+                    FULL_CHARGE_CHANNEL_ID,
+                    getString(R.string.notification_channel_full_charge),
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    description = getString(R.string.notification_channel_full_charge_description)
+                    setSound(null, null)
+                    enableVibration(false)
+                },
+            )
+        }
+
+        val model = AirPodsModels.getModelByModelNumber(
+            sharedPreferences.getString("airpods_model_number", "") ?: "",
+        )
+        val deviceName = sharedPreferences.getString("name", model?.displayName ?: "AirPods")
+            ?: model?.displayName
+            ?: "AirPods"
+        val componentName = lowBatteryComponentName(battery.component)
+        val notificationId = FULL_CHARGE_NOTIFICATION_ID + battery.component
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            notificationId,
+            Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val message = getString(R.string.full_charge_notification_text, componentName)
+        notificationManager.notify(
+            notificationId,
+            NotificationCompat.Builder(this, FULL_CHARGE_CHANNEL_ID)
+                .setSmallIcon(R.drawable.airpods)
+                .setLargeIcon(android.graphics.BitmapFactory.decodeResource(resources, lowBatteryArtwork(battery)))
+                .setContentTitle(getString(R.string.full_charge_notification_title, deviceName))
+                .setContentText(message)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+                .setContentIntent(pendingIntent)
+                .setCategory(NotificationCompat.CATEGORY_STATUS)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setAutoCancel(true)
+                .build(),
+        )
     }
 
     private fun checkLowBatteryWarnings() {
         if (!::sharedPreferences.isInitialized) return
+        if (!sharedPreferences.getBoolean("charging_notifications_enabled", true)) return
         val components = listOf(BatteryComponent.LEFT, BatteryComponent.RIGHT, BatteryComponent.CASE)
         val current = batteryNotification.getBattery().associateBy { it.component }
         val newlyLow = mutableListOf<Battery>()
@@ -3090,6 +3220,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             updateCheckScope.launch {
                 takeOver("music", manualTakeOverAfterReversed = true)
             }
+        }
+        if (intent?.action == ACTION_RECONNECT_SELECTED_AIRPODS) {
+            Log.i(TAG, "Widget requested a connection to the selected paired AirPods")
+            reconnectFromSavedMac()
         }
 
         return START_STICKY
@@ -4016,8 +4150,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                             sharedPreferences.getInt("conversation_mode_return_delay_seconds", 0)
                         ).takeIf { it > 0 } ?: 30
                         val returnPlan = ConversationModeReturnPolicy.createPlan(delaySeconds, originalMode)
-                        if (!holdConversationMode(returnPlan?.restoreMode, "speech-ended")) return
-                        scheduleConversationModeReturn(returnPlan!!.restoreMode, returnPlan.delaySeconds)
+                        if (returnPlan == null) {
+                            conversationModeBeforeSpeech = null
+                            pendingConversationReturnMode = null
+                            return
+                        }
+                        // AirPods already moves into Transparency while Conversation Awareness
+                        // is active. Do not send another Transparency command at speech end:
+                        // firmware may already have started its own return transition.
+                        scheduleConversationModeReturn(returnPlan.restoreMode, returnPlan.delaySeconds)
                     }
 
                     ConversationReturnBehavior.FIXED_AFTER_SPEECH_START -> {
@@ -4105,6 +4246,21 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
             if (!stillCurrent) return@launch
 
+            // Firmware may have completed its own Conversation Awareness return while
+            // the host-side timer was waiting. Avoid sending the same mode again, which
+            // can produce an audible transition chime on some AirPods firmware.
+            val deviceMode = ancNotification.status.takeIf { it in 1..4 }
+            if (!allowDuringConversation && deviceMode == mode) {
+                synchronized(this@AirPodsService) {
+                    if (generation == conversationModeReturnGeneration) {
+                        recordStableListeningMode(mode)
+                        conversationModeBeforeSpeech = null
+                    }
+                }
+                Log.i(TAG, "AirPods firmware already restored the listening mode; skipped duplicate command")
+                return@launch
+            }
+
             if (sendConversationListeningMode(mode)) {
                 synchronized(this@AirPodsService) {
                     if (generation == conversationModeReturnGeneration &&
@@ -4180,7 +4336,6 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             }
             if (mode == LISTENING_MODE_TRANSPARENCY) return
             val shouldHoldTransparency = conversationReturnBehavior in setOf(
-                ConversationReturnBehavior.AFTER_SPEECH_ENDS,
                 ConversationReturnBehavior.FIXED_AFTER_SPEECH_START,
                 ConversationReturnBehavior.MANUAL,
             )
@@ -4195,11 +4350,17 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         val pendingReturnMode = pendingConversationReturnMode
         if (pendingReturnMode != null) {
-            if (mode == LISTENING_MODE_TRANSPARENCY) return
+            if (mode == LISTENING_MODE_TRANSPARENCY) {
+                // Keep the delayed return scheduled, but let AirPods own its native
+                // listening-mode transitions instead of bouncing back to Transparency.
+                recordStableListeningMode(mode)
+                return
+            }
             if (mode == pendingReturnMode) {
-                // AirPods may perform their built-in early return. Reapply Transparency
-                // while the user-selected host-side delay is still active.
-                sendConversationListeningMode(LISTENING_MODE_TRANSPARENCY)
+                // AirPods may perform its built-in return before the selected host delay.
+                // Record it and leave the timer as a one-shot safety check; never force
+                // Transparency back on just to hold the custom delay.
+                recordStableListeningMode(mode)
                 return
             }
             cancelConversationModeReturn(restoreOriginalMode = false)
@@ -4397,10 +4558,33 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     }
 
     @SuppressLint("MissingPermission")
+    fun selectPreferredAirPods(address: String, displayName: String): Boolean {
+        if (!this::sharedPreferences.isInitialized) return false
+        val bluetoothAdapter = getSystemService(BluetoothManager::class.java).adapter ?: return false
+        val pairedDevice = runCatching {
+            bluetoothAdapter.bondedDevices.firstOrNull { it.address.equals(address, ignoreCase = true) }
+        }.getOrNull() ?: return false
+
+        macAddress = pairedDevice.address
+        sharedPreferences.edit {
+            putString("mac_address", pairedDevice.address)
+            putString("preferred_airpods_address", pairedDevice.address)
+            putString("preferred_airpods_name", displayName.ifBlank { "AirPods" })
+        }
+        if (this::bleManager.isInitialized) bleManager.refreshSelectedBondFilter()
+        ConnectAirPodsWidget.refresh(this)
+        Log.i(TAG, "Saved the user's preferred paired AirPods device")
+        return true
+    }
+
+    @SuppressLint("MissingPermission")
     fun reconnectFromSavedMac() {
         val bluetoothAdapter = getSystemService(BluetoothManager::class.java).adapter
+        val preferredAddress = sharedPreferences.getString("preferred_airpods_address", null)
+            ?.takeIf { it.isNotBlank() }
+            ?: macAddress
         device = bluetoothAdapter.bondedDevices.find {
-            it.address == macAddress
+            it.address.equals(preferredAddress, ignoreCase = true)
         }
         if (device != null) {
             CoroutineScope(Dispatchers.IO).launch {

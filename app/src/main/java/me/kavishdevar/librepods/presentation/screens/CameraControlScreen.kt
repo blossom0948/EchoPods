@@ -8,10 +8,14 @@ package me.kavishdevar.librepods.presentation.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +33,8 @@ import me.kavishdevar.librepods.presentation.components.ListItemOrientation
 import me.kavishdevar.librepods.presentation.components.StyledList
 import me.kavishdevar.librepods.presentation.components.StyledListItem
 import me.kavishdevar.librepods.presentation.viewmodel.AirPodsViewModel
+import me.kavishdevar.librepods.presentation.theme.DesignSystem
+import me.kavishdevar.librepods.presentation.theme.LocalDesignSystem
 
 @Composable
 fun CameraControlScreen(
@@ -36,6 +42,9 @@ fun CameraControlScreen(
     onOpenCamera: () -> Unit,
 ) {
     val action by viewModel.cameraAction.collectAsState()
+    val material = LocalDesignSystem.current == DesignSystem.Material
+    val topPadding = if (material) 8.dp else WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 84.dp
+    val bottomPadding = if (material) 16.dp else WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -43,7 +52,7 @@ fun CameraControlScreen(
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(topPadding))
         Text(
             text = stringResource(R.string.camera_control_description),
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
@@ -89,6 +98,6 @@ fun CameraControlScreen(
                 orientation = ListItemOrientation.Vertical,
             )
         }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(bottomPadding))
     }
 }

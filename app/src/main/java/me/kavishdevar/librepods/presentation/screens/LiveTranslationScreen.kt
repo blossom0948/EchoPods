@@ -8,6 +8,7 @@ package me.kavishdevar.librepods.presentation.screens
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.speech.RecognitionListener
@@ -23,10 +24,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -58,8 +66,11 @@ import me.kavishdevar.librepods.presentation.components.ListItemOrientation
 import me.kavishdevar.librepods.presentation.components.StyledButton
 import me.kavishdevar.librepods.presentation.components.StyledList
 import me.kavishdevar.librepods.presentation.components.StyledListItem
+import me.kavishdevar.librepods.presentation.theme.DesignSystem
+import me.kavishdevar.librepods.presentation.theme.LocalDesignSystem
 import java.util.Locale
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 private data class TranslationLanguage(
@@ -81,6 +92,7 @@ private val translationLanguages = listOf(
 @Composable
 fun LiveTranslationScreen() {
     val context = LocalContext.current
+    val appContext = remember(context) { context.applicationContext }
     val lifecycleOwner = LocalLifecycleOwner.current
     val backdrop = rememberLayerBackdrop()
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
@@ -93,13 +105,15 @@ fun LiveTranslationScreen() {
         )
     }
     var active by remember { mutableStateOf(false) }
-    var status by remember { mutableStateOf(context.getString(R.string.translation_ready)) }
+    var status by remember { mutableIntStateOf(R.string.translation_ready) }
     var recognizedText by remember { mutableStateOf("") }
     var translatedText by remember { mutableStateOf("") }
     var recognizer by remember { mutableStateOf<SpeechRecognizer?>(null) }
     var translator by remember { mutableStateOf<Translator?>(null) }
     var textToSpeech by remember { mutableStateOf<TextToSpeech?>(null) }
     var ttsReady by remember { mutableStateOf(false) }
+    var recognitionOnDevice by remember { mutableStateOf(true) }
+    val sessionToken = remember { AtomicInteger(0) }
     val restartRecognition = remember { AtomicReference<(() -> Unit)?>(null) }
     val recognizerIntent = remember(source) {
         Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -112,35 +126,53 @@ fun LiveTranslationScreen() {
     }
 
     DisposableEffect(context) {
-        val tts = TextToSpeech(context) { result -> ttsReady = result == TextToSpeech.SUCCESS }
-        tts.setAudioAttributes(
-            android.media.AudioAttributes.Builder()
-                .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
-                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
-                .build(),
-        )
-        tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(utteranceId: String?) = Unit
-            override fun onDone(utteranceId: String?) {
-                mainHandler.post { restartRecognition.get()?.invoke() }
+        val tts = runCatching {
+            TextToSpeech(appContext) { result ->
+                mainHandler.post {
+                    ttsReady = result == TextToSpeech.SUCCESS
+                    if (result != TextToSpeech.SUCCESS && active) {
+                        status = R.string.translation_voice_unavailable
+                    }
+                }
             }
-            @Deprecated("Deprecated in Java")
-            override fun onError(utteranceId: String?) {
-                mainHandler.post { restartRecognition.get()?.invoke() }
-            }
-            override fun onError(utteranceId: String?, errorCode: Int) {
-                mainHandler.post { restartRecognition.get()?.invoke() }
-            }
-        })
+        }.getOrNull()
         textToSpeech = tts
+        tts?.let { engine ->
+            runCatching {
+                engine.setAudioAttributes(
+                    android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build(),
+                )
+                engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) = Unit
+                    override fun onDone(utteranceId: String?) {
+                        mainHandler.post { restartRecognition.get()?.invoke() }
+                    }
+                    @Deprecated("Deprecated in Java")
+                    override fun onError(utteranceId: String?) {
+                        mainHandler.post { restartRecognition.get()?.invoke() }
+                    }
+                    override fun onError(utteranceId: String?, errorCode: Int) {
+                        mainHandler.post { restartRecognition.get()?.invoke() }
+                    }
+                })
+            }.onFailure {
+                ttsReady = false
+            }
+        }
         onDispose {
             active = false
-            recognizer?.destroy()
+            sessionToken.incrementAndGet()
+            mainHandler.removeCallbacksAndMessages(null)
+            runCatching { recognizer?.cancel() }
+            runCatching { recognizer?.destroy() }
             recognizer = null
-            translator?.close()
+            runCatching { translator?.close() }
             translator = null
-            tts.stop()
-            tts.shutdown()
+            runCatching { tts?.stop() }
+            runCatching { tts?.shutdown() }
             textToSpeech = null
             restartRecognition.set(null)
         }
@@ -148,70 +180,133 @@ fun LiveTranslationScreen() {
 
     fun stopTranslation() {
         active = false
+        sessionToken.incrementAndGet()
+        mainHandler.removeCallbacksAndMessages(null)
         restartRecognition.set(null)
-        recognizer?.cancel()
-        recognizer?.destroy()
+        runCatching { recognizer?.cancel() }
+        runCatching { recognizer?.destroy() }
         recognizer = null
-        translator?.close()
+        runCatching { translator?.close() }
         translator = null
-        textToSpeech?.stop()
-        status = context.getString(R.string.translation_stopped)
+        runCatching { textToSpeech?.stop() }
+        status = R.string.translation_stopped
     }
 
-    fun beginRecognition(instance: SpeechRecognizer) {
-        if (!active) return
-        status = context.getString(R.string.translation_listening)
+    fun beginRecognition(instance: SpeechRecognizer, token: Int) {
+        if (!active || sessionToken.get() != token) return
+        status = if (recognitionOnDevice) R.string.translation_listening_on_device else R.string.translation_listening_system
         runCatching { instance.startListening(recognizerIntent) }
-            .onFailure { status = context.getString(R.string.translation_recognizer_error) }
+            .onFailure {
+                status = R.string.translation_recognizer_error
+                active = false
+                restartRecognition.set(null)
+            }
     }
 
     fun startTranslation() {
         if (active) return
         if (!hasMicPermission && ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return
-        if (!SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
-            status = context.getString(R.string.translation_offline_unavailable)
+        val onDeviceSpeechAvailable = runCatching {
+            SpeechRecognizer.isOnDeviceRecognitionAvailable(appContext)
+        }.getOrDefault(false)
+        val speechAvailable = runCatching {
+            SpeechRecognizer.isRecognitionAvailable(appContext)
+        }.getOrDefault(false)
+        if (!speechAvailable) {
+            status = R.string.translation_offline_unavailable
             return
         }
+        recognitionOnDevice = onDeviceSpeechAvailable
 
+        val token = sessionToken.incrementAndGet()
         active = true
         recognizedText = ""
         translatedText = ""
-        status = context.getString(R.string.translation_downloading_model)
+        status = R.string.translation_downloading_model
         val options = TranslatorOptions.Builder()
             .setSourceLanguage(source.translateTag)
             .setTargetLanguage(target.translateTag)
             .build()
-        val client = Translation.getClient(options)
+        val client = runCatching { Translation.getClient(options) }.getOrElse {
+            active = false
+            status = R.string.translation_model_failed
+            return
+        }
         translator = client
-        client.downloadModelIfNeeded(DownloadConditions.Builder().build())
+        val downloadTask = runCatching {
+            client.downloadModelIfNeeded(DownloadConditions.Builder().build())
+        }.getOrElse {
+            active = false
+            translator = null
+            runCatching { client.close() }
+            status = R.string.translation_model_failed
+            return
+        }
+        downloadTask
             .addOnSuccessListener {
-                if (!active) return@addOnSuccessListener
-                val speech = runCatching { SpeechRecognizer.createOnDeviceSpeechRecognizer(context) }
+                if (!active || sessionToken.get() != token) {
+                    runCatching { client.close() }
+                    return@addOnSuccessListener
+                }
+                val speech = runCatching {
+                    if (onDeviceSpeechAvailable) SpeechRecognizer.createOnDeviceSpeechRecognizer(appContext)
+                    else SpeechRecognizer.createSpeechRecognizer(appContext)
+                }
                     .getOrElse {
-                        status = context.getString(R.string.translation_offline_unavailable)
+                        status = R.string.translation_offline_unavailable
                         active = false
+                        sessionToken.incrementAndGet()
+                        translator = null
+                        runCatching { client.close() }
                         return@addOnSuccessListener
                     }
                 recognizer = speech
                 speech.setRecognitionListener(object : RecognitionListener {
                     override fun onReadyForSpeech(params: android.os.Bundle?) {
-                        status = context.getString(R.string.translation_listening)
+                        if (active && sessionToken.get() == token) {
+                            status = if (recognitionOnDevice) R.string.translation_listening_on_device else R.string.translation_listening_system
+                        }
                     }
                     override fun onBeginningOfSpeech() = Unit
                     override fun onRmsChanged(rmsdB: Float) = Unit
                     override fun onBufferReceived(buffer: ByteArray?) = Unit
                     override fun onEndOfSpeech() {
-                        status = context.getString(R.string.translation_processing)
+                        if (active && sessionToken.get() == token) status = R.string.translation_processing
                     }
                     override fun onError(error: Int) {
-                        if (!active) return
+                        if (!active || sessionToken.get() != token) return
                         if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
-                            status = context.getString(R.string.translation_mic_permission)
+                            status = R.string.translation_mic_permission
                             active = false
+                            sessionToken.incrementAndGet()
                             return
                         }
-                        status = context.getString(R.string.translation_listening)
-                        mainHandler.postDelayed({ beginRecognition(speech) }, 500L)
+                        if (error == SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE ||
+                            error == SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED
+                        ) {
+                            val downloadRequested = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                runCatching {
+                                    speech.triggerModelDownload(recognizerIntent)
+                                    true
+                                }.getOrDefault(false)
+                            status = if (downloadRequested) R.string.translation_speech_model_requested else R.string.translation_speech_model_missing
+                            active = false
+                            sessionToken.incrementAndGet()
+                            mainHandler.removeCallbacksAndMessages(null)
+                            restartRecognition.set(null)
+                            runCatching { speech.cancel() }
+                            runCatching { speech.destroy() }
+                            recognizer = null
+                            runCatching { client.close() }
+                            translator = null
+                            return
+                        }
+                        status = if (recognitionOnDevice) {
+                            R.string.translation_listening_on_device
+                        } else {
+                            R.string.translation_listening_system
+                        }
+                        mainHandler.postDelayed({ beginRecognition(speech, token) }, 700L)
                     }
                     override fun onResults(results: android.os.Bundle?) {
                         val phrase = results
@@ -219,41 +314,52 @@ fun LiveTranslationScreen() {
                             ?.firstOrNull()
                             ?.trim()
                             .orEmpty()
-                        if (phrase.isBlank() || !active) {
-                            mainHandler.postDelayed({ beginRecognition(speech) }, 250L)
+                        if (phrase.isBlank() || !active || sessionToken.get() != token) {
+                            mainHandler.postDelayed({ beginRecognition(speech, token) }, 350L)
                             return
                         }
                         recognizedText = phrase
-                        status = context.getString(R.string.translation_processing)
-                        client.translate(phrase)
+                        status = R.string.translation_processing
+                        runCatching { client.translate(phrase) }
+                            .getOrElse {
+                                status = R.string.translation_failed
+                                mainHandler.postDelayed({ beginRecognition(speech, token) }, 800L)
+                                return
+                            }
                             .addOnSuccessListener { result ->
-                                if (!active) return@addOnSuccessListener
+                                if (!active || sessionToken.get() != token) return@addOnSuccessListener
                                 translatedText = result
                                 val tts = textToSpeech
                                 if (ttsReady && tts != null && result.isNotBlank()) {
-                                    val localeSet = tts.setLanguage(Locale.forLanguageTag(target.localeTag))
+                                    val localeSet = runCatching {
+                                        tts.setLanguage(Locale.forLanguageTag(target.localeTag))
+                                    }.getOrDefault(TextToSpeech.LANG_NOT_SUPPORTED)
                                     if (localeSet != TextToSpeech.LANG_MISSING_DATA && localeSet != TextToSpeech.LANG_NOT_SUPPORTED) {
-                                        status = context.getString(R.string.translation_speaking)
-                                        restartRecognition.set { beginRecognition(speech) }
-                                        val speakResult = tts.speak(result, TextToSpeech.QUEUE_FLUSH, null, UUID.randomUUID().toString())
+                                        status = R.string.translation_speaking
+                                        restartRecognition.set { beginRecognition(speech, token) }
+                                        val speakResult = runCatching {
+                                            tts.speak(result, TextToSpeech.QUEUE_FLUSH, null, UUID.randomUUID().toString())
+                                        }.getOrDefault(TextToSpeech.ERROR)
                                         if (speakResult == TextToSpeech.ERROR) {
-                                            mainHandler.postDelayed({ beginRecognition(speech) }, 400L)
+                                            mainHandler.postDelayed({ beginRecognition(speech, token) }, 400L)
                                         }
                                     } else {
-                                        status = context.getString(R.string.translation_voice_unavailable)
-                                        mainHandler.postDelayed({ beginRecognition(speech) }, 900L)
+                                        status = R.string.translation_voice_unavailable
+                                        mainHandler.postDelayed({ beginRecognition(speech, token) }, 900L)
                                     }
                                 } else {
-                                    status = context.getString(R.string.translation_text_ready)
-                                    mainHandler.postDelayed({ beginRecognition(speech) }, 900L)
+                                    status = R.string.translation_text_ready
+                                    mainHandler.postDelayed({ beginRecognition(speech, token) }, 900L)
                                 }
                             }
                             .addOnFailureListener {
-                                status = context.getString(R.string.translation_failed)
-                                mainHandler.postDelayed({ beginRecognition(speech) }, 700L)
+                                if (!active || sessionToken.get() != token) return@addOnFailureListener
+                                status = R.string.translation_failed
+                                mainHandler.postDelayed({ beginRecognition(speech, token) }, 700L)
                             }
                     }
                     override fun onPartialResults(partialResults: android.os.Bundle?) {
+                        if (!active || sessionToken.get() != token) return
                         recognizedText = partialResults
                             ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                             ?.firstOrNull()
@@ -261,20 +367,22 @@ fun LiveTranslationScreen() {
                     }
                     override fun onEvent(eventType: Int, params: android.os.Bundle?) = Unit
                 })
-                restartRecognition.set { beginRecognition(speech) }
-                beginRecognition(speech)
+                restartRecognition.set { beginRecognition(speech, token) }
+                beginRecognition(speech, token)
             }
             .addOnFailureListener {
-                status = context.getString(R.string.translation_model_failed)
+                if (sessionToken.get() != token) return@addOnFailureListener
+                status = R.string.translation_model_failed
                 active = false
-                client.close()
+                sessionToken.incrementAndGet()
+                runCatching { client.close() }
                 translator = null
             }
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         hasMicPermission = it
-        if (it) startTranslation() else status = context.getString(R.string.translation_mic_permission)
+        if (it) startTranslation() else status = R.string.translation_mic_permission
     }
 
     DisposableEffect(lifecycleOwner) {
@@ -291,6 +399,10 @@ fun LiveTranslationScreen() {
         }
     }
 
+    val material = LocalDesignSystem.current == DesignSystem.Material
+    val topPadding = if (material) 8.dp else WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 84.dp
+    val bottomPadding = if (material) 16.dp else WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
+
     Box(Modifier.fillMaxSize()) {
         Box(
             Modifier
@@ -301,10 +413,11 @@ fun LiveTranslationScreen() {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(topPadding))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 LanguagePicker(
                     label = stringResource(R.string.translation_source_language),
@@ -324,7 +437,7 @@ fun LiveTranslationScreen() {
             StyledList {
                 StyledListItem(
                     name = stringResource(R.string.translation_status),
-                    description = status,
+                    description = stringResource(status),
                     onClick = null,
                     enabled = false,
                     orientation = ListItemOrientation.Vertical,
@@ -367,6 +480,7 @@ fun LiveTranslationScreen() {
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(horizontal = 12.dp),
             )
+            Spacer(Modifier.height(bottomPadding))
         }
     }
 }
