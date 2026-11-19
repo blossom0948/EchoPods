@@ -10,6 +10,9 @@
     <color name="widget_icon_tint">#F6F4FA</color>
     <color name="widget_mode_idle">#00000000</color>
     <color name="widget_mode_active">#53515B</color>
+    <color name="connect_widget_connected_text">#FF0A7C4A</color>
+    <color name="connect_widget_connecting_text">#FF5A4A1C</color>
+    <color name="connect_widget_disconnected_text">#FF42414A</color>
     <color name="light_blue_50">#FFE1F5FE</color>
     <color name="light_blue_200">#FF81D4FA</color>
     <color name="light_blue_600">#FF039BE5</color>

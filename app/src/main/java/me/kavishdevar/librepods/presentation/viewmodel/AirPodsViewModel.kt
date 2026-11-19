@@ -287,6 +287,17 @@ class AirPodsViewModel(
     fun getNearbyAirPodsSignal(): BLEManager.SignalReading? =
         runCatching { serviceReference?.get()?.getNearbyAirPodsSignal() }.getOrNull()
 
+    fun getAirPodsFinderDiagnostics(): BLEManager.FinderScanDiagnostics? =
+        runCatching { serviceReference?.get()?.getAirPodsFinderDiagnostics() }.getOrNull()
+
+    fun refreshNearbyAirPodsScan() {
+        runCatching { serviceReference?.get()?.refreshNearbyAirPodsScan() }
+    }
+
+    fun setNearbyAirPodsFinderActive(active: Boolean) {
+        runCatching { serviceReference?.get()?.setNearbyAirPodsFinderActive(active) }
+    }
+
     fun setCustomEq(low: Int, mid: Int, high: Int) {
         require(low in 0..100)
         require(mid in 0..100)

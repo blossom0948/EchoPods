@@ -67,6 +67,7 @@ import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -134,6 +135,7 @@ internal fun IosFitnessHeader(
 
 @Composable
 private fun FitnessBackButton(onClick: () -> Unit) {
+    val locale = LocalConfiguration.current.locales[0]
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val motionEnabled = ValueAnimator.areAnimatorsEnabled()
@@ -162,7 +164,7 @@ private fun FitnessBackButton(onClick: () -> Unit) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 Icons.AutoMirrored.Outlined.ArrowBack,
-                contentDescription = if (Locale.getDefault().language == "ko") "뒤로" else "Back",
+                contentDescription = if (locale.language == "ko") "뒤로" else "Back",
             )
         }
     }
@@ -619,6 +621,7 @@ private fun FitnessActivitySummaryCard(
 
 @Composable
 internal fun FitnessWeeklyStepsChart(data: List<DailyStepCount>, isKorean: Boolean) {
+    val locale = LocalConfiguration.current.locales[0]
     val values = data.map { it.total }
     val maxSteps = values.filterNotNull().maxOrNull()?.coerceAtLeast(1L) ?: 1L
     val average = values.filterNotNull().takeIf { it.isNotEmpty() }?.average()?.roundToInt()
@@ -662,7 +665,7 @@ internal fun FitnessWeeklyStepsChart(data: List<DailyStepCount>, isKorean: Boole
                         }
                     }
                     val dayLabel = if (isKorean) day.date.dayOfWeek.getDisplayName(java.time.format.TextStyle.NARROW, Locale.KOREAN)
-                    else day.date.dayOfWeek.getDisplayName(java.time.format.TextStyle.NARROW, Locale.getDefault())
+                    else day.date.dayOfWeek.getDisplayName(java.time.format.TextStyle.NARROW, locale)
                     Text(dayLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -672,6 +675,7 @@ internal fun FitnessWeeklyStepsChart(data: List<DailyStepCount>, isKorean: Boole
 
 @Composable
 internal fun FitnessSleepStagesCard(sleep: SleepSessionSummary, isKorean: Boolean, useMaterial: Boolean) {
+    val locale = LocalConfiguration.current.locales[0]
     val totalLabel = formatFitnessSleep(sleep.totalSleepSeconds, isKorean)
     val stages = listOf(
         Triple(if (isKorean) "깸" else "Awake", sleep.awakeSeconds, Color(0xFFFF9F0A)),
@@ -687,7 +691,7 @@ internal fun FitnessSleepStagesCard(sleep: SleepSessionSummary, isKorean: Boolea
                 Text(totalLabel, modifier = Modifier.padding(top = 3.dp), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
             Text(
-                SimpleDateFormat(if (isKorean) "M/d" else "MMM d", if (isKorean) Locale.KOREAN else Locale.getDefault()).format(Date(sleep.endEpochMillis)),
+                SimpleDateFormat(if (isKorean) "M/d" else "MMM d", if (isKorean) Locale.KOREAN else locale).format(Date(sleep.endEpochMillis)),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

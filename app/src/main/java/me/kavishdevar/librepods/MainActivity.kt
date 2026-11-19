@@ -35,6 +35,8 @@ import android.content.SharedPreferences
 import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -47,14 +49,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.Modifier
 import androidx.core.content.edit
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.lifecycleScope
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import me.kavishdevar.librepods.data.AirPodsNotifications
 import me.kavishdevar.librepods.data.ControlCommandRepository
 import me.kavishdevar.librepods.presentation.navigation.NavigationRoot
+import me.kavishdevar.librepods.presentation.components.UpdatePromptDialog
 import me.kavishdevar.librepods.presentation.theme.LibrePodsTheme
 import me.kavishdevar.librepods.presentation.viewmodel.AirPodsViewModel
 import me.kavishdevar.librepods.services.AirPodsService
@@ -81,11 +87,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        if (!BuildConfig.STORE_BUILD) {
-            lifecycleScope.launch {
-                UpdateManager.shared(applicationContext).check(automatic = true)
-            }
-        }
 
         setContent {
             val sharedPreferences = LocalContext.current.getSharedPreferences("settings", MODE_PRIVATE)
@@ -114,6 +115,22 @@ class MainActivity : ComponentActivity() {
                 Main()
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (!BuildConfig.STORE_BUILD) {
+            val manager = UpdateManager.shared(applicationContext)
+            manager.setAppVisible(true)
+            lifecycleScope.launch { manager.check(automatic = true, force = true) }
+        }
+    }
+
+    override fun onPause() {
+        if (!BuildConfig.STORE_BUILD) {
+            UpdateManager.shared(applicationContext).setAppVisible(false)
+        }
+        super.onPause()
     }
 
     override fun onDestroy() {
@@ -229,24 +246,37 @@ fun Main() {
         }
     }
 
-    NavigationRoot(
-        showReleaseNotes = firstRunGuide.value || !releaseNotesShown,
-        firstRunGuide = firstRunGuide.value,
-        updatesShown = {
-            sharedPreferences.edit {
-                putBoolean(releaseNotesShownPrefKey, true)
-                putBoolean("first_run_guide_shown", true)
-                putBoolean("initial_guide_required", false)
-            }
-            firstRunGuide.value = false
-        },
-        showOnboarding = !onboardingComplete,
-        onboardingComplete = {
-            sharedPreferences.edit { putBoolean("onboarding_complete", true) }
-            onboardingComplete = true
-        },
-        airPodsViewModel = airPodsViewModel
-    )
+    val updateBackdrop = rememberLayerBackdrop()
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .layerBackdrop(updateBackdrop)
+        ) {
+            NavigationRoot(
+                showReleaseNotes = firstRunGuide.value || !releaseNotesShown,
+                firstRunGuide = firstRunGuide.value,
+                updatesShown = {
+                    sharedPreferences.edit {
+                        putBoolean(releaseNotesShownPrefKey, true)
+                        putBoolean("first_run_guide_shown", true)
+                        putBoolean("initial_guide_required", false)
+                    }
+                    firstRunGuide.value = false
+                },
+                showOnboarding = !onboardingComplete,
+                onboardingComplete = {
+                    sharedPreferences.edit { putBoolean("onboarding_complete", true) }
+                    onboardingComplete = true
+                },
+                airPodsViewModel = airPodsViewModel
+            )
+        }
+        UpdatePromptDialog(
+            enabled = onboardingComplete && !firstRunGuide.value && releaseNotesShown,
+            backdrop = updateBackdrop,
+        )
+    }
 }
 
 private fun triggerReviewFlow(activity: Activity) {

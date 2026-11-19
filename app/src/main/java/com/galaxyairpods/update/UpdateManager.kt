@@ -34,7 +34,7 @@ sealed interface UpdateState {
     data class Downloading(val info: UpdateInfo, val progress: Int) : UpdateState
     data class Ready(val info: UpdateInfo, val file: File) : UpdateState
     data class Installing(val info: UpdateInfo) : UpdateState
-    data class Error(val message: String) : UpdateState
+    data class Error(val message: String, val info: UpdateInfo? = null) : UpdateState
 }
 
 data class UpdateInfo(
@@ -52,17 +52,21 @@ class UpdateManager(context: Context) {
     private val preferences = appContext.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
     @Volatile
     private var lastAutomaticCheckAt = 0L
+    @Volatile
+    private var appVisible = false
 
-    suspend fun check(automatic: Boolean = false) {
+    suspend fun check(automatic: Boolean = false, force: Boolean = false) {
         if (BuildConfig.STORE_BUILD) return
 
         if (automatic) {
             val now = System.currentTimeMillis()
-            if (now - lastAutomaticCheckAt < AUTO_CHECK_INTERVAL_MS) return
+            if (!force && now - lastAutomaticCheckAt < AUTO_CHECK_INTERVAL_MS) return
             lastAutomaticCheckAt = now
         }
 
         mutex.withLock {
+            val previousState = _state.value
+            val keepUpdateSurfaceVisible = previousState.hasUpdateInfo()
             if (appContext.packageManager.canRequestPackageInstalls()) {
                 // A blocked update becomes eligible again after the user grants
                 // this permission. Keep the attempt timestamp so an install
@@ -71,10 +75,10 @@ class UpdateManager(context: Context) {
                 preferences.edit().remove(BLOCKED_VERSION_KEY).apply()
             }
 
-            _state.value = UpdateState.Checking
+            if (!keepUpdateSurfaceVisible) _state.value = UpdateState.Checking
             runCatching {
                 withContext(Dispatchers.IO) {
-                    readLatestManifestInfo()
+                    readLatestManifestInfo(automatic)
                 }
             }.onSuccess { info ->
                 if (info.versionCode <= BuildConfig.VERSION_CODE) {
@@ -86,23 +90,35 @@ class UpdateManager(context: Context) {
                     UpdateNotifications.cancelAvailable(appContext)
                     _state.value = UpdateState.UpToDate
                 } else {
-                    UpdateNotifications.notifyAvailable(appContext, info)
-                    _state.value = UpdateState.Available(info)
-                    val attempted = preferences.getInt(ATTEMPTED_VERSION_KEY, -1)
-                    val attemptedAt = preferences.getLong(ATTEMPTED_AT_KEY, 0L)
-                    val blocked = preferences.getInt(BLOCKED_VERSION_KEY, -1)
-                    val retryAllowed = attempted != info.versionCode ||
-                        attemptedAt == 0L ||
-                        System.currentTimeMillis() - attemptedAt >= AUTO_RETRY_COOLDOWN_MS
-                    if (automatic && blocked != info.versionCode && retryAllowed) {
-                        downloadAndInstallLocked(info)
+                    if (isPromptDismissed(info) || appVisible) {
+                        UpdateNotifications.cancelAvailable(appContext)
+                    } else {
+                        UpdateNotifications.notifyAvailable(appContext, info)
                     }
+                    _state.value = UpdateState.Available(info)
                 }
             }.onFailure {
-                _state.value = UpdateState.Error("업데이트 확인 실패")
+                if (!keepUpdateSurfaceVisible) {
+                    _state.value = UpdateState.Error("업데이트 확인 실패")
+                }
             }
         }
     }
+
+    fun setAppVisible(visible: Boolean) {
+        appVisible = visible
+        if (visible) UpdateNotifications.cancelAvailable(appContext)
+    }
+
+    fun isPromptDismissed(info: UpdateInfo): Boolean =
+        preferences.getInt(DISMISSED_PROMPT_VERSION_KEY, -1) == info.versionCode
+
+    fun dismissPrompt(info: UpdateInfo) {
+        preferences.edit().putInt(DISMISSED_PROMPT_VERSION_KEY, info.versionCode).apply()
+        UpdateNotifications.cancelAvailable(appContext)
+    }
+
+    fun cancelAvailableNotification() = UpdateNotifications.cancelAvailable(appContext)
 
     suspend fun downloadAndInstall(info: UpdateInfo) {
         if (BuildConfig.STORE_BUILD) return
@@ -124,7 +140,7 @@ class UpdateManager(context: Context) {
 
         val ready = _state.value as? UpdateState.Ready ?: return
         runCatching { install(ready.info, file) }
-            .onFailure { _state.value = UpdateState.Error("업데이트 설치를 시작하지 못했습니다") }
+            .onFailure { _state.value = UpdateState.Error("업데이트 설치를 시작하지 못했습니다", ready.info) }
     }
 
     /** Resumes a downloaded install after the user returns from unknown-source settings. */
@@ -134,18 +150,24 @@ class UpdateManager(context: Context) {
         if (!appContext.packageManager.canRequestPackageInstalls()) return
         val ready = _state.value as? UpdateState.Ready ?: return
         runCatching { install(ready.info, ready.file) }
-            .onFailure { _state.value = UpdateState.Error("업데이트 설치를 시작하지 못했습니다") }
+            .onFailure { _state.value = UpdateState.Error("업데이트 설치를 시작하지 못했습니다", ready.info) }
     }
 
     fun markInstallFailure(message: String) {
         if (BuildConfig.STORE_BUILD) return
+
+        val info = when (val state = _state.value) {
+            is UpdateState.Installing -> state.info
+            is UpdateState.Ready -> state.info
+            else -> null
+        }
 
         preferences.edit()
             .remove(ATTEMPTED_VERSION_KEY)
             .remove(ATTEMPTED_AT_KEY)
             .remove(BLOCKED_VERSION_KEY)
             .apply()
-        _state.value = UpdateState.Error(message)
+        _state.value = UpdateState.Error(message, info)
     }
 
     fun markInstallSuccess() {
@@ -165,7 +187,7 @@ class UpdateManager(context: Context) {
             _state.value = UpdateState.Ready(info, file)
             install(info, file)
         }.onFailure {
-            _state.value = UpdateState.Error("업데이트 파일을 받을 수 없습니다")
+            _state.value = UpdateState.Error("업데이트 파일을 받을 수 없습니다", info)
         }
     }
 
@@ -257,8 +279,12 @@ class UpdateManager(context: Context) {
      * highest version. This prevents a phone from stopping at an intermediate
      * release just because the raw endpoint is stale.
      */
-    private fun readLatestManifestInfo(): UpdateInfo {
+    private fun readLatestManifestInfo(automatic: Boolean): UpdateInfo {
         val rawInfo = runCatching { parseManifest(readText(manifestUrl())) }.getOrNull()
+        // Automatic checks use the cache-busted raw manifest first. This keeps
+        // frequent checks fast and avoids spending GitHub Contents API quota.
+        // Explicit checks still compare both sources to protect against a stale edge cache.
+        if (automatic && rawInfo != null) return rawInfo
         val apiInfo = runCatching {
             val response = readText(GITHUB_CONTENTS_URL)
             val encoded = response.matchString("content") ?: error("GitHub contents 없음")
@@ -270,6 +296,15 @@ class UpdateManager(context: Context) {
         }.getOrNull()
         return listOfNotNull(rawInfo, apiInfo).maxByOrNull { it.versionCode }
             ?: error("업데이트 manifest를 읽을 수 없습니다")
+    }
+
+    private fun UpdateState.hasUpdateInfo(): Boolean = when (this) {
+        is UpdateState.Available,
+        is UpdateState.Downloading,
+        is UpdateState.Ready,
+        is UpdateState.Installing -> true
+        is UpdateState.Error -> info != null
+        else -> false
     }
 
     private fun download(info: UpdateInfo, target: File) {
@@ -459,8 +494,8 @@ class UpdateManager(context: Context) {
         private const val ATTEMPTED_VERSION_KEY = "attempted_version"
         private const val ATTEMPTED_AT_KEY = "attempted_at"
         private const val BLOCKED_VERSION_KEY = "blocked_version"
-        private const val AUTO_CHECK_INTERVAL_MS = 30 * 60 * 1000L
-        private const val AUTO_RETRY_COOLDOWN_MS = 60 * 60 * 1000L
+        private const val DISMISSED_PROMPT_VERSION_KEY = "dismissed_prompt_version"
+        private const val AUTO_CHECK_INTERVAL_MS = 10 * 60 * 1000L
         private const val MAX_DOWNLOAD_ATTEMPTS = 5
         private const val DOWNLOAD_RETRY_DELAY_MS = 500L
         private const val MANIFEST_URL =

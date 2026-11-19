@@ -8,5 +8,8 @@
     <color name="widget_icon_tint">#F6F4FA</color>
     <color name="widget_mode_idle">#00000000</color>
     <color name="widget_mode_active">#53515B</color>
+    <color name="connect_widget_connected_text">#FFA8F0C8</color>
+    <color name="connect_widget_connecting_text">#FFFFD98A</color>
+    <color name="connect_widget_disconnected_text">#FFE5E2EC</color>
     <color name="colorBackground">#0B0B0B</color>
 </resources>

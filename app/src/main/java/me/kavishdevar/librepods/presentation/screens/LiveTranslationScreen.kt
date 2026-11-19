@@ -6,16 +6,21 @@
 package me.kavishdevar.librepods.presentation.screens
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.speech.ModelDownloadListener
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -96,6 +101,9 @@ fun LiveTranslationScreen() {
     val lifecycleOwner = LocalLifecycleOwner.current
     val backdrop = rememberLayerBackdrop()
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
+    val audioManager = remember(context) {
+        context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    }
     var source by remember { mutableStateOf(translationLanguages[0]) }
     var target by remember { mutableStateOf(translationLanguages[1]) }
     var hasMicPermission by remember {
@@ -112,9 +120,46 @@ fun LiveTranslationScreen() {
     var translator by remember { mutableStateOf<Translator?>(null) }
     var textToSpeech by remember { mutableStateOf<TextToSpeech?>(null) }
     var ttsReady by remember { mutableStateOf(false) }
+    var ttsInitializationFinished by remember { mutableStateOf(false) }
     var recognitionOnDevice by remember { mutableStateOf(true) }
+    var airPodsMicRouteActive by remember { mutableStateOf(false) }
+    var previousAudioMode by remember { mutableIntStateOf(AudioManager.MODE_NORMAL) }
+    var previousCommunicationDevice by remember { mutableStateOf<AudioDeviceInfo?>(null) }
+    var speechModelProgress by remember { mutableIntStateOf(-1) }
+    var statusDetail by remember { mutableStateOf("") }
+    var startRequested by remember { mutableStateOf(false) }
     val sessionToken = remember { AtomicInteger(0) }
     val restartRecognition = remember { AtomicReference<(() -> Unit)?>(null) }
+
+    fun releaseSpeechRoute() {
+        if (!airPodsMicRouteActive) return
+        runCatching {
+            val previous = previousCommunicationDevice
+            if (previous != null) audioManager.setCommunicationDevice(previous)
+            else audioManager.clearCommunicationDevice()
+            audioManager.mode = previousAudioMode
+        }
+        airPodsMicRouteActive = false
+        previousCommunicationDevice = null
+    }
+
+    fun routeSpeechToAirPodsIfAvailable(): Boolean {
+        val airPodsCommunicationDevice = audioManager.availableCommunicationDevices.firstOrNull { device ->
+            device.type in setOf(AudioDeviceInfo.TYPE_BLUETOOTH_SCO, AudioDeviceInfo.TYPE_BLE_HEADSET) &&
+                device.productName.toString().contains("AirPods", ignoreCase = true)
+        } ?: return false
+        previousAudioMode = audioManager.mode
+        previousCommunicationDevice = audioManager.communicationDevice
+        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+        airPodsMicRouteActive = runCatching {
+            audioManager.setCommunicationDevice(airPodsCommunicationDevice)
+        }.getOrDefault(false)
+        if (!airPodsMicRouteActive) {
+            audioManager.mode = previousAudioMode
+            previousCommunicationDevice = null
+        }
+        return airPodsMicRouteActive
+    }
     val recognizerIntent = remember(source) {
         Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -129,9 +174,11 @@ fun LiveTranslationScreen() {
         val tts = runCatching {
             TextToSpeech(appContext) { result ->
                 mainHandler.post {
+                    ttsInitializationFinished = true
                     ttsReady = result == TextToSpeech.SUCCESS
-                    if (result != TextToSpeech.SUCCESS && active) {
+                    if (result != TextToSpeech.SUCCESS && (active || startRequested)) {
                         status = R.string.translation_voice_unavailable
+                        startRequested = false
                     }
                 }
             }
@@ -166,6 +213,7 @@ fun LiveTranslationScreen() {
             active = false
             sessionToken.incrementAndGet()
             mainHandler.removeCallbacksAndMessages(null)
+            releaseSpeechRoute()
             runCatching { recognizer?.cancel() }
             runCatching { recognizer?.destroy() }
             recognizer = null
@@ -180,8 +228,10 @@ fun LiveTranslationScreen() {
 
     fun stopTranslation() {
         active = false
+        startRequested = false
         sessionToken.incrementAndGet()
         mainHandler.removeCallbacksAndMessages(null)
+        releaseSpeechRoute()
         restartRecognition.set(null)
         runCatching { recognizer?.cancel() }
         runCatching { recognizer?.destroy() }
@@ -194,7 +244,11 @@ fun LiveTranslationScreen() {
 
     fun beginRecognition(instance: SpeechRecognizer, token: Int) {
         if (!active || sessionToken.get() != token) return
-        status = if (recognitionOnDevice) R.string.translation_listening_on_device else R.string.translation_listening_system
+        status = when {
+            airPodsMicRouteActive -> R.string.translation_listening_airpods_mic
+            recognitionOnDevice -> R.string.translation_listening_on_device
+            else -> R.string.translation_listening_system
+        }
         runCatching { instance.startListening(recognizerIntent) }
             .onFailure {
                 status = R.string.translation_recognizer_error
@@ -205,6 +259,18 @@ fun LiveTranslationScreen() {
 
     fun startTranslation() {
         if (active) return
+        if (textToSpeech == null) {
+            status = R.string.translation_voice_unavailable
+            return
+        }
+        if (!ttsReady) {
+            if (ttsInitializationFinished) status = R.string.translation_voice_unavailable
+            else {
+                startRequested = true
+                status = R.string.translation_voice_preparing
+            }
+            return
+        }
         if (!hasMicPermission && ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return
         val onDeviceSpeechAvailable = runCatching {
             SpeechRecognizer.isOnDeviceRecognitionAvailable(appContext)
@@ -217,6 +283,8 @@ fun LiveTranslationScreen() {
             return
         }
         recognitionOnDevice = onDeviceSpeechAvailable
+        speechModelProgress = -1
+        statusDetail = ""
 
         val token = sessionToken.incrementAndGet()
         active = true
@@ -227,19 +295,23 @@ fun LiveTranslationScreen() {
             .setSourceLanguage(source.translateTag)
             .setTargetLanguage(target.translateTag)
             .build()
-        val client = runCatching { Translation.getClient(options) }.getOrElse {
+        val client = runCatching { Translation.getClient(options) }.getOrElse { error ->
+            Log.e("EchoPodsTranslation", "Could not create translation client", error)
             active = false
             status = R.string.translation_model_failed
+            statusDetail = error.localizedMessage.orEmpty()
             return
         }
         translator = client
         val downloadTask = runCatching {
             client.downloadModelIfNeeded(DownloadConditions.Builder().build())
-        }.getOrElse {
+        }.getOrElse { error ->
+            Log.e("EchoPodsTranslation", "Could not request translation language model", error)
             active = false
             translator = null
             runCatching { client.close() }
             status = R.string.translation_model_failed
+            statusDetail = error.localizedMessage.orEmpty()
             return
         }
         downloadTask
@@ -248,6 +320,7 @@ fun LiveTranslationScreen() {
                     runCatching { client.close() }
                     return@addOnSuccessListener
                 }
+                airPodsMicRouteActive = routeSpeechToAirPodsIfAvailable()
                 val speech = runCatching {
                     if (onDeviceSpeechAvailable) SpeechRecognizer.createOnDeviceSpeechRecognizer(appContext)
                     else SpeechRecognizer.createSpeechRecognizer(appContext)
@@ -258,13 +331,18 @@ fun LiveTranslationScreen() {
                         sessionToken.incrementAndGet()
                         translator = null
                         runCatching { client.close() }
+                        releaseSpeechRoute()
                         return@addOnSuccessListener
                     }
                 recognizer = speech
                 speech.setRecognitionListener(object : RecognitionListener {
                     override fun onReadyForSpeech(params: android.os.Bundle?) {
                         if (active && sessionToken.get() == token) {
-                            status = if (recognitionOnDevice) R.string.translation_listening_on_device else R.string.translation_listening_system
+                            status = when {
+                                airPodsMicRouteActive -> R.string.translation_listening_airpods_mic
+                                recognitionOnDevice -> R.string.translation_listening_on_device
+                                else -> R.string.translation_listening_system
+                            }
                         }
                     }
                     override fun onBeginningOfSpeech() = Unit
@@ -284,27 +362,67 @@ fun LiveTranslationScreen() {
                         if (error == SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE ||
                             error == SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED
                         ) {
-                            val downloadRequested = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                                runCatching {
-                                    speech.triggerModelDownload(recognizerIntent)
-                                    true
-                                }.getOrDefault(false)
-                            status = if (downloadRequested) R.string.translation_speech_model_requested else R.string.translation_speech_model_missing
                             active = false
                             sessionToken.incrementAndGet()
                             mainHandler.removeCallbacksAndMessages(null)
                             restartRecognition.set(null)
                             runCatching { speech.cancel() }
-                            runCatching { speech.destroy() }
-                            recognizer = null
                             runCatching { client.close() }
                             translator = null
+                            status = R.string.translation_speech_model_requested
+                            val finishModelRequest: (Int, String?) -> Unit = { message, detail ->
+                                mainHandler.post {
+                                    speechModelProgress = -1
+                                    status = message
+                                    statusDetail = detail.orEmpty()
+                                    runCatching { speech.destroy() }
+                                    if (recognizer === speech) recognizer = null
+                                    releaseSpeechRoute()
+                                }
+                            }
+                            val requested = when {
+                                Build.VERSION.SDK_INT >= 34 -> runCatching {
+                                    speech.triggerModelDownload(
+                                        recognizerIntent,
+                                        appContext.mainExecutor,
+                                        object : ModelDownloadListener {
+                                            override fun onProgress(progress: Int) {
+                                                speechModelProgress = progress.coerceIn(0, 100)
+                                            }
+                                            override fun onSuccess() {
+                                                finishModelRequest(R.string.translation_speech_model_ready, null)
+                                            }
+                                            override fun onScheduled() {
+                                                finishModelRequest(R.string.translation_speech_model_requested, null)
+                                            }
+                                            override fun onError(error: Int) {
+                                                finishModelRequest(
+                                                    R.string.translation_speech_model_download_failed,
+                                                    error.toString(),
+                                                )
+                                            }
+                                        },
+                                    )
+                                    true
+                                }.getOrDefault(false)
+                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> runCatching {
+                                    speech.triggerModelDownload(recognizerIntent)
+                                    runCatching { speech.destroy() }
+                                    recognizer = null
+                                    releaseSpeechRoute()
+                                    true
+                                }.getOrDefault(false)
+                                else -> false
+                            }
+                            if (!requested) {
+                                finishModelRequest(R.string.translation_speech_model_missing, null)
+                            }
                             return
                         }
-                        status = if (recognitionOnDevice) {
-                            R.string.translation_listening_on_device
-                        } else {
-                            R.string.translation_listening_system
+                        status = when {
+                            airPodsMicRouteActive -> R.string.translation_listening_airpods_mic
+                            recognitionOnDevice -> R.string.translation_listening_on_device
+                            else -> R.string.translation_listening_system
                         }
                         mainHandler.postDelayed({ beginRecognition(speech, token) }, 700L)
                     }
@@ -321,8 +439,10 @@ fun LiveTranslationScreen() {
                         recognizedText = phrase
                         status = R.string.translation_processing
                         runCatching { client.translate(phrase) }
-                            .getOrElse {
+                            .getOrElse { error ->
+                                Log.e("EchoPodsTranslation", "Translation request failed", error)
                                 status = R.string.translation_failed
+                                statusDetail = error.localizedMessage.orEmpty()
                                 mainHandler.postDelayed({ beginRecognition(speech, token) }, 800L)
                                 return
                             }
@@ -336,11 +456,12 @@ fun LiveTranslationScreen() {
                                     }.getOrDefault(TextToSpeech.LANG_NOT_SUPPORTED)
                                     if (localeSet != TextToSpeech.LANG_MISSING_DATA && localeSet != TextToSpeech.LANG_NOT_SUPPORTED) {
                                         status = R.string.translation_speaking
-                                        restartRecognition.set { beginRecognition(speech, token) }
+                                        statusDetail = ""
                                         val speakResult = runCatching {
                                             tts.speak(result, TextToSpeech.QUEUE_FLUSH, null, UUID.randomUUID().toString())
                                         }.getOrDefault(TextToSpeech.ERROR)
                                         if (speakResult == TextToSpeech.ERROR) {
+                                            status = R.string.translation_voice_output_failed
                                             mainHandler.postDelayed({ beginRecognition(speech, token) }, 400L)
                                         }
                                     } else {
@@ -352,9 +473,11 @@ fun LiveTranslationScreen() {
                                     mainHandler.postDelayed({ beginRecognition(speech, token) }, 900L)
                                 }
                             }
-                            .addOnFailureListener {
+                            .addOnFailureListener { error ->
                                 if (!active || sessionToken.get() != token) return@addOnFailureListener
+                                Log.e("EchoPodsTranslation", "Translation model request failed", error)
                                 status = R.string.translation_failed
+                                statusDetail = error.localizedMessage.orEmpty()
                                 mainHandler.postDelayed({ beginRecognition(speech, token) }, 700L)
                             }
                     }
@@ -370,9 +493,11 @@ fun LiveTranslationScreen() {
                 restartRecognition.set { beginRecognition(speech, token) }
                 beginRecognition(speech, token)
             }
-            .addOnFailureListener {
+            .addOnFailureListener { error ->
                 if (sessionToken.get() != token) return@addOnFailureListener
+                Log.e("EchoPodsTranslation", "Translation language model download failed", error)
                 status = R.string.translation_model_failed
+                statusDetail = error.localizedMessage.orEmpty()
                 active = false
                 sessionToken.incrementAndGet()
                 runCatching { client.close() }
@@ -383,6 +508,13 @@ fun LiveTranslationScreen() {
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         hasMicPermission = it
         if (it) startTranslation() else status = R.string.translation_mic_permission
+    }
+
+    LaunchedEffect(ttsReady, startRequested) {
+        if (ttsReady && startRequested) {
+            startRequested = false
+            startTranslation()
+        }
     }
 
     DisposableEffect(lifecycleOwner) {
@@ -437,10 +569,21 @@ fun LiveTranslationScreen() {
             StyledList {
                 StyledListItem(
                     name = stringResource(R.string.translation_status),
-                    description = stringResource(status),
+                    description = when {
+                        speechModelProgress >= 0 -> stringResource(
+                            R.string.translation_speech_model_progress,
+                            speechModelProgress,
+                        )
+                        statusDetail.isNotBlank() -> stringResource(
+                            R.string.translation_status_detail,
+                            statusDetail,
+                        )
+                        else -> stringResource(status)
+                    },
                     onClick = null,
                     enabled = false,
                     orientation = ListItemOrientation.Vertical,
+                    descriptionMaxLines = 3,
                 )
             }
             StyledList {

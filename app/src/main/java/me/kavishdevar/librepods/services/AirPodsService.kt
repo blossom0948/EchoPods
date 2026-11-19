@@ -327,6 +327,17 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     fun getNearbyAirPodsSignal(): BLEManager.SignalReading? =
         if (this::bleManager.isInitialized) bleManager.getLatestSignalReading() else null
 
+    fun getAirPodsFinderDiagnostics(): BLEManager.FinderScanDiagnostics? =
+        if (this::bleManager.isInitialized) bleManager.getFinderScanDiagnostics() else null
+
+    fun refreshNearbyAirPodsScan() {
+        if (this::bleManager.isInitialized) bleManager.restartNearbySignalScan()
+    }
+
+    fun setNearbyAirPodsFinderActive(active: Boolean) {
+        if (this::bleManager.isInitialized) bleManager.setFinderScanActive(active)
+    }
+
     companion object {
         const val ACTION_CAMERA_SHUTTER = "me.kavishdevar.librepods.action.CAMERA_SHUTTER"
         const val ACTION_RECONNECT_SELECTED_AIRPODS =
@@ -425,7 +436,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 val manager = UpdateManager.shared(this@AirPodsService)
                 while (isActive) {
                     manager.check(automatic = true)
-                    delay(30 * 60 * 1000L)
+                    delay(10 * 60 * 1000L)
                 }
             }
         }
@@ -451,6 +462,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         // AACP socket state never survives process/service recreation. Do not
         // resurrect the old persisted "connected" bit as a live capability.
         sharedPreferences.edit { putBoolean("connection_successful", false) }
+        ConnectAirPodsWidget.refresh(this)
         val cachedBattery = BatteryWidget.readCachedLevels(this)
         batteryNotification.restoreLastKnownBattery(
             leftLevel = cachedBattery.left,
@@ -818,6 +830,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                     aacpAutoConnectJob = null
                     aacpAutoConnectAddress = null
                     sharedPreferences.edit { putBoolean("connection_successful", false) }
+                    ConnectAirPodsWidget.refresh(this@AirPodsService)
                     lastWearPosition = null
                     cancelPendingWearResume()
                     MediaController.cancelAutoResumeAfterExternalMediaChange()
@@ -3576,6 +3589,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         )
                         Log.d(TAG, "<LogCollector:Complete:Success> Socket connected")
                         sharedPreferences.edit { putBoolean("connection_successful", true) }
+                        ConnectAirPodsWidget.refresh(this@AirPodsService)
                         if (!sharedPreferences.contains("first_connection_successful_time")) {
                             sharedPreferences.edit {
                                 putLong(
@@ -3758,6 +3772,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
     fun disconnectForCD() {
         BluetoothConnectionManager.aacpSocket?.close()
+        sharedPreferences.edit { putBoolean("connection_successful", false) }
+        ConnectAirPodsWidget.refresh(this)
         MediaController.pausedWhileTakingOver = false
         Log.d(TAG, "Disconnected from AirPods, showing island.")
         showIsland(
@@ -3796,6 +3812,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
         BluetoothConnectionManager.aacpSocket = null
         BluetoothConnectionManager.attSocket = null
+        sharedPreferences.edit { putBoolean("connection_successful", false) }
+        ConnectAirPodsWidget.refresh(this)
 
         updateNotificationContent(false)
         sendBroadcast(Intent(AirPodsNotifications.AIRPODS_DISCONNECTED).apply {

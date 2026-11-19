@@ -28,6 +28,7 @@ import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.SharedPreferences
+import android.location.LocationManager
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -69,14 +70,55 @@ class BLEManager(private val context: Context) {
         val model: String,
     )
 
+    data class FinderScanDiagnostics(
+        val scannerRunning: Boolean,
+        val bluetoothEnabled: Boolean,
+        val locationServicesEnabled: Boolean,
+        val selectedIdentityConfigured: Boolean,
+        val identityResolutionKeyAvailable: Boolean,
+        val nearbyAirPodsAdvertisementSeen: Boolean,
+        val identityMismatchSeen: Boolean,
+        val scanFailureCode: Int?,
+    )
+
     @Volatile
     private var latestSignalReading: SignalReading? = null
+    @Volatile
+    private var scannerRunning = false
+    @Volatile
+    private var bluetoothEnabled = false
+    @Volatile
+    private var lastAirPodsAdvertisementAt = 0L
+    @Volatile
+    private var lastIdentityMismatchAt = 0L
+    @Volatile
+    private var lastScanFailureCode: Int? = null
+    @Volatile
+    private var finderScanActive = false
 
     fun getMostRecentStatus(): AirPodsStatus? {
         return deviceStatusMap.values.maxByOrNull { it.lastSeen }
     }
 
     fun getLatestSignalReading(): SignalReading? = latestSignalReading
+
+    fun getFinderScanDiagnostics(): FinderScanDiagnostics {
+        val now = System.currentTimeMillis()
+        val selectedAddress = getSelectedAirPodsAddress()
+        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        return FinderScanDiagnostics(
+            scannerRunning = scannerRunning,
+            bluetoothEnabled = bluetoothEnabled,
+            locationServicesEnabled = locationManager?.isLocationEnabled == true,
+            selectedIdentityConfigured = !selectedAddress.isNullOrBlank(),
+            identityResolutionKeyAvailable = sharedPreferences.contains(
+                AACPManager.Companion.ProximityKeyType.IRK.name,
+            ),
+            nearbyAirPodsAdvertisementSeen = now - lastAirPodsAdvertisementAt < FINDER_DIAGNOSTIC_WINDOW_MS,
+            identityMismatchSeen = now - lastIdentityMismatchAt < FINDER_DIAGNOSTIC_WINDOW_MS,
+            scanFailureCode = lastScanFailureCode,
+        )
+    }
 
     interface AirPodsStatusListener {
         fun onDeviceStatusChanged(device: AirPodsStatus, previousStatus: AirPodsStatus?)
@@ -95,11 +137,10 @@ class BLEManager(private val context: Context) {
     private val sharedPreferences: SharedPreferences = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private var currentGlobalLidState: Boolean? = null
     private var lastBroadcastTime: Long = 0
-    private val processedAddresses = mutableSetOf<String>()
 
     private val lastValidCaseBatteryMap = mutableMapOf<String, Int>()
     private var lastIdentityRejectionLogAt = 0L
-    private var selectedBondAddressAtScanStart: String? = null
+    private var selectedIdentityAtScanStart: String? = null
     private val modelNames = mapOf(
         0x0E20 to "AirPods Pro",
         0x1420 to "AirPods Pro 2",
@@ -109,6 +150,7 @@ class BLEManager(private val context: Context) {
         0x1320 to "AirPods 3",
         0x1920 to "AirPods 4",
         0x1B20 to "AirPods 4 (ANC)",
+        0x2720 to "AirPods Pro 3",
         0x0A20 to "AirPods Max",
         0x1F20 to "AirPods Max (USB-C)"
     )
@@ -134,6 +176,22 @@ class BLEManager(private val context: Context) {
         }
     }
 
+    private fun getSelectedAirPodsAddress(): String? =
+        sharedPreferences.getString("preferred_airpods_address", null)
+            ?.takeIf(String::isNotBlank)
+            ?: sharedPreferences.getString("mac_address", null)?.takeIf(String::isNotBlank)
+
+    /** Use an unfiltered foreground scan while the finder is open. Some controllers
+     * inconsistently apply manufacturer-data filters to rotating accessory adverts. */
+    @SuppressLint("MissingPermission")
+    fun setFinderScanActive(active: Boolean) {
+        if (finderScanActive == active) return
+        finderScanActive = active
+        Log.i(TAG, "Nearby finder scan mode ${if (active) "enabled" else "disabled"}")
+        stopScanning()
+        startScanning()
+    }
+
     fun setAirPodsStatusListener(listener: AirPodsStatusListener) {
         airPodsStatusListener = listener
     }
@@ -147,6 +205,8 @@ class BLEManager(private val context: Context) {
             val btAdapter = btManager.adapter
 
             if (btAdapter == null) {
+                scannerRunning = false
+                bluetoothEnabled = false
                 Log.d(TAG, "No Bluetooth adapter available")
                 return
             }
@@ -157,22 +217,37 @@ class BLEManager(private val context: Context) {
             }
 
             if (!btAdapter.isEnabled) {
+                scannerRunning = false
+                bluetoothEnabled = false
                 Log.d(TAG, "Bluetooth is disabled")
                 return
             }
+            bluetoothEnabled = true
+            lastScanFailureCode = null
 
             mBluetoothLeScanner = btAdapter.bluetoothLeScanner
+            val scanner = mBluetoothLeScanner
+            if (scanner == null) {
+                scannerRunning = false
+                lastScanFailureCode = SCAN_SCANNER_UNAVAILABLE
+                Log.e(TAG, "BLE scanner is unavailable on this adapter")
+                return
+            }
 
             val scanSettings = ScanSettings.Builder()
                 .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
                 .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
                 .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
                 .setNumOfMatches(ScanSettings.MATCH_NUM_MAX_ADVERTISEMENT)
-                .setReportDelay(500L)
+                // Deliver every RSSI sample immediately. Batched callbacks plus
+                // address de-duplication made a device appear to have no live signal.
+                .setReportDelay(0L)
                 .build()
 
-            val manufacturerData = ByteArray(27)
-            val manufacturerDataMask = ByteArray(27)
+            // Match only the AirPods advertisement header. Requiring a fixed
+            // 27-byte payload drops shorter valid frames from some generations.
+            val manufacturerData = ByteArray(2)
+            val manufacturerDataMask = ByteArray(2)
 
             manufacturerData[0] = 7
             manufacturerData[1] = 25
@@ -180,20 +255,16 @@ class BLEManager(private val context: Context) {
             manufacturerDataMask[0] = -1
             manufacturerDataMask[1] = -1
 
-            val selectedBondAddress = sharedPreferences.getString("mac_address", null)
+            selectedIdentityAtScanStart = getSelectedAirPodsAddress()
                 ?.takeIf(BluetoothAdapter::checkBluetoothAddress)
-            selectedBondAddressAtScanStart = selectedBondAddress
-            val scanFilterBuilder = ScanFilter.Builder()
+            // AirPods can rotate BLE addresses. Keep the manufacturer filter in the
+            // controller, then validate the selected identity with the stored IRK or
+            // exact bond address in processScanResult. A strict address filter can
+            // otherwise discard the rotating advertisement before that check runs.
+            val scanFilter = ScanFilter.Builder()
                 .setManufacturerData(76, manufacturerData, manufacturerDataMask)
-            if (selectedBondAddress != null) {
-                // Let Android's bonded-device address resolution (including its IRK) match
-                // AirPods' rotating BLE address before it reaches our identity gate.
-                scanFilterBuilder.setDeviceAddress(selectedBondAddress)
-                Log.i(TAG, "BLE scan constrained to the selected paired AirPods identity")
-            } else {
-                Log.i(TAG, "BLE scan has no selected paired identity yet; advertisements are discovery-only")
-            }
-            val scanFilter = scanFilterBuilder.build()
+                .build()
+            Log.i(TAG, "Scanning AirPods advertisements; selected identity is checked in app")
 
             mScanCallback = object : ScanCallback() {
                 override fun onScanResult(callbackType: Int, result: ScanResult) {
@@ -201,22 +272,27 @@ class BLEManager(private val context: Context) {
                 }
 
                 override fun onBatchScanResults(results: List<ScanResult>) {
-                    processedAddresses.clear()
                     for (result in results) {
                         processScanResult(result)
                     }
                 }
 
                 override fun onScanFailed(errorCode: Int) {
+                    scannerRunning = false
+                    lastScanFailureCode = errorCode
                     Log.e(TAG, "BLE scan failed with error code: $errorCode")
                 }
             }
 
-            mBluetoothLeScanner?.startScan(listOf(scanFilter), scanSettings, mScanCallback)
+            val scanFilters = if (finderScanActive) emptyList() else listOf(scanFilter)
+            scanner.startScan(scanFilters, scanSettings, mScanCallback)
+            scannerRunning = true
             Log.d(TAG, "BLE scanner started successfully")
 
             cleanupHandler.postDelayed(cleanupRunnable, CLEANUP_INTERVAL_MS)
         } catch (t: Throwable) {
+            scannerRunning = false
+            lastScanFailureCode = if (t is SecurityException) SCAN_PERMISSION_ERROR else SCAN_START_ERROR
             Log.e(TAG, "Error starting BLE scanner", t)
         }
     }
@@ -229,6 +305,7 @@ class BLEManager(private val context: Context) {
                 mBluetoothLeScanner?.stopScan(mScanCallback)
                 mScanCallback = null
             }
+            scannerRunning = false
 
             cleanupHandler.removeCallbacks(cleanupRunnable)
         } catch (t: Throwable) {
@@ -236,21 +313,33 @@ class BLEManager(private val context: Context) {
         }
     }
 
-    /** Rebuild the scanner filter when Android reports the selected paired AirPods device. */
+    /** Clear cached identity results when the selected paired AirPods device changes. */
     @SuppressLint("MissingPermission")
     fun refreshSelectedBondFilter() {
-        val selectedBondAddress = sharedPreferences.getString("mac_address", null)
+        val selectedBondAddress = getSelectedAirPodsAddress()
             ?.takeIf(BluetoothAdapter::checkBluetoothAddress)
-        if (selectedBondAddress.equals(selectedBondAddressAtScanStart, ignoreCase = true)) return
+        if (selectedBondAddress.equals(selectedIdentityAtScanStart, ignoreCase = true)) return
         if (mScanCallback == null) return
-        Log.i(TAG, "Selected AirPods identity changed; refreshing the BLE scan filter")
+        Log.i(TAG, "Selected AirPods identity changed; refreshing trusted BLE results")
         deviceStatusMap.clear()
         latestSignalReading = null
         verifiedAddresses.clear()
-        processedAddresses.clear()
         lastValidCaseBatteryMap.clear()
         currentGlobalLidState = null
         lastBroadcastTime = 0L
+        selectedIdentityAtScanStart = selectedBondAddress
+        lastAirPodsAdvertisementAt = 0L
+        lastIdentityMismatchAt = 0L
+        stopScanning()
+        startScanning()
+    }
+
+    @SuppressLint("MissingPermission")
+    fun restartNearbySignalScan() {
+        latestSignalReading = null
+        lastAirPodsAdvertisementAt = 0L
+        lastIdentityMismatchAt = 0L
+        lastScanFailureCode = null
         stopScanning()
         startScanning()
     }
@@ -299,26 +388,25 @@ class BLEManager(private val context: Context) {
             val scanRecord = result.scanRecord ?: return
             val address = result.device.address
 
-            if (processedAddresses.contains(address)) {
-                return
-            }
-
             val manufacturerData = scanRecord.getManufacturerSpecificData(76) ?: return
+            if (manufacturerData.size >= 2 &&
+                manufacturerData[0].toInt() == 7 && manufacturerData[1].toInt() == 25
+            ) {
+                lastAirPodsAdvertisementAt = System.currentTimeMillis()
+            }
             if (manufacturerData.size <= 20) return
 
             if (!verifiedAddresses.contains(address)) {
                 val irk = getIrkFromPreferences()
                 val verifiedByIrk = irk?.let { BluetoothCryptography.verifyRPA(address, it) } == true
-                val selectedBondAddress = sharedPreferences.getString("mac_address", null)
+                val selectedBondAddress = getSelectedAirPodsAddress()
                 if (!BleAdvertisementIdentityPolicy.isTrusted(
                         observedAddress = address,
                         selectedBondAddress = selectedBondAddress,
                         verifiedByIrk = verifiedByIrk,
-                        matchedSelectedBondAddressFilter =
-                            selectedBondAddressAtScanStart != null &&
-                                selectedBondAddressAtScanStart.equals(selectedBondAddress, ignoreCase = true),
                     )
                 ) {
+                    lastIdentityMismatchAt = System.currentTimeMillis()
                     logIdentityRejection(irkAvailable = irk != null)
                     return
                 }
@@ -333,7 +421,6 @@ class BLEManager(private val context: Context) {
                 )
             }
 
-            processedAddresses.add(address)
             lastBroadcastTime = System.currentTimeMillis()
 
             val encryptionKey = getEncryptionKeyFromPreferences()
@@ -588,5 +675,9 @@ class BLEManager(private val context: Context) {
         private const val TAG = "AirPodsBLE"
         private const val CLEANUP_INTERVAL_MS = 10000L
         private const val STALE_DEVICE_TIMEOUT_MS = 15000L
+        private const val FINDER_DIAGNOSTIC_WINDOW_MS = 10000L
+        private const val SCAN_PERMISSION_ERROR = -1001
+        private const val SCAN_START_ERROR = -1002
+        private const val SCAN_SCANNER_UNAVAILABLE = -1003
     }
 }

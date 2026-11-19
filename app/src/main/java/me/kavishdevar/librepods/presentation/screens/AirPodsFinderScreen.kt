@@ -18,6 +18,12 @@
 
 package me.kavishdevar.librepods.presentation.screens
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -41,6 +47,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -51,6 +58,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
@@ -58,6 +66,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import kotlinx.coroutines.delay
@@ -73,6 +82,7 @@ private const val SIGNAL_STALE_MS = 3_500L
 
 @Composable
 fun AirPodsFinderScreen(viewModel: AirPodsViewModel) {
+    val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
     val isMaterial = LocalDesignSystem.current == DesignSystem.Material
     val backdrop = rememberLayerBackdrop()
@@ -81,15 +91,36 @@ fun AirPodsFinderScreen(viewModel: AirPodsViewModel) {
     val bottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp
 
     var signal by remember { mutableStateOf<BLEManager.SignalReading?>(null) }
+    var diagnostics by remember { mutableStateOf<BLEManager.FinderScanDiagnostics?>(null) }
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     var lastRecordedSample by remember { mutableStateOf<Long?>(null) }
     var smoothedRssi by remember { mutableFloatStateOf(Float.NaN) }
     var signalTrend by remember { mutableIntStateOf(0) }
+    var hasFinderPermissions by remember {
+        mutableStateOf(
+            hasFinderPermissions(context),
+        )
+    }
+    val scanPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { grants ->
+        hasFinderPermissions = grants[Manifest.permission.BLUETOOTH_SCAN] == true &&
+            grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true &&
+            grants[Manifest.permission.ACCESS_FINE_LOCATION] == true
+    }
+
+    DisposableEffect(hasFinderPermissions, viewModel) {
+        if (hasFinderPermissions) {
+            viewModel.setNearbyAirPodsFinderActive(true)
+        }
+        onDispose { viewModel.setNearbyAirPodsFinderActive(false) }
+    }
 
     LaunchedEffect(Unit) {
         while (isActive) {
             val observed = viewModel.getNearbyAirPodsSignal()
             signal = observed
+            diagnostics = viewModel.getAirPodsFinderDiagnostics()
             now = System.currentTimeMillis()
             if (observed == null || now - observed.lastSeen > SIGNAL_STALE_MS) {
                 lastRecordedSample = null
@@ -112,6 +143,21 @@ fun AirPodsFinderScreen(viewModel: AirPodsViewModel) {
     }
 
     val freshSignal = signal?.takeIf { now - it.lastSeen <= SIGNAL_STALE_MS }
+    val noSignalMessage = when {
+        !hasFinderPermissions -> R.string.airpods_finder_scan_permission
+        diagnostics?.bluetoothEnabled == false -> R.string.airpods_finder_bluetooth_off
+        diagnostics?.locationServicesEnabled == false -> R.string.airpods_finder_location_disabled
+        diagnostics?.scanFailureCode == -1003 -> R.string.airpods_finder_scanner_unavailable
+        diagnostics?.scanFailureCode != null -> R.string.airpods_finder_scan_failed
+        diagnostics?.scannerRunning == false -> R.string.airpods_finder_scanner_unavailable
+        diagnostics?.selectedIdentityConfigured == false -> R.string.airpods_finder_select_identity
+        diagnostics?.nearbyAirPodsAdvertisementSeen == true &&
+            diagnostics?.identityMismatchSeen == true &&
+            diagnostics?.identityResolutionKeyAvailable == false -> R.string.airpods_finder_identity_key_missing
+        diagnostics?.nearbyAirPodsAdvertisementSeen == true &&
+            diagnostics?.identityMismatchSeen == true -> R.string.airpods_finder_identity_not_verified
+        else -> R.string.airpods_finder_waiting_body
+    }
     val signalStrength = freshSignal?.let { ((it.rssi + 100f) / 55f).coerceIn(0f, 1f) } ?: 0f
     val animatedSignalStrength by animateFloatAsState(
         targetValue = signalStrength,
@@ -145,21 +191,22 @@ fun AirPodsFinderScreen(viewModel: AirPodsViewModel) {
             }
             Text(
                 text = if (freshSignal == null) {
-                    stringResource(R.string.airpods_finder_waiting_body)
+                    stringResource(R.string.airpods_finder_intro)
                 } else if (state.isLocallyConnected) {
                     stringResource(R.string.airpods_finder_connected_body)
                 } else {
                     stringResource(R.string.airpods_finder_direction)
                 },
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                maxLines = 2,
             )
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(12.dp))
 
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(264.dp)) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(220.dp)) {
                 FinderSignalGraphic(
                     strength = animatedSignalStrength,
                     showSignalPoint = freshSignal != null,
@@ -177,7 +224,7 @@ fun AirPodsFinderScreen(viewModel: AirPodsViewModel) {
                             fontWeight = FontWeight.SemiBold,
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(horizontal = 24.dp),
+                            modifier = Modifier.padding(horizontal = 18.dp),
                         )
                     } else {
                         Text(
@@ -233,39 +280,51 @@ fun AirPodsFinderScreen(viewModel: AirPodsViewModel) {
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
-                        text = stringResource(R.string.airpods_finder_no_signal),
+                        text = when {
+                            noSignalMessage == R.string.airpods_finder_waiting_body ->
+                                stringResource(R.string.airpods_finder_no_signal)
+                            noSignalMessage == R.string.airpods_finder_scan_failed ->
+                                stringResource(noSignalMessage, diagnostics?.scanFailureCode ?: 0)
+                            else -> stringResource(noSignalMessage)
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        maxLines = 3,
                     )
                 }
                 Spacer(Modifier.height(10.dp))
             }
 
-            Text(
-                text = stringResource(R.string.airpods_finder_rotate),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-            )
+            if (freshSignal != null) {
+                Text(
+                    text = stringResource(R.string.airpods_finder_signal_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    maxLines = 2,
+                )
+            }
 
-            Spacer(Modifier.height(16.dp))
-            Text(
-                text = stringResource(R.string.airpods_finder_limitations),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Start,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-            )
-
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(12.dp))
             StyledButton(
                 onClick = {
                     lastRecordedSample = null
                     smoothedRssi = Float.NaN
                     signalTrend = 0
+                    if (hasFinderPermissions) {
+                        viewModel.refreshNearbyAirPodsScan()
+                    } else {
+                        scanPermissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.BLUETOOTH_SCAN,
+                                Manifest.permission.ACCESS_COARSE_LOCATION,
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                            ),
+                        )
+                    }
                 },
                 backdrop = backdrop,
                 modifier = Modifier.fillMaxWidth(),
@@ -273,16 +332,46 @@ fun AirPodsFinderScreen(viewModel: AirPodsViewModel) {
                 surfaceColor = MaterialTheme.colorScheme.secondaryContainer,
             ) {
                 Text(
-                    text = stringResource(R.string.airpods_finder_search_again),
+                    text = stringResource(
+                        if (hasFinderPermissions) R.string.airpods_finder_search_again
+                        else R.string.airpods_finder_scan_permission_action,
+                    ),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
+            }
+
+            if (diagnostics?.locationServicesEnabled == false && hasFinderPermissions) {
+                Spacer(Modifier.height(10.dp))
+                StyledButton(
+                    onClick = {
+                        context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                    },
+                    backdrop = backdrop,
+                    modifier = Modifier.fillMaxWidth(),
+                    maxScale = 0.05f,
+                    surfaceColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                ) {
+                    Text(
+                        text = stringResource(R.string.airpods_finder_open_location_settings),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
             }
 
             Spacer(Modifier.height(bottomPadding))
         }
     }
 }
+
+private fun hasFinderPermissions(context: android.content.Context): Boolean =
+    ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) ==
+        PackageManager.PERMISSION_GRANTED &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+        PackageManager.PERMISSION_GRANTED &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
+        PackageManager.PERMISSION_GRANTED
 
 @Composable
 private fun FinderSignalGraphic(

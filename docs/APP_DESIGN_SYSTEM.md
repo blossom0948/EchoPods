@@ -37,7 +37,7 @@ This is the persistent implementation memory for UI work in this repository. Rea
 - When adding/removing rows, test first/middle/last/single-row shapes; do not give every row independent rounded corners.
 - On the connected-device page, keep the established screen order, but group audio controls under “Audio & Routing”, gesture/accessibility links under “Controls & Gestures”, and optimized charging plus charge alerts under “Battery”. Keep controls in the shared grouped-list components; do not imitate iOS status-bar or device-only settings that Android cannot operate.
 - Supported settings are free. Do not add purchase-based disable states or upgrade banners to AirPods controls; hide or disable a row only when the active model, firmware, Android permission, or required system hook cannot operate it.
-- Keep the media-output volume control immediately after listening-mode controls, using the shared `StyledSlider`. It controls Android's current media stream and follows the active route; describe it as output volume rather than an AirPods firmware setting.
+- Keep the media-output volume control immediately after listening-mode controls. In the iOS-inspired appearance, use the screenshot-referenced full-width capsule: a filled leading segment, a speaker glyph at the leading edge, and a rounded track, with no inline percentage. In Android appearance, retain the shared Material `StyledSlider`. Both controls adjust Android's current media stream and follow the active route; describe them as output volume rather than an AirPods firmware setting. The iOS-style capsule keeps slider accessibility semantics and supports tap, drag, and TalkBack progress actions.
 
 ## Buttons and touch feedback
 
@@ -51,6 +51,7 @@ This is the persistent implementation memory for UI work in this repository. Rea
 ## Backdrop capture safety
 
 - When a `LayerBackdrop` feeds `drawBackdrop`, keep its `.layerBackdrop(backdrop)` capture node as a sibling behind the controls that sample it. Do not put the capture modifier on a parent that also contains those readers; that creates a self-sampling RenderNode cycle and can crash the app with a native `RenderThread` stack overflow. For screen-level controls, use a full-size surface-colored background sibling as the capture source, then render the interactive content beside it. This rule follows the [Backdrop library maintainer's crash guidance](https://github.com/Kyant0/AndroidLiquidGlass/issues/54).
+- Debug visual-capture activities must preserve the same sibling capture/reader hierarchy as production. A preview that puts `.layerBackdrop(backdrop)` on an ancestor of `UpdatePromptDialog` reproduces the self-sampling cycle even when production places the capture node behind the dialog.
 
 ## Connection popup and product art
 
@@ -68,10 +69,10 @@ This is the persistent implementation memory for UI work in this repository. Rea
 
 ## Nearby AirPods finder
 
-- Reuse the selected-device BLE advertisement scanner and display only recent RSSI readings from the verified paired AirPods identity. This is a short-range aid; it is not Apple Find My, Samsung Find, a crowd-sourced locator, or UWB ranging.
+- Reuse the selected-device BLE advertisement scanner and display only recent RSSI readings from the verified paired AirPods identity. While the finder is visible, use a foreground unfiltered BLE scan and validate Apple manufacturer frames and the selected identity in app code; return to the efficient manufacturer-data filter when leaving the screen. This is a short-range aid; it is not Apple Find My, Samsung Find, a crowd-sourced locator, or UWB ranging.
 - Show recent RSSI and its relative trend only. Do not show estimated meters or a direction arrow: the current implementation does not calculate either. Walls, body position, case state, antenna pattern, and radio multipath can change RSSI, so describe this only as a nearby signal aid.
 - Do not expose a “play sound” action until a supported AirPods command is implemented and verified. Chime-volume configuration alone does not trigger a locate sound. Do not collect background location or show a last-seen map without a separate opt-in and runtime permission flow.
-- Keep the screen useful without recent BLE packets: explain that the earbuds need power and must advertise nearby; connected, cased, sleeping, or out-of-range earbuds may not advertise. Use the shared `StyledButton`, theme colors, safe insets, and the selected iOS/Android appearance.
+- Keep the screen useful without recent BLE packets: distinguish missing Bluetooth/location permission, disabled Android location services, Bluetooth off, scanner failure, missing selected identity, nearby but unverified AirPods advertisements, and no recent AirPods advertisement. Explain that the earbuds need power and must advertise nearby; connected, cased, sleeping, or out-of-range earbuds may not advertise. Location access is requested only for the finder flow because BLE proximity scanning uses RSSI; EchoPods does not save GPS location. Use the shared `StyledButton`, theme colors, safe insets, and the selected iOS/Android appearance.
 - Keep the finder entry available from the disconnected home state; a lost earbud is often no longer connected. Only the previously selected/paired AirPods identity is eligible for RSSI readings.
 
 ## Battery widget iconography

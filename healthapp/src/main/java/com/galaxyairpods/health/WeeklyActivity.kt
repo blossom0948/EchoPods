@@ -32,6 +32,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -264,6 +265,7 @@ internal fun WeeklyExerciseSummaryCard(
     activeWorkoutStartedAtMillis: Long?,
     activeWorkoutElapsedMillis: Long,
 ) {
+    val locale = LocalConfiguration.current.locales[0]
     val now = System.currentTimeMillis()
     val zone = remember { ZoneId.systemDefault() }
     val today = remember(now, zone) { Instant.ofEpochMilli(now).atZone(zone).toLocalDate() }
@@ -413,7 +415,7 @@ internal fun WeeklyExerciseSummaryCard(
                         }
                     }
                     Text(
-                        day.date.dayOfWeek.getDisplayName(TextStyle.NARROW, if (isKorean) Locale.KOREAN else Locale.getDefault()),
+                        day.date.dayOfWeek.getDisplayName(TextStyle.NARROW, if (isKorean) Locale.KOREAN else locale),
                         modifier = Modifier.padding(top = 3.dp),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

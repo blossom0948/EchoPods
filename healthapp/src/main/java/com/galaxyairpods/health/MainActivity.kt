@@ -91,6 +91,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -899,13 +900,14 @@ private fun ActivitySummaryCard(
 
 @Composable
 internal fun StepGoalPicker(goal: Int, isKorean: Boolean, useMaterial: Boolean, onSelected: (Int) -> Unit) {
+    val locale = LocalConfiguration.current.locales[0]
     var expanded by remember { mutableStateOf(false) }
     Box {
         TextButton(
             onClick = { expanded = true },
             contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
         ) {
-            val formatted = NumberFormat.getIntegerInstance(if (isKorean) Locale.KOREA else Locale.getDefault()).format(goal)
+            val formatted = NumberFormat.getIntegerInstance(if (isKorean) Locale.KOREA else locale).format(goal)
             Text(if (isKorean) "목표 ${formatted}걸음 · 변경" else "${formatted}-step goal · Change", style = MaterialTheme.typography.labelSmall)
         }
         if (useMaterial) {
@@ -946,7 +948,7 @@ internal fun StepGoalPicker(goal: Int, isKorean: Boolean, useMaterial: Boolean, 
                                     .padding(horizontal = 16.dp, vertical = 14.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                val label = NumberFormat.getIntegerInstance(if (isKorean) Locale.KOREA else Locale.getDefault()).format(option)
+                                val label = NumberFormat.getIntegerInstance(if (isKorean) Locale.KOREA else locale).format(option)
                                 Text(if (isKorean) "${label}걸음" else label, modifier = Modifier.weight(1f), fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
                                 if (selected) Text("✓", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                             }

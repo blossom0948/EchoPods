@@ -25,6 +25,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.widget.RemoteViews
 import androidx.compose.material3.ExperimentalMaterial3Api
 import me.kavishdevar.librepods.MainActivity
@@ -39,6 +41,43 @@ class ConnectAirPodsWidget : AppWidgetProvider() {
         appWidgetIds: IntArray,
     ) {
         updateWidgets(context, appWidgetManager, appWidgetIds)
+    }
+
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        if (intent.action != ACTION_CONNECT_SELECTED) return
+
+        val preferences = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        val selectedAddress = preferences.getString("preferred_airpods_address", null)
+            ?.takeIf(String::isNotBlank)
+            ?: preferences.getString("mac_address", null)?.takeIf(String::isNotBlank)
+        if (selectedAddress == null) {
+            context.startActivity(
+                Intent(context, MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            )
+            return
+        }
+
+        preferences.edit()
+            .putLong(CONNECT_REQUESTED_AT_KEY, System.currentTimeMillis())
+            .apply()
+        refresh(context)
+
+        val serviceIntent = Intent(context, AirPodsService::class.java).apply {
+            action = AirPodsService.ACTION_RECONNECT_SELECTED_AIRPODS
+        }
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent)
+            } else {
+                context.startService(serviceIntent)
+            }
+        }.onFailure {
+            preferences.edit().remove(CONNECT_REQUESTED_AT_KEY).apply()
+            refresh(context)
+        }
+        Handler(Looper.getMainLooper()).postDelayed({ refresh(context) }, CONNECTING_TIMEOUT_MS)
     }
 
     companion object {
@@ -58,6 +97,10 @@ class ConnectAirPodsWidget : AppWidgetProvider() {
                 ?.takeIf(String::isNotBlank)
                 ?: preferences.getString("mac_address", "").orEmpty()
             val hasSelection = selectedAddress.isNotBlank()
+            val connected = preferences.getBoolean("connection_successful", false)
+            val connecting = !connected &&
+                System.currentTimeMillis() - preferences.getLong(CONNECT_REQUESTED_AT_KEY, 0L) <
+                CONNECTING_TIMEOUT_MS
             val selectedName = preferences.getString("preferred_airpods_name", null)
                 ?.takeIf(String::isNotBlank)
                 ?: preferences.getString("name", "AirPods").orEmpty()
@@ -65,37 +108,54 @@ class ConnectAirPodsWidget : AppWidgetProvider() {
                 setTextViewText(R.id.connect_widget_title, context.getString(R.string.connect_widget_title))
                 setTextViewText(
                     R.id.connect_widget_subtitle,
-                    if (hasSelection) selectedName else context.getString(R.string.connect_widget_choose_device),
+                    when {
+                        !hasSelection -> context.getString(R.string.connect_widget_choose_device)
+                        connected -> selectedName
+                        connecting -> context.getString(R.string.connect_widget_connecting)
+                        else -> context.getString(R.string.connect_widget_tap_to_connect, selectedName)
+                    },
+                )
+                setImageViewBitmap(
+                    R.id.connect_widget_glass_background,
+                    WidgetGlassBackground.create(context, 2.35f),
+                )
+                setTextViewText(
+                    R.id.connect_widget_state,
+                    context.getString(
+                        when {
+                            connected -> R.string.connect_widget_connected
+                            connecting -> R.string.connect_widget_connecting_short
+                            hasSelection -> R.string.connect_widget_connect
+                            else -> R.string.connect_widget_choose
+                        },
+                    ),
+                )
+                setInt(
+                    R.id.connect_widget_state,
+                    "setBackgroundResource",
+                    when {
+                        connected -> R.drawable.connect_widget_state_connected
+                        connecting -> R.drawable.connect_widget_state_connecting
+                        else -> R.drawable.connect_widget_state_disconnected
+                    },
+                )
+                setTextColor(
+                    R.id.connect_widget_state,
+                    context.getColor(
+                        when {
+                            connected -> R.color.connect_widget_connected_text
+                            connecting -> R.color.connect_widget_connecting_text
+                            else -> R.color.connect_widget_disconnected_text
+                        },
+                    ),
                 )
 
-                val clickIntent = if (hasSelection) {
-                    val serviceIntent = Intent(context, AirPodsService::class.java).apply {
-                        action = AirPodsService.ACTION_RECONNECT_SELECTED_AIRPODS
-                    }
-                    val pendingIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        PendingIntent.getForegroundService(
-                            context,
-                            721,
-                            serviceIntent,
-                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-                        )
-                    } else {
-                        PendingIntent.getService(
-                            context,
-                            721,
-                            serviceIntent,
-                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-                        )
-                    }
-                    pendingIntent
-                } else {
-                    PendingIntent.getActivity(
-                        context,
-                        722,
-                        Intent(context, MainActivity::class.java),
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-                    )
-                }
+                val clickIntent = PendingIntent.getBroadcast(
+                    context,
+                    721,
+                    Intent(context, ConnectAirPodsWidget::class.java).setAction(ACTION_CONNECT_SELECTED),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
                 setOnClickPendingIntent(R.id.connect_widget_root, clickIntent)
                 setContentDescription(
                     R.id.connect_widget_root,
@@ -104,5 +164,9 @@ class ConnectAirPodsWidget : AppWidgetProvider() {
             }
             manager.updateAppWidget(ids, views)
         }
+
+        private const val ACTION_CONNECT_SELECTED = "com.galaxyairpods.widget.CONNECT_SELECTED"
+        private const val CONNECT_REQUESTED_AT_KEY = "connect_widget_requested_at"
+        private const val CONNECTING_TIMEOUT_MS = 15_000L
     }
 }
