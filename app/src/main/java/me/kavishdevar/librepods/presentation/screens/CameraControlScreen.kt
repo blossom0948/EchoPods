@@ -23,8 +23,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.kyant.backdrop.backdrops.layerBackdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import me.kavishdevar.librepods.R
 import me.kavishdevar.librepods.bluetooth.AACPManager.Companion.StemPressType
 import me.kavishdevar.librepods.presentation.components.ListItemOrientation
@@ -38,12 +36,9 @@ fun CameraControlScreen(
     onOpenCamera: () -> Unit,
 ) {
     val action by viewModel.cameraAction.collectAsState()
-    val backdrop = rememberLayerBackdrop()
-
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .layerBackdrop(backdrop)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),

@@ -450,6 +450,8 @@
     <string name="guide_page_hr_retry_v0652_description">Echo Health retries sensor discovery and heart-rate startup when the AirPods response is delayed after connecting. Heart-rate readings still depend on a supported Pro 3 firmware and Bluetooth connection.</string>
     <string name="guide_page_head_tracking_packets_v0653_title">Head-tracking data routing fix</string>
     <string name="guide_page_head_tracking_packets_v0653_description">Fixed head-motion packets being misclassified as similar heart-rate sensor frames and dropped before reaching head tracking.</string>
+    <string name="guide_page_render_crash_v0655_title">Feature screen crash fixed</string>
+    <string name="guide_page_render_crash_v0655_description">Fixed an Android rendering crash that could close EchoPods when opening Camera Remote, Live Listen, or Live Translation.</string>
     <string name="guide_bug_fix_label">Bug fixes</string>
     <string name="guide_new_feature_label">NEW</string>
     <string name="guide_next">Next</string>

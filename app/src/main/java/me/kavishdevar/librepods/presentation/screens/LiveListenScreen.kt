@@ -20,7 +20,9 @@ import android.os.Build
 import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -259,72 +261,79 @@ fun LiveListenScreen() {
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .layerBackdrop(backdrop)
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Spacer(Modifier.height(8.dp))
-        StyledList {
-            StyledListItem(
-                name = stringResource(R.string.live_listen_status),
-                description = stringResource(
-                    if (listening) R.string.live_listen_active else R.string.live_listen_inactive,
-                ),
-                onClick = null,
-                enabled = false,
-                orientation = ListItemOrientation.Vertical,
-            )
-            StyledListItem(
-                name = stringResource(R.string.live_listen_output),
-                description = outputName ?: stringResource(R.string.live_listen_no_bluetooth),
-                onClick = null,
-                enabled = false,
-                orientation = ListItemOrientation.Vertical,
-            )
-        }
-        Text(stringResource(R.string.live_listen_level), style = MaterialTheme.typography.titleMedium)
-        LinearProgressIndicator(
-            progress = { level },
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .layerBackdrop(backdrop)
         )
-        StyledSlider(
-            label = stringResource(R.string.live_listen_gain, gain),
-            value = gain,
-            onValueChange = {
-                gain = it
-                gainRef.set(it)
-            },
-            valueRange = 0.5f..2.0f,
-            enabled = true,
-            backdrop = backdrop,
-            independent = true,
-        )
-        StyledButton(
-            onClick = {
-                if (listening) stopListening()
-                else if (hasPermission) startListening()
-                else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-            },
-            backdrop = backdrop,
-            modifier = Modifier.fillMaxWidth(),
-            maxScale = 0.05f,
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            Spacer(Modifier.height(8.dp))
+            StyledList {
+                StyledListItem(
+                    name = stringResource(R.string.live_listen_status),
+                    description = stringResource(
+                        if (listening) R.string.live_listen_active else R.string.live_listen_inactive,
+                    ),
+                    onClick = null,
+                    enabled = false,
+                    orientation = ListItemOrientation.Vertical,
+                )
+                StyledListItem(
+                    name = stringResource(R.string.live_listen_output),
+                    description = outputName ?: stringResource(R.string.live_listen_no_bluetooth),
+                    onClick = null,
+                    enabled = false,
+                    orientation = ListItemOrientation.Vertical,
+                )
+            }
+            Text(stringResource(R.string.live_listen_level), style = MaterialTheme.typography.titleMedium)
+            LinearProgressIndicator(
+                progress = { level },
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            )
+            StyledSlider(
+                label = stringResource(R.string.live_listen_gain, gain),
+                value = gain,
+                onValueChange = {
+                    gain = it
+                    gainRef.set(it)
+                },
+                valueRange = 0.5f..2.0f,
+                enabled = true,
+                backdrop = backdrop,
+                independent = true,
+            )
+            StyledButton(
+                onClick = {
+                    if (listening) stopListening()
+                    else if (hasPermission) startListening()
+                    else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                },
+                backdrop = backdrop,
+                modifier = Modifier.fillMaxWidth(),
+                maxScale = 0.05f,
+            ) {
+                Text(
+                    stringResource(if (listening) R.string.live_listen_stop else R.string.live_listen_start),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
             Text(
-                stringResource(if (listening) R.string.live_listen_stop else R.string.live_listen_start),
-                color = MaterialTheme.colorScheme.onSurface,
+                stringResource(R.string.live_listen_privacy_note),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(horizontal = 12.dp),
             )
         }
-        Text(
-            stringResource(R.string.live_listen_privacy_note),
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(horizontal = 12.dp),
-        )
     }
 }
 

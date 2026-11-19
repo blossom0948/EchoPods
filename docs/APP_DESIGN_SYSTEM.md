@@ -44,6 +44,10 @@ This is the persistent implementation memory for UI work in this repository. Rea
 - Material mode should use the appropriate Material filled, tonal, outlined, or text style via `MaterialButtonStyle`; do not imitate iOS glass in Android mode.
 - A custom interaction is justified only when no shared component fits. If one is added, document its mode-specific behavior and reduced-motion/accessibility behavior here.
 
+## Backdrop capture safety
+
+- When a `LayerBackdrop` feeds `drawBackdrop`, keep its `.layerBackdrop(backdrop)` capture node as a sibling behind the controls that sample it. Do not put the capture modifier on a parent that also contains those readers; that creates a self-sampling RenderNode cycle and can crash the app with a native `RenderThread` stack overflow. For screen-level controls, use a full-size surface-colored background sibling as the capture source, then render the interactive content beside it. This rule follows the [Backdrop library maintainer's crash guidance](https://github.com/Kyant0/AndroidLiquidGlass/issues/54).
+
 ## Connection popup and product art
 
 - The selected popup style is user-configurable: bottom sheet or top island. Keep both options routed through the shared preference and `IslandWindow`/popup infrastructure rather than showing a second in-app copy of the same connection event.

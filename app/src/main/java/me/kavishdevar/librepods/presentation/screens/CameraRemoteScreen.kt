@@ -226,135 +226,141 @@ fun CameraRemoteScreen(viewModel: AirPodsViewModel) {
         onDispose { runCatching { context.unregisterReceiver(receiver) } }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .layerBackdrop(backdrop)
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Spacer(Modifier.height(4.dp))
-        if (cameraGranted) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f, fill = true)
-                    .aspectRatio(0.75f)
-                    .clip(RoundedCornerShape(28.dp))
-                    .background(MaterialTheme.colorScheme.surface),
-            ) {
-                AndroidView(
-                    modifier = Modifier.fillMaxSize(),
-                    factory = { viewContext ->
-                        PreviewView(viewContext).apply {
-                            layoutParams = ViewGroup.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                            )
-                            scaleType = PreviewView.ScaleType.FILL_CENTER
-                            controller = previewController
-                        }
-                    },
-                    update = { it.controller = previewController },
-                )
-                Text(
-                    text = stringResource(if (recording) R.string.camera_recording else R.string.camera_live_preview),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.labelLarge,
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .layerBackdrop(backdrop)
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Spacer(Modifier.height(4.dp))
+            if (cameraGranted) {
+                Box(
                     modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(16.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f))
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ModeButton(
-                    text = stringResource(R.string.camera_mode_photo),
-                    selected = mode == EchoCameraMode.PHOTO,
-                    onClick = { mode = EchoCameraMode.PHOTO },
-                    backdrop = backdrop,
-                    modifier = Modifier.weight(1f),
-                    enabled = !recording,
-                )
-                ModeButton(
-                    text = stringResource(R.string.camera_mode_video),
-                    selected = mode == EchoCameraMode.VIDEO,
-                    onClick = { mode = EchoCameraMode.VIDEO },
-                    backdrop = backdrop,
-                    modifier = Modifier.weight(1f),
-                    enabled = !recording,
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ModeButton(
-                    text = stringResource(if (frontCamera) R.string.camera_use_rear else R.string.camera_use_front),
-                    selected = false,
-                    onClick = {
-                        frontCamera = !frontCamera
-                        previewController.cameraSelector =
-                            if (frontCamera) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
-                    },
-                    backdrop = backdrop,
-                    modifier = Modifier.weight(1f),
-                    enabled = !recording,
-                )
-                ModeButton(
-                    text = stringResource(if (torchEnabled) R.string.camera_torch_off else R.string.camera_torch_on),
-                    selected = torchEnabled,
-                    onClick = {
-                        torchEnabled = !torchEnabled
-                        previewController.enableTorch(torchEnabled)
-                    },
-                    backdrop = backdrop,
-                    modifier = Modifier.weight(1f),
-                    enabled = !recording,
-                )
-            }
-            StyledButton(
-                onClick = {
-                    if (mode == EchoCameraMode.PHOTO) capturePhoto()
-                    else if (audioGranted || allowSilentVideo) toggleRecording()
-                    else audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                },
-                backdrop = backdrop,
-                modifier = Modifier.fillMaxWidth(),
-                maxScale = 0.06f,
-            ) {
-                Text(
-                    text = stringResource(
-                        when {
-                            mode == EchoCameraMode.PHOTO -> R.string.camera_take_photo
-                            recording -> R.string.camera_stop_recording
-                            else -> R.string.camera_start_recording
+                        .fillMaxWidth()
+                        .weight(1f, fill = true)
+                        .aspectRatio(0.75f)
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(MaterialTheme.colorScheme.surface),
+                ) {
+                    AndroidView(
+                        modifier = Modifier.fillMaxSize(),
+                        factory = { viewContext ->
+                            PreviewView(viewContext).apply {
+                                layoutParams = ViewGroup.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                )
+                                scaleType = PreviewView.ScaleType.FILL_CENTER
+                                controller = previewController
+                            }
                         },
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+                        update = { it.controller = previewController },
+                    )
+                    Text(
+                        text = stringResource(if (recording) R.string.camera_recording else R.string.camera_live_preview),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(16.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ModeButton(
+                        text = stringResource(R.string.camera_mode_photo),
+                        selected = mode == EchoCameraMode.PHOTO,
+                        onClick = { mode = EchoCameraMode.PHOTO },
+                        backdrop = backdrop,
+                        modifier = Modifier.weight(1f),
+                        enabled = !recording,
+                    )
+                    ModeButton(
+                        text = stringResource(R.string.camera_mode_video),
+                        selected = mode == EchoCameraMode.VIDEO,
+                        onClick = { mode = EchoCameraMode.VIDEO },
+                        backdrop = backdrop,
+                        modifier = Modifier.weight(1f),
+                        enabled = !recording,
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ModeButton(
+                        text = stringResource(if (frontCamera) R.string.camera_use_rear else R.string.camera_use_front),
+                        selected = false,
+                        onClick = {
+                            frontCamera = !frontCamera
+                            previewController.cameraSelector =
+                                if (frontCamera) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
+                        },
+                        backdrop = backdrop,
+                        modifier = Modifier.weight(1f),
+                        enabled = !recording,
+                    )
+                    ModeButton(
+                        text = stringResource(if (torchEnabled) R.string.camera_torch_off else R.string.camera_torch_on),
+                        selected = torchEnabled,
+                        onClick = {
+                            torchEnabled = !torchEnabled
+                            previewController.enableTorch(torchEnabled)
+                        },
+                        backdrop = backdrop,
+                        modifier = Modifier.weight(1f),
+                        enabled = !recording,
+                    )
+                }
+                StyledButton(
+                    onClick = {
+                        if (mode == EchoCameraMode.PHOTO) capturePhoto()
+                        else if (audioGranted || allowSilentVideo) toggleRecording()
+                        else audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    },
+                    backdrop = backdrop,
+                    modifier = Modifier.fillMaxWidth(),
+                    maxScale = 0.06f,
+                ) {
+                    Text(
+                        text = stringResource(
+                            when {
+                                mode == EchoCameraMode.PHOTO -> R.string.camera_take_photo
+                                recording -> R.string.camera_stop_recording
+                                else -> R.string.camera_start_recording
+                            },
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                StyledList {
+                    StyledListItem(
+                        name = stringResource(R.string.camera_remote_press_hint),
+                        description = stringResource(R.string.camera_remote_press_hint_description),
+                        onClick = null,
+                        enabled = false,
+                        orientation = ListItemOrientation.Vertical,
+                    )
+                }
+            } else {
+                Spacer(Modifier.height(24.dp))
+                StyledList {
+                    StyledListItem(
+                        name = stringResource(R.string.camera_permission_title),
+                        description = stringResource(R.string.camera_permission_description),
+                        onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
+                        orientation = ListItemOrientation.Vertical,
+                    )
+                }
             }
-            StyledList {
-                StyledListItem(
-                    name = stringResource(R.string.camera_remote_press_hint),
-                    description = stringResource(R.string.camera_remote_press_hint_description),
-                    onClick = null,
-                    enabled = false,
-                    orientation = ListItemOrientation.Vertical,
-                )
-            }
-        } else {
-            Spacer(Modifier.height(24.dp))
-            StyledList {
-                StyledListItem(
-                    name = stringResource(R.string.camera_permission_title),
-                    description = stringResource(R.string.camera_permission_description),
-                    onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
-                    orientation = ListItemOrientation.Vertical,
-                )
-            }
+            Spacer(Modifier.height(12.dp))
         }
-        Spacer(Modifier.height(12.dp))
     }
 }
 

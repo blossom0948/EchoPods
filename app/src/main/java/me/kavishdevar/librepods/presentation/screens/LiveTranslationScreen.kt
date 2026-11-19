@@ -17,6 +17,7 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -290,76 +291,83 @@ fun LiveTranslationScreen() {
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .layerBackdrop(backdrop)
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            LanguagePicker(
-                label = stringResource(R.string.translation_source_language),
-                selected = source,
-                enabled = !active,
-                modifier = Modifier.weight(1f),
-                onSelect = { source = it },
-            )
-            LanguagePicker(
-                label = stringResource(R.string.translation_target_language),
-                selected = target,
-                enabled = !active,
-                modifier = Modifier.weight(1f),
-                onSelect = { target = it },
-            )
-        }
-        StyledList {
-            StyledListItem(
-                name = stringResource(R.string.translation_status),
-                description = status,
-                onClick = null,
-                enabled = false,
-                orientation = ListItemOrientation.Vertical,
-            )
-        }
-        StyledList {
-            StyledListItem(
-                name = stringResource(R.string.translation_you_said),
-                description = recognizedText.ifBlank { stringResource(R.string.translation_waiting_text) },
-                onClick = null,
-                enabled = false,
-                orientation = ListItemOrientation.Vertical,
-            )
-            StyledListItem(
-                name = stringResource(R.string.translation_result),
-                description = translatedText.ifBlank { stringResource(R.string.translation_waiting_text) },
-                onClick = null,
-                enabled = false,
-                orientation = ListItemOrientation.Vertical,
-            )
-        }
-        StyledButton(
-            onClick = {
-                if (active) stopTranslation()
-                else if (hasMicPermission) startTranslation()
-                else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-            },
-            backdrop = backdrop,
-            modifier = Modifier.fillMaxWidth(),
-            maxScale = 0.05f,
-        ) {
-            Text(
-                stringResource(if (active) R.string.translation_stop else R.string.translation_start),
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-        Text(
-            stringResource(R.string.translation_privacy_note),
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(horizontal = 12.dp),
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .layerBackdrop(backdrop)
         )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                LanguagePicker(
+                    label = stringResource(R.string.translation_source_language),
+                    selected = source,
+                    enabled = !active,
+                    modifier = Modifier.weight(1f),
+                    onSelect = { source = it },
+                )
+                LanguagePicker(
+                    label = stringResource(R.string.translation_target_language),
+                    selected = target,
+                    enabled = !active,
+                    modifier = Modifier.weight(1f),
+                    onSelect = { target = it },
+                )
+            }
+            StyledList {
+                StyledListItem(
+                    name = stringResource(R.string.translation_status),
+                    description = status,
+                    onClick = null,
+                    enabled = false,
+                    orientation = ListItemOrientation.Vertical,
+                )
+            }
+            StyledList {
+                StyledListItem(
+                    name = stringResource(R.string.translation_you_said),
+                    description = recognizedText.ifBlank { stringResource(R.string.translation_waiting_text) },
+                    onClick = null,
+                    enabled = false,
+                    orientation = ListItemOrientation.Vertical,
+                )
+                StyledListItem(
+                    name = stringResource(R.string.translation_result),
+                    description = translatedText.ifBlank { stringResource(R.string.translation_waiting_text) },
+                    onClick = null,
+                    enabled = false,
+                    orientation = ListItemOrientation.Vertical,
+                )
+            }
+            StyledButton(
+                onClick = {
+                    if (active) stopTranslation()
+                    else if (hasMicPermission) startTranslation()
+                    else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                },
+                backdrop = backdrop,
+                modifier = Modifier.fillMaxWidth(),
+                maxScale = 0.05f,
+            ) {
+                Text(
+                    stringResource(if (active) R.string.translation_stop else R.string.translation_start),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+            Text(
+                stringResource(R.string.translation_privacy_note),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(horizontal = 12.dp),
+            )
+        }
     }
 }
 

@@ -52,7 +52,6 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialShapes
@@ -95,8 +94,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.graphics.shapes.Morph
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
-import com.kyant.backdrop.drawBackdrop
-import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.backdrops.layerBackdrop
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import kotlinx.coroutines.delay
 import me.kavishdevar.librepods.BuildConfig
@@ -678,19 +676,16 @@ fun AirPodsSettingsScreen(
         val backdrop = rememberLayerBackdrop()
         Box(
             modifier = Modifier
-                .drawBackdrop(
-                    backdrop = rememberLayerBackdrop(),
-                    exportedBackdrop = backdrop,
-                    shape = { RoundedCornerShape(0.dp) },
-                    highlight = {
-                        Highlight.Ambient.copy(alpha = 0f)
-                    },
-                    effects = {}
-                )
                 .fillMaxSize()
                 .padding(start = 8.dp, end = 8.dp, bottom = bottomPadding),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .background(MaterialTheme.colorScheme.surfaceContainer)
+                    .layerBackdrop(backdrop)
+            )
             var reconnecting by remember { mutableStateOf(false) }
 
             LaunchedEffect(reconnecting) {
