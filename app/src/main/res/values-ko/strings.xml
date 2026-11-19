@@ -444,8 +444,8 @@
     <string name="guide_page_hr_retry_v0652_description">연결 직후 AirPods 응답이 늦으면 센서 서비스 탐색과 심박 수신 시작을 다시 시도합니다. 실제 심박 측정은 지원되는 Pro 3 펌웨어와 Bluetooth 연결 상태에 따라 달라집니다.</string>
     <string name="guide_page_head_tracking_packets_v0653_title">머리 추적 데이터 전달 오류 수정</string>
     <string name="guide_page_head_tracking_packets_v0653_description">심박수 센서 패킷과 형식이 비슷한 머리 움직임 패킷이 잘못 분류되어 머리 추적에 전달되지 않던 문제를 수정했습니다.</string>
-    <string name="guide_page_render_crash_v0655_title">신기능 화면 종료 오류 수정</string>
-    <string name="guide_page_render_crash_v0655_description">카메라 리모컨, 주변 소리 듣기, 실시간 번역을 열 때 앱이 종료되던 화면 렌더링 오류를 수정했습니다.</string>
+    <string name="guide_page_update_signing_v0656_title">업데이트 설치 오류 수정</string>
+    <string name="guide_page_update_signing_v0656_description">업데이트 APK 서명이 기존 설치본과 달라 설치가 거부되던 문제를 바로잡았습니다. 0.6.5.5가 설치된 경우도 새 서명 이력을 통해 업데이트할 수 있습니다.</string>
     <string name="guide_bug_fix_label">오류 수정</string>
     <string name="guide_new_feature_label">신기능 소개</string>
     <string name="guide_next">다음</string>

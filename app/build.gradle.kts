@@ -1,7 +1,12 @@
 import java.util.Properties
 import java.io.File
+import java.io.FileInputStream
+import java.security.KeyStore
+import java.security.MessageDigest
 
-val appVersionName = "0.6.5.5"
+val appVersionName = "0.6.5.6"
+val expectedDistributionCertificateSha256 =
+    "BBE6103B BD9DDF37 7ED8677F 1150024B 42FB2932 3BC3AC38 C660F145 D73EB5A9".replace(" ", "")
 
 plugins {
     alias(libs.plugins.android.application)
@@ -50,6 +55,26 @@ if (requestsPublicReleaseArtifact) {
     if (!storeFile.isFile) {
         throw GradleException("The configured distribution keystore does not exist: $storePath")
     }
+
+    val storePassword = releaseSigningValues.getValue("RELEASE_STORE_PASSWORD")!!
+    val keyAlias = releaseSigningValues.getValue("RELEASE_KEY_ALIAS")!!
+    val certificate = try {
+        KeyStore.getInstance("JKS").run {
+            FileInputStream(storeFile).use { load(it, storePassword.toCharArray()) }
+            getCertificate(keyAlias)
+        }
+    } catch (error: Exception) {
+        throw GradleException("Could not verify the configured distribution signing key.", error)
+    } ?: throw GradleException("The configured distribution signing alias has no certificate.")
+    val certificateSha256 = MessageDigest.getInstance("SHA-256")
+        .digest(certificate.encoded)
+        .joinToString("") { byte -> "%02X".format(byte) }
+    if (!certificateSha256.equals(expectedDistributionCertificateSha256, ignoreCase = true)) {
+        throw GradleException(
+            "Release builds must use the existing EchoPods distribution signing certificate. " +
+                "Use scripts/build-foss-release.sh for GitHub APKs."
+        )
+    }
 }
 
 kotlin {
@@ -78,7 +103,7 @@ android {
         applicationId = "com.galaxyairpods"
         minSdk = 31
         targetSdk = 37
-        versionCode = 63
+        versionCode = 64
         versionName = appVersionName
         buildConfigField("Boolean", "PLAY_BUILD", "false")
         buildConfigField("Boolean", "STORE_BUILD", "false")

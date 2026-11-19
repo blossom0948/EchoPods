@@ -23,9 +23,9 @@ val gettingStartedGuide = listOf(
 
 val updates = listOf(
     UpdateItem(
-        titleRes = R.string.guide_page_render_crash_v0655_title,
-        descriptionRes = R.string.guide_page_render_crash_v0655_description,
-        screenshotRes = R.drawable.guide_render_crash_fix_0655,
+        titleRes = R.string.guide_page_update_signing_v0656_title,
+        descriptionRes = R.string.guide_page_update_signing_v0656_description,
+        screenshotRes = R.drawable.guide_update_signing_fix_0656,
         labelRes = R.string.guide_bug_fix_label,
     ),
 )
