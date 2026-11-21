@@ -38,6 +38,9 @@ sealed interface Screen: NavKey {
     data object AirPodsFinder: Screen
 
     @Serializable
+    data object BatteryInsights: Screen
+
+    @Serializable
     data object Accessibility: Screen
 
     @Serializable

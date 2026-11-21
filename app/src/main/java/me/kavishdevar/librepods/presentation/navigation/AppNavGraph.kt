@@ -21,6 +21,7 @@ import me.kavishdevar.librepods.presentation.screens.AccessibilitySettingsScreen
 import me.kavishdevar.librepods.presentation.screens.AdaptiveStrengthScreen
 import me.kavishdevar.librepods.presentation.screens.AirPodsSettingsRoute
 import me.kavishdevar.librepods.presentation.screens.AirPodsFinderScreen
+import me.kavishdevar.librepods.presentation.screens.BatteryInsightsScreen
 import me.kavishdevar.librepods.presentation.screens.AppSettingsScreen
 import me.kavishdevar.librepods.presentation.screens.CallControlScreen
 import me.kavishdevar.librepods.presentation.screens.CameraControlScreen
@@ -120,6 +121,7 @@ fun AppNavGraph(
                             navigateToLiveListen = { navigate(Screen.LiveListen) },
                             navigateToLiveTranslation = { navigate(Screen.LiveTranslation) },
                             navigateToAirPodsFinder = { navigate(Screen.AirPodsFinder) },
+                            navigateToBatteryInsights = { navigate(Screen.BatteryInsights) },
                         )
                     }
 
@@ -181,6 +183,11 @@ fun AppNavGraph(
                         AirPodsFinderScreen(
                             viewModel = airPodsViewModel,
                         )
+                    }
+
+                Screen.BatteryInsights ->
+                    NavEntry(screen) {
+                        BatteryInsightsScreen(airPodsViewModel)
                     }
 
                 Screen.Accessibility ->

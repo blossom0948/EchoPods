@@ -96,6 +96,7 @@ import me.kavishdevar.librepods.bluetooth.BluetoothConnectionManager
 import me.kavishdevar.librepods.bluetooth.BluetoothSocketConnectTimeout
 import me.kavishdevar.librepods.bluetooth.createBluetoothSocket
 import me.kavishdevar.librepods.data.AirPodsInstance
+import me.kavishdevar.librepods.data.AirPodsBatteryHistoryStore
 import me.kavishdevar.librepods.data.AirPodsModels
 import me.kavishdevar.librepods.data.AirPodsNotifications
 import me.kavishdevar.librepods.data.Battery
@@ -2316,6 +2317,15 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     @SuppressLint("MissingPermission")
     @OptIn(ExperimentalMaterial3Api::class)
     fun updateBattery() {
+        if (::sharedPreferences.isInitialized) {
+            AirPodsBatteryHistoryStore.record(
+                context = this,
+                deviceAddress = sharedPreferences.getString("airpods_model_address", null)
+                    ?: device?.address,
+                modelNumber = sharedPreferences.getString("airpods_model_number", null),
+                batteries = batteryNotification.getBattery(),
+            )
+        }
         persistLastKnownBatteryLevels()
         setBatteryMetadata()
         updateBatteryWidget()

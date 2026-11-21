@@ -4,7 +4,7 @@ import java.io.FileInputStream
 import java.security.KeyStore
 import java.security.MessageDigest
 
-val appVersionName = "0.6.5.8"
+val appVersionName = "0.6.5.9"
 val expectedDistributionCertificateSha256 =
     "BBE6103B BD9DDF37 7ED8677F 1150024B 42FB2932 3BC3AC38 C660F145 D73EB5A9".replace(" ", "")
 
@@ -103,7 +103,7 @@ android {
         applicationId = "com.galaxyairpods"
         minSdk = 31
         targetSdk = 37
-        versionCode = 66
+        versionCode = 67
         versionName = appVersionName
         buildConfigField("Boolean", "PLAY_BUILD", "false")
         buildConfigField("Boolean", "STORE_BUILD", "false")

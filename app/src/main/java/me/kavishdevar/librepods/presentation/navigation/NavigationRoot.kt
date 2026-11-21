@@ -62,6 +62,7 @@ fun NavigationRoot(
         Screen.Equalizer -> stringResource(R.string.equalizer)
         Screen.HeadTracking -> stringResource(R.string.head_tracking)
         Screen.AirPodsFinder -> stringResource(R.string.airpods_finder_title)
+        Screen.BatteryInsights -> stringResource(R.string.battery_insights_title)
         Screen.Labs -> stringResource(R.string.labs)
         Screen.HearingAid -> stringResource(R.string.hearing_aid)
         Screen.HearingAidAdjustments -> stringResource(R.string.adjustments)

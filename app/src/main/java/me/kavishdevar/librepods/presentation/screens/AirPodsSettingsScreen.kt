@@ -165,6 +165,7 @@ fun AirPodsSettingsRoute(
     navigateToLiveListen: () -> Unit,
     navigateToLiveTranslation: () -> Unit,
     navigateToAirPodsFinder: () -> Unit,
+    navigateToBatteryInsights: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsState()
 
@@ -216,6 +217,7 @@ fun AirPodsSettingsRoute(
             navigateToLiveListen = navigateToLiveListen,
             navigateToLiveTranslation = navigateToLiveTranslation,
             navigateToAirPodsFinder = navigateToAirPodsFinder,
+            navigateToBatteryInsights = navigateToBatteryInsights,
 
             reconnectFromSavedMac = viewModel::reconnectFromSavedMac,
             selectPreferredAirPods = viewModel::selectPreferredAirPods,
@@ -266,6 +268,7 @@ fun AirPodsSettingsScreen(
         navigateToLiveListen: () -> Unit = {},
         navigateToLiveTranslation: () -> Unit = {},
         navigateToAirPodsFinder: () -> Unit = {},
+        navigateToBatteryInsights: () -> Unit = {},
         selectPreferredAirPods: (String, String) -> Boolean = { _, _ -> false },
 ) {
     val context = LocalContext.current
@@ -651,6 +654,11 @@ fun AirPodsSettingsScreen(
                         description = stringResource(R.string.charging_notifications_description),
                         checked = state.chargingNotificationsEnabled,
                         onCheckedChange = setChargingNotificationsEnabled,
+                    )
+                    StyledListItemInGroup(
+                        name = stringResource(R.string.battery_insights_title),
+                        description = stringResource(R.string.battery_insights_summary),
+                        onClick = navigateToBatteryInsights,
                     )
                 }
             }
